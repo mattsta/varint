@@ -15,23 +15,24 @@ link_directories(${CMAKE_BINARY_DIR}/src)
 add_executable(example_tagged standalone/example_tagged.c)
 target_link_libraries(example_tagged varint)
 
-add_executable(example_external standalone/example_external.c)
-target_link_libraries(example_external varint)
-
-add_executable(example_split standalone/example_split.c)
-target_link_libraries(example_split varint)
-
-add_executable(example_chained standalone/example_chained.c)
-target_link_libraries(example_chained varint)
-
-add_executable(example_packed standalone/example_packed.c)
-target_link_libraries(example_packed varint)
-
-add_executable(example_dimension standalone/example_dimension.c)
-target_link_libraries(example_dimension varint)
-
-add_executable(example_bitstream standalone/example_bitstream.c)
-target_link_libraries(example_bitstream varint)
+# TODO: Create remaining standalone examples
+# add_executable(example_external standalone/example_external.c)
+# target_link_libraries(example_external varint)
+#
+# add_executable(example_split standalone/example_split.c)
+# target_link_libraries(example_split varint)
+#
+# add_executable(example_chained standalone/example_chained.c)
+# target_link_libraries(example_chained varint)
+#
+# add_executable(example_packed standalone/example_packed.c)
+# target_link_libraries(example_packed varint)
+#
+# add_executable(example_dimension standalone/example_dimension.c)
+# target_link_libraries(example_dimension varint)
+#
+# add_executable(example_bitstream standalone/example_bitstream.c)
+# target_link_libraries(example_bitstream varint)
 
 # Integration examples
 add_executable(database_system integration/database_system.c)
@@ -90,12 +91,6 @@ target_link_libraries(geospatial_routing varint m)
 # Custom target to build all examples
 add_custom_target(examples DEPENDS
     example_tagged
-    example_external
-    example_split
-    example_chained
-    example_packed
-    example_dimension
-    example_bitstream
     database_system
     network_protocol
     column_store

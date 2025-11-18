@@ -1,9 +1,9 @@
 /**
- * sensor_network.c - Sensor data encoding using varintSplit and varintExternal
+ * sensor_network.c - Sensor data encoding using varintExternal
  *
  * This example demonstrates a sensor network combining:
- * - varintSplit: Timestamp encoding with known bit boundaries
- * - varintExternal: Sensor reading values with adaptive widths
+ * - varintExternal: Timestamp and value encoding with adaptive widths
+ * - Delta encoding for sequential readings
  * - Time-series data compression
  *
  * Features:
@@ -18,7 +18,6 @@
  */
 
 #include "varintExternal.h"
-#include "varintSplit.h"
 #include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -49,38 +48,14 @@ typedef struct {
 } Timestamp;
 
 varintWidth encodeTimestamp(uint8_t *buffer, Timestamp ts) {
-    switch (ts.resolution) {
-    case TIME_RES_MILLISECOND:
-        return varintSplitFullPut(buffer, ts.value);
-    case TIME_RES_SECOND:
-        return varintSplitFull16Put(buffer, ts.value);
-    case TIME_RES_MINUTE:
-    case TIME_RES_HOUR:
-        return varintSplitFullNoZeroPut(buffer, ts.value);
-    default:
-        return varintSplitFullPut(buffer, ts.value);
-    }
+    // All resolutions use varintExternal (adaptive width)
+    return varintExternalPut(buffer, ts.value);
 }
 
-Timestamp decodeTimestamp(const uint8_t *buffer, TimeResolution resolution) {
+Timestamp decodeTimestamp(const uint8_t *buffer, TimeResolution resolution, varintWidth width) {
     Timestamp ts;
     ts.resolution = resolution;
-
-    switch (resolution) {
-    case TIME_RES_MILLISECOND:
-        varintSplitFullGet(buffer, &ts.value);
-        break;
-    case TIME_RES_SECOND:
-        varintSplitFull16Get(buffer, &ts.value);
-        break;
-    case TIME_RES_MINUTE:
-    case TIME_RES_HOUR:
-        varintSplitFullNoZeroGet(buffer, &ts.value);
-        break;
-    default:
-        varintSplitFullGet(buffer, &ts.value);
-    }
-
+    ts.value = varintExternalGet(buffer, width);
     return ts;
 }
 
@@ -345,7 +320,7 @@ void demonstrateSensorNetwork() {
     uint8_t tsBuffer[9];
     for (size_t i = 0; i < sizeof(timestamps) / sizeof(timestamps[0]); i++) {
         varintWidth width = encodeTimestamp(tsBuffer, timestamps[i]);
-        Timestamp decoded = decodeTimestamp(tsBuffer, timestamps[i].resolution);
+        Timestamp decoded = decodeTimestamp(tsBuffer, timestamps[i].resolution, width);
 
         printf("   Timestamp %zu = %lu (%s): %d bytes\n", i, timestamps[i].value,
                timestamps[i].resolution == TIME_RES_MILLISECOND ? "ms"

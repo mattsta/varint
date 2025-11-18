@@ -35,6 +35,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 
 // ============================================================================
 // GPS COORDINATES
@@ -116,7 +117,6 @@ size_t compressGPSTrack(const GPSTrack *track, uint8_t *buffer) {
         // Compute deltas
         int32_t deltaLat = lat - prevLat;
         int32_t deltaLon = lon - prevLon;
-        int16_t deltaElev = (int16_t)(elev - prevElev);
 
         // Encode deltas as unsigned (zigzag encoding for signed values)
         uint64_t unsignedLat = (deltaLat < 0) ? (uint64_t)((-deltaLat) * 2 - 1)

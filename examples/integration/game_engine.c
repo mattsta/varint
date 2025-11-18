@@ -22,13 +22,6 @@
 #include "varintPacked.h"
 #undef PACK_STORAGE_BITS
 
-// Generate varintPacked16 for 16-bit component indices
-#define PACK_STORAGE_BITS 16
-#define PACK_FUNCTION_PREFIX varintPacked16
-#include "varintPacked.h"
-#undef PACK_STORAGE_BITS
-#undef PACK_FUNCTION_PREFIX
-
 #include "varintBitstream.h"
 #include <assert.h>
 #include <stdio.h>
@@ -120,8 +113,8 @@ typedef struct {
 } Component;
 
 typedef struct {
-    uint8_t *entityToComponents[COMPONENT_COUNT];  // Maps entity -> component index
-    Component *components[COMPONENT_COUNT];        // Component pools
+    uint16_t *entityToComponents[COMPONENT_COUNT];  // Maps entity -> component index
+    Component *components[COMPONENT_COUNT];         // Component pools
     size_t componentCounts[COMPONENT_COUNT];
     size_t componentCapacities[COMPONENT_COUNT];
     size_t maxEntities;
@@ -130,12 +123,9 @@ typedef struct {
 void componentManagerInit(ComponentManager *mgr, size_t maxEntities) {
     mgr->maxEntities = maxEntities;
 
-    // Calculate storage for entity->component mapping
-    // 13-bit entity IDs, 16-bit component indices
-    size_t entityMapBytes = (maxEntities * 16 + 7) / 8;  // 16 bits per entity
-
+    // Allocate entity->component mapping (simple uint16_t array)
     for (size_t i = 0; i < COMPONENT_COUNT; i++) {
-        mgr->entityToComponents[i] = calloc(1, entityMapBytes);
+        mgr->entityToComponents[i] = calloc(maxEntities, sizeof(uint16_t));
         mgr->components[i] = NULL;
         mgr->componentCounts[i] = 0;
         mgr->componentCapacities[i] = 0;
@@ -169,8 +159,8 @@ void componentManagerAdd(ComponentManager *mgr, uint16_t entityId,
     mgr->components[type][index].data = data;
     mgr->componentCounts[type]++;
 
-    // Map entity to component index using varintPacked16
-    varintPacked16Set(mgr->entityToComponents[type], entityId, (uint16_t)index);
+    // Map entity to component index
+    mgr->entityToComponents[type][entityId] = (uint16_t)index;
 }
 
 uint16_t componentManagerGetIndex(const ComponentManager *mgr, uint16_t entityId,
@@ -178,7 +168,7 @@ uint16_t componentManagerGetIndex(const ComponentManager *mgr, uint16_t entityId
     assert(entityId < mgr->maxEntities);
     assert(type < COMPONENT_COUNT);
 
-    return varintPacked16Get(mgr->entityToComponents[type], entityId);
+    return mgr->entityToComponents[type][entityId];
 }
 
 // ============================================================================
