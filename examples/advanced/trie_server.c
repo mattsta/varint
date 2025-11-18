@@ -484,8 +484,8 @@ void serverRun(TrieServer *server) {
     signal(SIGINT, signalHandler);
     signal(SIGTERM, signalHandler);
 
-    printf("Server ready. Press Ctrl+C to stop.\n");
-    printf("DEBUG: Entering event loop with epollFd=%d, listenFd=%d\n", server->epollFd, server->listenFd);
+    fprintf(stderr, "Server ready. Press Ctrl+C to stop.\n");
+    fprintf(stderr, "DEBUG: Entering event loop with epollFd=%d, listenFd=%d\n", server->epollFd, server->listenFd);
 
     #define MAX_EVENTS 64
     struct epoll_event events[MAX_EVENTS];
@@ -496,7 +496,7 @@ void serverRun(TrieServer *server) {
         int nfds = epoll_wait(server->epollFd, events, MAX_EVENTS, 1000);
 
         if (loopCount < 5 || nfds > 0) {
-            printf("DEBUG: epoll_wait iteration %d returned nfds=%d\n", loopCount, nfds);
+            fprintf(stderr, "DEBUG: epoll_wait iteration %d returned nfds=%d\n", loopCount, nfds);
         }
         loopCount++;
 
@@ -507,13 +507,13 @@ void serverRun(TrieServer *server) {
         }
 
         if (nfds > 0) {
-            printf("DEBUG: epoll_wait returned %d events\n", nfds);
+            fprintf(stderr, "DEBUG: epoll_wait returned %d events\n", nfds);
         }
 
         // Process all events
         for (int n = 0; n < nfds; n++) {
             int fd = events[n].data.fd;
-            printf("DEBUG: Event on fd=%d (events=0x%x)\n", fd, events[n].events);
+            fprintf(stderr, "DEBUG: Event on fd=%d (events=0x%x)\n", fd, events[n].events);
 
             // New connection on listen socket
             if (fd == server->listenFd) {
