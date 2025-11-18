@@ -316,6 +316,7 @@ void demonstrateOrderBook() {
 
     // 1. Initialize order book
     printf("1. Initializing order book for AAPL...\n");
+    fflush(stdout);
 
     OrderBook book;
     orderBookInit(&book, "AAPL");
@@ -326,6 +327,7 @@ void demonstrateOrderBook() {
 
     // 2. Add buy orders
     printf("\n2. Adding buy orders (bids)...\n");
+    fflush(stdout);
 
     Order *buyOrders[5];
     Price buyPrices[] = {encodePrice(150.00), encodePrice(149.95), encodePrice(149.90),

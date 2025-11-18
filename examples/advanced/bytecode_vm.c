@@ -417,20 +417,32 @@ void demonstrateBytecodeVM() {
 
     printf("   Running arithmetic program 10M times...\n");
 
+    // Create version without PRINT for benchmarking
+    BytecodeBuffer benchProgram;
+    bytecodeBufferInit(&benchProgram, 256);
+    emitOpVarint(&benchProgram, OP_PUSH, 2);     // PUSH 2
+    emitOpVarint(&benchProgram, OP_PUSH, 3);     // PUSH 3
+    emitOp(&benchProgram, OP_ADD);               // ADD
+    emitOpVarint(&benchProgram, OP_PUSH, 4);     // PUSH 4
+    emitOp(&benchProgram, OP_MUL);               // MUL
+    emitOp(&benchProgram, OP_HALT);              // HALT (no PRINT)
+
     clock_t start = clock();
     for (size_t i = 0; i < 10000000; i++) {
         VM vm;
-        vmInit(&vm, arithProgram.code, arithProgram.size);
+        vmInit(&vm, benchProgram.code, benchProgram.size);
         vmExecute(&vm);
     }
     clock_t end = clock();
 
+    bytecodeBufferFree(&benchProgram);
+
     double elapsed = (double)(end - start) / CLOCKS_PER_SEC;
-    double opsPerSec = (7 * 10000000) / elapsed;  // 7 instructions per iteration
+    double opsPerSec = (6 * 10000000) / elapsed;  // 6 instructions per iteration (no PRINT)
 
     printf("   Time: %.3f seconds\n", elapsed);
     printf("   Throughput: %.0f instructions/sec\n", opsPerSec);
-    printf("   Per instruction: %.1f nanoseconds\n", (elapsed / (7 * 10000000)) * 1e9);
+    printf("   Per instruction: %.1f nanoseconds\n", (elapsed / (6 * 10000000)) * 1e9);
 
     // 7. Cache efficiency
     printf("\n7. Cache efficiency analysis...\n");
