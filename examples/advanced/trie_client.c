@@ -13,6 +13,7 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
+#include <errno.h>
 
 #include "../../src/varint.h"
 
@@ -124,7 +125,9 @@ bool sendCommand(TrieClient *client, CommandType cmd, const uint8_t *payload, si
 }
 
 bool receiveResponse(TrieClient *client, StatusCode *status, uint8_t *data, size_t *dataLen) {
+    fprintf(stderr, "DEBUG: receiveResponse - waiting for response...\n");
     if (!client->connected) {
+        fprintf(stderr, "DEBUG: Not connected!\n");
         return false;
     }
 
@@ -134,7 +137,10 @@ bool receiveResponse(TrieClient *client, StatusCode *status, uint8_t *data, size
     uint64_t messageLen;
 
     // Read at least one byte
-    if (read(client->sockfd, lengthBuf, 1) != 1) {
+    fprintf(stderr, "DEBUG: Reading first byte of length...\n");
+    ssize_t n = read(client->sockfd, lengthBuf, 1);
+    fprintf(stderr, "DEBUG: read() returned %zd (errno=%d)\n", n, n < 0 ? errno : 0);
+    if (n != 1) {
         return false;
     }
     bytesRead = 1;
