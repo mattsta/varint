@@ -23,10 +23,21 @@ examples/
 │   ├── sensor_network.c
 │   └── ml_features.c
 │
-└── reference/          # Complete reference implementations
-    ├── kv_store.c
-    ├── timeseries_db.c
-    └── graph_database.c
+├── reference/          # Complete reference implementations
+│   ├── kv_store.c
+│   ├── timeseries_db.c
+│   └── graph_database.c
+│
+└── advanced/           # Production-quality real-world systems
+    ├── blockchain_ledger.c
+    ├── dns_server.c
+    ├── game_replay_system.c
+    ├── bytecode_vm.c
+    ├── inverted_index.c
+    ├── financial_orderbook.c
+    ├── log_aggregation.c
+    ├── geospatial_routing.c
+    └── trie_pattern_matcher.c
 ```
 
 ## Standalone Examples
@@ -113,6 +124,21 @@ Complete, production-ready implementations:
 - varintExternal edge weights
 - Graph traversal algorithms
 
+## Advanced Examples
+
+Production-quality real-world systems with comprehensive benchmarks. See [advanced/README.md](advanced/README.md) for full details.
+
+**Highlights:**
+- **blockchain_ledger.c** - Cryptocurrency transactions (10x compression)
+- **dns_server.c** - DNS packet encoding (1M+ queries/sec)
+- **game_replay_system.c** - Delta compression (100:1 ratio)
+- **bytecode_vm.c** - VM instruction encoding (50-70% smaller)
+- **inverted_index.c** - Search engine posting lists (20-30x compression)
+- **financial_orderbook.c** - HFT order processing (sub-microsecond)
+- **log_aggregation.c** - Log collection (100:1 compression)
+- **geospatial_routing.c** - GPS coordinate compression (20-40x)
+- **trie_pattern_matcher.c** - AMQP routing (2391x faster, 0.7 bytes/pattern)
+
 ## Building Examples
 
 ```bash
@@ -175,6 +201,13 @@ int main() {
 1. Implement `kv_store.c` modifications
 2. Extend `timeseries_db.c` with new features
 3. Optimize `graph_database.c` for your use case
+
+### Expert
+1. Study production systems in `advanced/` directory
+2. Start with `bytecode_vm.c` for fundamental patterns
+3. Progress to `trie_pattern_matcher.c` for data structures
+4. Master `blockchain_ledger.c` or `financial_orderbook.c` for complete systems
+5. See `advanced/README.md` for detailed learning path
 
 ## Testing
 

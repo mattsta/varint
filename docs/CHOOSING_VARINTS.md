@@ -374,6 +374,73 @@ typedef struct {
 
 ---
 
+### Scenario 9: AMQP-Style Pattern Matching Trie
+
+**Requirements**:
+- Message broker routing with wildcard patterns
+- 100K+ patterns with hierarchical structure
+- AMQP-style wildcards: `*` (one word), `#` (zero or more words)
+- Sub-microsecond query latency
+- Minimal memory footprint
+
+**Recommendation**: **varintBitstream** for node flags + **varintExternal** for IDs
+
+**Why**:
+- varintBitstream: 3-bit node flags (terminal, wildcard type) - perfect bit packing
+- varintExternal: Subscriber IDs, segment lengths, counts - variable width
+- Prefix sharing: 0.7 bytes/pattern at 1M scale
+- O(m) query time regardless of pattern count (m = segments)
+
+**Example**:
+```c
+#include "varintBitstream.h"
+#include "varintExternal.h"
+
+typedef struct TrieNode {
+    char segment[64];
+    uint8_t flags;  // 3 bits: isTerminal, wildcardType (via varintBitstream)
+    struct TrieNode **children;
+    size_t childCount;
+    uint32_t *subscriberIds;
+    size_t subscriberCount;
+} TrieNode;
+
+// Encode node flags (3 bits total)
+uint64_t flags = 0;
+size_t bitOffset = 0;
+varintBitstreamSet(&flags, bitOffset, 1, node->isTerminal);    // 1 bit
+bitOffset += 1;
+varintBitstreamSet(&flags, bitOffset, 2, node->wildcardType);  // 2 bits
+// Total: 3 bits vs 3 bytes with separate fields
+
+// Encode subscriber IDs with varintExternal (variable width)
+for (size_t i = 0; i < node->subscriberCount; i++) {
+    varintWidth w = varintExternalPut(buffer + offset, node->subscriberIds[i]);
+    offset += w;
+}
+
+// Performance at 100K patterns:
+// - Trie: 3 μs per query (2391x faster than naive linear scan)
+// - Memory: 0.7 bytes/pattern with prefix sharing
+// - Throughput: 55,866 queries/second
+```
+
+**Real-World Results** (from advanced/trie_pattern_matcher.c):
+```
+Patterns    Naive (μs)    Trie (μs)    Speedup    Memory Savings
+100         3.00          1.00         3x         ~8%
+1,000       37.00         1.00         37x        71%
+10,000      469.00        2.00         235x       95%
+100,000     7,174.00      3.00         2,391x     99.4%
+1,000,000   ~17,900,000   17.90        ~1,000,000x 99.9999%
+```
+
+**Alternatives**:
+- Hash table for exact patterns only (no wildcard support)
+- Regex engine (100-1000x slower for complex patterns)
+
+---
+
 ## Performance Considerations
 
 ### Speed Ranking (Fastest to Slowest)

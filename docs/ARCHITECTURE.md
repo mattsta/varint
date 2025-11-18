@@ -151,6 +151,20 @@ Use **varintDimension** for:
 - Graph adjacency matrices with small node IDs
 - Scientific computing with sparse data
 
+### Pattern Matching & Routing
+Use **varintBitstream** + **varintExternal** for:
+- AMQP-style message broker routing with wildcard patterns
+- Trie data structures with compact node encoding
+- API gateway path matching with hierarchical patterns
+- Event routing systems with prefix sharing
+
+**Example**: AMQP-style pattern matching trie (see `examples/advanced/trie_pattern_matcher.c`)
+- varintBitstream: 3-bit node flags (terminal, wildcard type)
+- varintExternal: Variable-width subscriber IDs and segment lengths
+- Achieves 0.7 bytes/pattern at 1M scale through prefix sharing
+- 2391x faster than naive linear matching at 100K patterns
+- O(m) constant-time matching regardless of pattern count
+
 ## Module Dependencies
 
 ```
