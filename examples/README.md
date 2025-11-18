@@ -37,7 +37,8 @@ examples/
     ├── financial_orderbook.c
     ├── log_aggregation.c
     ├── geospatial_routing.c
-    └── trie_pattern_matcher.c
+    ├── trie_pattern_matcher.c
+    └── trie_interactive.c
 ```
 
 ## Standalone Examples
@@ -138,6 +139,7 @@ Production-quality real-world systems with comprehensive benchmarks. See [advanc
 - **log_aggregation.c** - Log collection (100:1 compression)
 - **geospatial_routing.c** - GPS coordinate compression (20-40x)
 - **trie_pattern_matcher.c** - AMQP routing (2391x faster, 0.7 bytes/pattern)
+- **trie_interactive.c** - Interactive pattern matcher with CRUD and persistence
 
 ## Building Examples
 
@@ -206,8 +208,9 @@ int main() {
 1. Study production systems in `advanced/` directory
 2. Start with `bytecode_vm.c` for fundamental patterns
 3. Progress to `trie_pattern_matcher.c` for data structures
-4. Master `blockchain_ledger.c` or `financial_orderbook.c` for complete systems
-5. See `advanced/README.md` for detailed learning path
+4. Explore `trie_interactive.c` for CRUD operations and persistence
+5. Master `blockchain_ledger.c` or `financial_orderbook.c` for complete systems
+6. See `advanced/README.md` for detailed learning path
 
 ## Testing
 

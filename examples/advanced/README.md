@@ -199,6 +199,44 @@ Patterns    Naive (μs)    Trie (μs)    Speedup    Memory Savings
 
 ---
 
+### 10. Interactive Trie Pattern Matcher (`trie_interactive.c`)
+**Demonstrates:** Production-ready CRUD operations with persistence for pattern matching
+
+**Key Features:**
+- Full CRUD API for patterns and subscribers
+- Interactive CLI with 11 commands (add, remove, subscribe, unsubscribe, match, list, stats, save, load, help, quit)
+- On-disk persistence with versioned binary format
+- Multiple subscribers per pattern with deduplication
+- Comprehensive input validation and security
+- Server-ready architecture with clean APIs
+- 101x compression for serialized trie data
+
+**Persistence Format:**
+- Magic header "TRIE" + version byte
+- Metadata: pattern count, node count, subscriber count (varintTagged)
+- Recursive node serialization
+- Roundtrip verified with comprehensive tests
+
+**Security Features:**
+- Input validation for patterns (alphanumeric + wildcards only)
+- Subscriber ID validation (non-zero, reasonable range)
+- Bounds checking on all operations
+- Secure string copy (no buffer overflows)
+- Graceful error handling
+
+**Test Coverage:**
+- 7 comprehensive tests with 100% pass rate
+- Basic CRUD operations
+- Input validation edge cases
+- Wildcard matching scenarios
+- Multiple subscribers per pattern
+- Pattern listing
+- Save/load persistence roundtrip
+
+**Real-World Applications:** Message broker configuration, routing rule management, API gateway pattern management, event filtering systems, subscription management
+
+---
+
 ## Performance Summary
 
 | Example | Compression Ratio | Throughput | Latency |
@@ -212,6 +250,7 @@ Patterns    Naive (μs)    Trie (μs)    Speedup    Memory Savings
 | Log System | 100x | 1M logs/sec | ~1 μs |
 | Geospatial | 20-40x | 1M updates/sec | ~5 μs |
 | Trie Matcher | 2391x (speed) | 56K queries/sec | ~18 μs |
+| Trie Interactive | 101x (storage) | Interactive | N/A |
 
 ## Compilation
 
@@ -233,8 +272,9 @@ gcc -I../../src blockchain_ledger.c ../../build/src/libvarint.a -o blockchain_le
 2. **Next:** `log_aggregation.c` - Introduces dictionary compression and delta encoding
 3. **Then:** `inverted_index.c` - More complex data structures with sorted arrays
 4. **Data Structures:** `trie_pattern_matcher.c` - Advanced tree structures with recursive algorithms
-5. **Advanced:** `blockchain_ledger.c` or `financial_orderbook.c` - Full production systems
-6. **Expert:** `game_replay_system.c` or `dns_server.c` - Protocol-level bit packing
+5. **Interactive Systems:** `trie_interactive.c` - CRUD operations, persistence, and CLI design
+6. **Advanced:** `blockchain_ledger.c` or `financial_orderbook.c` - Full production systems
+7. **Expert:** `game_replay_system.c` or `dns_server.c` - Protocol-level bit packing
 
 ## Key Techniques Demonstrated
 
