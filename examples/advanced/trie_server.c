@@ -279,7 +279,7 @@ static void resetClient(int epollFd, ClientConnection *client) {
 // TRIE IMPLEMENTATION (Core functions from trie_interactive.c)
 // ============================================================================
 
-// Secure string copy with bounds checking
+// Secure string copy with bounds checking (for null-terminated strings)
 static void secureStrCopy(char *dst, size_t dstSize, const char *src) {
     if (!dst || !src || dstSize == 0) return;
 
@@ -288,6 +288,16 @@ static void secureStrCopy(char *dst, size_t dstSize, const char *src) {
         dst[i] = src[i];
     }
     dst[i] = '\0';
+}
+
+// Secure binary copy with explicit length (for non-null-terminated binary data)
+static void secureBinaryCopy(char *dst, size_t dstSize, const uint8_t *src, size_t srcLen) {
+    if (!dst || !src || dstSize == 0) return;
+
+    // Copy up to the smaller of srcLen or dstSize-1
+    size_t copyLen = (srcLen < dstSize - 1) ? srcLen : (dstSize - 1);
+    memcpy(dst, src, copyLen);
+    dst[copyLen] = '\0';  // Always null-terminate
 }
 
 // Validate pattern string (alphanumeric, dots, wildcards only)
@@ -1513,7 +1523,7 @@ bool processCommand(TrieServer *server, ClientConnection *client, const uint8_t 
             }
 
             char pattern[MAX_PATTERN_LENGTH];
-            secureStrCopy(pattern, MAX_PATTERN_LENGTH, (const char *)(data + offset));
+            secureBinaryCopy(pattern, MAX_PATTERN_LENGTH, data + offset, patternLen);
             offset += patternLen;
 
             uint64_t subscriberId;
@@ -1543,7 +1553,7 @@ bool processCommand(TrieServer *server, ClientConnection *client, const uint8_t 
             }
 
             char subscriberName[MAX_SUBSCRIBER_NAME];
-            secureStrCopy(subscriberName, MAX_SUBSCRIBER_NAME, (const char *)(data + offset));
+            secureBinaryCopy(subscriberName, MAX_SUBSCRIBER_NAME, data + offset, subscriberNameLen);
 
             if (trieInsert(&server->trie, pattern, (uint32_t)subscriberId, subscriberName)) {
                 sendResponse(server->epollFd, client, STATUS_OK, NULL, 0);
@@ -1573,7 +1583,7 @@ bool processCommand(TrieServer *server, ClientConnection *client, const uint8_t 
             }
 
             char pattern[MAX_PATTERN_LENGTH];
-            secureStrCopy(pattern, MAX_PATTERN_LENGTH, (const char *)(data + offset));
+            secureBinaryCopy(pattern, MAX_PATTERN_LENGTH, data + offset, patternLen);
 
             if (trieRemovePattern(&server->trie, pattern)) {
                 sendResponse(server->epollFd, client, STATUS_OK, NULL, 0);
@@ -1603,7 +1613,7 @@ bool processCommand(TrieServer *server, ClientConnection *client, const uint8_t 
             }
 
             char pattern[MAX_PATTERN_LENGTH];
-            secureStrCopy(pattern, MAX_PATTERN_LENGTH, (const char *)(data + offset));
+            secureBinaryCopy(pattern, MAX_PATTERN_LENGTH, data + offset, patternLen);
             offset += patternLen;
 
             uint64_t subscriberId;
@@ -1633,7 +1643,7 @@ bool processCommand(TrieServer *server, ClientConnection *client, const uint8_t 
             }
 
             char subscriberName[MAX_SUBSCRIBER_NAME];
-            secureStrCopy(subscriberName, MAX_SUBSCRIBER_NAME, (const char *)(data + offset));
+            secureBinaryCopy(subscriberName, MAX_SUBSCRIBER_NAME, data + offset, subscriberNameLen);
 
             // CMD_SUBSCRIBE is the same as CMD_ADD - both insert pattern with subscriber
             if (trieInsert(&server->trie, pattern, (uint32_t)subscriberId, subscriberName)) {
@@ -1664,7 +1674,7 @@ bool processCommand(TrieServer *server, ClientConnection *client, const uint8_t 
             }
 
             char pattern[MAX_PATTERN_LENGTH];
-            secureStrCopy(pattern, MAX_PATTERN_LENGTH, (const char *)(data + offset));
+            secureBinaryCopy(pattern, MAX_PATTERN_LENGTH, data + offset, patternLen);
             offset += patternLen;
 
             uint64_t subscriberId;
@@ -1706,7 +1716,7 @@ bool processCommand(TrieServer *server, ClientConnection *client, const uint8_t 
             }
 
             char input[MAX_PATTERN_LENGTH];
-            secureStrCopy(input, MAX_PATTERN_LENGTH, (const char *)(data + offset));
+            secureBinaryCopy(input, MAX_PATTERN_LENGTH, data + offset, inputLen);
 
             MatchResult result;
             trieMatch(&server->trie, input, &result);
