@@ -99,7 +99,7 @@ varintWidth getSensorWidth(SensorType type, uint64_t value) {
         else
             return 4;
     default:
-        return varintExternalPut(NULL, value);  // Auto-detect
+        return varintExternalLen(value);  // Auto-detect
     }
 }
 

@@ -23,7 +23,7 @@
  */
 
 #include "varintExternal.h"
-#include "varintSplit.h"
+#include "varintChained.h"
 #include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -147,7 +147,7 @@ void timeSeriesAppend(TimeSeries *ts, uint64_t timestamp, uint64_t value) {
 
     // Store value and determine width
     ts->values[ts->count] = value;
-    ts->valueWidths[ts->count] = varintExternalPut(NULL, value);
+    ts->valueWidths[ts->count] = varintExternalLen(value);
 
     // Update min/max
     if (value < ts->minValue)
@@ -177,8 +177,8 @@ size_t timeSeriesSerialize(const TimeSeries *ts, uint8_t *buffer) {
     memcpy(buffer + offset, ts->metricName, nameLen);
     offset += nameLen;
 
-    // Write base timestamp using varintSplit
-    offset += varintSplitFullPut(buffer + offset, ts->baseTimestamp);
+    // Write base timestamp using varintChained (self-delimiting)
+    offset += varintChainedPutVarint(buffer + offset, ts->baseTimestamp);
 
     // Write count (varintExternal)
     varintWidth countWidth = varintExternalPut(buffer + offset, ts->count);
@@ -208,13 +208,12 @@ size_t timeSeriesDeserialize(TimeSeries *ts, const uint8_t *buffer) {
     ts->metricName[nameLen] = '\0';
     offset += nameLen;
 
-    // Read base timestamp
-    varintSplitFullGet(buffer + offset, &ts->baseTimestamp);
-    offset += varintSplitFullLen(buffer + offset);
+    // Read base timestamp using varintChained (self-delimiting)
+    offset += varintChainedGetVarint(buffer + offset, &ts->baseTimestamp);
 
     // Read count
     uint64_t count;
-    varintWidth countWidth = varintExternalPut(NULL, ts->count);  // Determine width
+    varintWidth countWidth = varintExternalLen(ts->count);  // Determine width
     count = varintExternalGet(buffer + offset, countWidth);
     offset += countWidth;
 

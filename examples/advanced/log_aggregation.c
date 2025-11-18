@@ -3,8 +3,7 @@
  *
  * This advanced example demonstrates a log aggregation system with:
  * - varintExternal for log levels, timestamps, and sizes
- * - varintChained for string lengths (standard encoding)
- * - varintSplit for delta-encoded timestamps
+ * - varintChained for string lengths and delta-encoded timestamps
  * - Structured log compression
  * - Field indexing for fast queries
  *
@@ -25,7 +24,6 @@
 
 #include "varintChained.h"
 #include "varintExternal.h"
-#include "varintSplit.h"
 #include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -110,9 +108,9 @@ size_t serializeLogEntry(const LogEntry *entry, uint8_t *buffer,
                          StringDictionary *dict, uint64_t baseTimestamp) {
     size_t offset = 0;
 
-    // Delta-encoded timestamp (varintSplit for efficiency)
+    // Delta-encoded timestamp (varintChained for efficiency)
     uint64_t timeDelta = entry->timestamp - baseTimestamp;
-    offset += varintSplitFullPut(buffer + offset, timeDelta);
+    offset += varintChainedPutVarint(buffer + offset, timeDelta);
 
     // Log level (single byte)
     buffer[offset++] = (uint8_t)entry->level;
@@ -307,7 +305,9 @@ void demonstrateLogAggregation() {
 
     printf("   Base timestamp: %lu\n", batch.baseTimestamp);
     printf("   Typical delta (1ms): ");
-    varintWidth deltaWidth = varintSplitFullLen((uint8_t *)&(uint64_t){1000});
+    // Calculate encoding width for 1000 (1ms in microseconds)
+    uint8_t tmpBuf[10];
+    varintWidth deltaWidth = varintChainedPutVarint(tmpBuf, 1000);
     printf("%d bytes (vs 8 bytes fixed)\n", deltaWidth);
 
     printf("   \n");

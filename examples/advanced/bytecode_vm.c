@@ -374,15 +374,15 @@ void demonstrateBytecodeVM() {
     printf("\n3. Instruction encoding analysis...\n");
 
     printf("   PUSH 2:  ");
-    size_t push2Size = 1 + varintExternalPut(NULL, 2);  // opcode + varint
+    size_t push2Size = 1 + varintExternalLen(2);  // opcode + varint
     printf("%zu bytes (opcode + 1-byte varint)\n", push2Size);
 
     printf("   PUSH 1000: ");
-    size_t push1000Size = 1 + varintExternalPut(NULL, 1000);
+    size_t push1000Size = 1 + varintExternalLen(1000);
     printf("%zu bytes (opcode + 2-byte varint)\n", push1000Size);
 
     printf("   PUSH 1000000: ");
-    size_t push1MSize = 1 + varintExternalPut(NULL, 1000000);
+    size_t push1MSize = 1 + varintExternalLen(1000000);
     printf("%zu bytes (opcode + 3-byte varint)\n", push1MSize);
 
     printf("\n   vs fixed 64-bit operands:\n");

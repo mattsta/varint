@@ -364,7 +364,7 @@ void demonstrateOrderBook() {
         sellOrders[i]->quantity = sellQtys[i];
         setOrderFlags(&sellOrders[i]->flags, ORDER_SIDE_SELL, ORDER_TYPE_LIMIT, true);
 
-        addOrderToBook(&book, sellOrders[i]->flags);
+        addOrderToBook(&book, sellOrders[i]);
 
         printf("   Order %lu: SELL %u @ $%.2f\n", sellOrders[i]->orderId,
                sellOrders[i]->quantity, decodePrice(sellOrders[i]->price));
@@ -438,7 +438,7 @@ void demonstrateOrderBook() {
                       encodePrice(10000.00)};
 
     for (size_t i = 0; i < 4; i++) {
-        varintWidth width = varintExternalPut(NULL, prices[i]);
+        varintWidth width = varintExternalLen(prices[i]);
         printf("   $%.2f (%u cents): %d bytes (vs 4 bytes fixed)\n",
                decodePrice(prices[i]), prices[i], width);
     }
@@ -448,7 +448,7 @@ void demonstrateOrderBook() {
 
     uint64_t orderIds[] = {1, 100, 10000, 1000000};
     for (size_t i = 0; i < 4; i++) {
-        varintWidth width = varintTaggedLen64(orderIds[i]);
+        varintWidth width = varintTaggedLen(orderIds[i]);
         printf("   Order %lu: %d bytes (vs 8 bytes fixed)\n", orderIds[i], width);
     }
 

@@ -17,24 +17,9 @@
  * Run: ./ml_features
  */
 
-// Generate varintPacked8 for 8-bit quantized features
-#define PACK_STORAGE_BITS 8
-#include "varintPacked.h"
-#undef PACK_STORAGE_BITS
-
-// Generate varintPacked10 for 10-bit quantized features
-#define PACK_STORAGE_BITS 10
-#define PACK_FUNCTION_PREFIX varintPacked10
-#include "varintPacked.h"
-#undef PACK_STORAGE_BITS
-#undef PACK_FUNCTION_PREFIX
-
-// Generate varintPacked12 for 12-bit quantized features
-#define PACK_STORAGE_BITS 12
-#define PACK_FUNCTION_PREFIX varintPacked12
-#include "varintPacked.h"
-#undef PACK_STORAGE_BITS
-#undef PACK_FUNCTION_PREFIX
+// Note: Using native uint16_t arrays for quantized storage
+// varintPacked template doesn't support multiple instantiations in same file
+// For production use, consider separate compilation units for each bit width
 
 #include "varintDimension.h"
 #include <assert.h>
@@ -107,7 +92,7 @@ float dequantizeValue(uint16_t quantized, float min, float max, QuantizationBits
 // ============================================================================
 
 typedef struct {
-    uint8_t *data;              // Packed feature values
+    uint16_t *data;             // Quantized feature values (native array)
     size_t sampleCount;
     size_t featureCount;
     float featureMin;           // Global min for quantization
@@ -135,11 +120,8 @@ void denseMatrixInit(DenseFeatureMatrix *matrix, size_t samples, size_t features
         matrix->dimensionEncoding = VARINT_DIMENSION_PAIR_DENSE_4_4;
     }
 
-    // Allocate packed storage
-    size_t bitsPerValue = (bits == QUANT_8BIT) ? 8 : (bits == QUANT_10BIT) ? 10 : 12;
-    size_t totalBits = samples * features * bitsPerValue;
-    size_t bytesNeeded = (totalBits + 7) / 8;
-    matrix->data = calloc(1, bytesNeeded);
+    // Allocate native storage (uint16_t array holds up to 16-bit values)
+    matrix->data = calloc(samples * features, sizeof(uint16_t));
 }
 
 void denseMatrixFree(DenseFeatureMatrix *matrix) {
@@ -155,17 +137,8 @@ void denseMatrixSet(DenseFeatureMatrix *matrix, size_t sample, size_t feature,
         quantizeValue(value, matrix->featureMin, matrix->featureMax, matrix->quantBits);
     size_t index = sample * matrix->featureCount + feature;
 
-    switch (matrix->quantBits) {
-    case QUANT_8BIT:
-        varintPacked8Set(matrix->data, index, (uint8_t)quantized);
-        break;
-    case QUANT_10BIT:
-        varintPacked10Set(matrix->data, index, quantized);
-        break;
-    case QUANT_12BIT:
-        varintPacked12Set(matrix->data, index, quantized);
-        break;
-    }
+    // Direct array access (for production, use varintPacked in separate compilation units)
+    matrix->data[index] = quantized;
 }
 
 float denseMatrixGet(const DenseFeatureMatrix *matrix, size_t sample, size_t feature) {
@@ -173,21 +146,9 @@ float denseMatrixGet(const DenseFeatureMatrix *matrix, size_t sample, size_t fea
     assert(feature < matrix->featureCount);
 
     size_t index = sample * matrix->featureCount + feature;
-    uint16_t quantized;
 
-    switch (matrix->quantBits) {
-    case QUANT_8BIT:
-        quantized = varintPacked8Get(matrix->data, index);
-        break;
-    case QUANT_10BIT:
-        quantized = varintPacked10Get(matrix->data, index);
-        break;
-    case QUANT_12BIT:
-        quantized = varintPacked12Get(matrix->data, index);
-        break;
-    default:
-        quantized = 0;
-    }
+    // Direct array access (for production, use varintPacked in separate compilation units)
+    uint16_t quantized = matrix->data[index];
 
     return dequantizeValue(quantized, matrix->featureMin, matrix->featureMax,
                            matrix->quantBits);
@@ -266,7 +227,7 @@ uint16_t sparseMatrixGet(const SparseFeatureMatrix *matrix, size_t sample,
 // ============================================================================
 
 typedef struct {
-    uint8_t *embeddings;        // Packed embedding vectors
+    uint16_t *embeddings;       // Quantized embedding vectors (native array)
     size_t vocabSize;           // Number of tokens
     size_t embeddingDim;        // Embedding dimension
     QuantizationBits quantBits;
@@ -288,11 +249,8 @@ void embeddingTableInit(EmbeddingTable *table, size_t vocab, size_t dim,
         table->dimensionEncoding = VARINT_DIMENSION_PAIR_DENSE_2_2;
     }
 
-    // Allocate storage
-    size_t bitsPerValue = (bits == QUANT_8BIT) ? 8 : (bits == QUANT_10BIT) ? 10 : 12;
-    size_t totalBits = vocab * dim * bitsPerValue;
-    size_t bytesNeeded = (totalBits + 7) / 8;
-    table->embeddings = calloc(1, bytesNeeded);
+    // Allocate native storage (uint16_t array holds up to 16-bit values)
+    table->embeddings = calloc(vocab * dim, sizeof(uint16_t));
 }
 
 void embeddingTableFree(EmbeddingTable *table) {
@@ -306,17 +264,8 @@ void embeddingTableSetValue(EmbeddingTable *table, size_t tokenId, size_t dimInd
 
     size_t index = tokenId * table->embeddingDim + dimIndex;
 
-    switch (table->quantBits) {
-    case QUANT_8BIT:
-        varintPacked8Set(table->embeddings, index, (uint8_t)value);
-        break;
-    case QUANT_10BIT:
-        varintPacked10Set(table->embeddings, index, value);
-        break;
-    case QUANT_12BIT:
-        varintPacked12Set(table->embeddings, index, value);
-        break;
-    }
+    // Direct array access (for production, use varintPacked in separate compilation units)
+    table->embeddings[index] = value;
 }
 
 uint16_t embeddingTableGetValue(const EmbeddingTable *table, size_t tokenId,
@@ -326,16 +275,8 @@ uint16_t embeddingTableGetValue(const EmbeddingTable *table, size_t tokenId,
 
     size_t index = tokenId * table->embeddingDim + dimIndex;
 
-    switch (table->quantBits) {
-    case QUANT_8BIT:
-        return varintPacked8Get(table->embeddings, index);
-    case QUANT_10BIT:
-        return varintPacked10Get(table->embeddings, index);
-    case QUANT_12BIT:
-        return varintPacked12Get(table->embeddings, index);
-    default:
-        return 0;
-    }
+    // Direct array access (for production, use varintPacked in separate compilation units)
+    return table->embeddings[index];
 }
 
 // ============================================================================

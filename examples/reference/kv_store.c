@@ -438,11 +438,11 @@ void demonstrateKVStore() {
 
     printf("   varintTagged key encoding:\n");
     printf("   - Key 25:  %d bytes (vs 8 bytes uint64_t)\n",
-           varintTaggedLen64(25));
+           varintTaggedLen(25));
     printf("   - Key 100: %d bytes (vs 8 bytes uint64_t)\n",
-           varintTaggedLen64(100));
+           varintTaggedLen(100));
     printf("   - Key 200: %d bytes (vs 8 bytes uint64_t)\n",
-           varintTaggedLen64(200));
+           varintTaggedLen(200));
 
     size_t fixedKeySize = stats.entryCount * 8;
     printf("\n   Total keys with varintTagged: %zu bytes\n", stats.totalKeyBytes);

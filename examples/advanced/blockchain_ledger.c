@@ -400,7 +400,7 @@ void demonstrateBlockchain() {
         txs[i].signature = simpleHash(txBuffer, txSize - sizeof(Hash256));
 
         printf("   TX %lu: %lu satoshis (", txs[i].txId, txAmounts[i]);
-        varintWidth amountWidth = varintExternalPut(NULL, txAmounts[i]);
+        varintWidth amountWidth = varintExternalLen(txAmounts[i]);
         printf("%d bytes)\n", amountWidth);
     }
 
@@ -522,13 +522,13 @@ void demonstrateBlockchain() {
 
     printf("   Transaction ID encoding (varintTagged):\n");
     for (size_t i = 0; i < 3; i++) {
-        varintWidth width = varintTaggedLen64(txs[i].txId);
+        varintWidth width = varintTaggedLen(txs[i].txId);
         printf("   - TX %lu: %d bytes (vs 8 bytes fixed)\n", txs[i].txId, width);
     }
 
     printf("\n   Amount encoding (varintExternal):\n");
     for (size_t i = 0; i < 5; i++) {
-        varintWidth width = varintExternalPut(NULL, txAmounts[i]);
+        varintWidth width = varintExternalLen(txAmounts[i]);
         printf("   - %lu satoshis: %d bytes (vs 8 bytes fixed)\n", txAmounts[i],
                width);
     }

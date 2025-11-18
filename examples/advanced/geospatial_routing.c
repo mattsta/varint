@@ -302,7 +302,7 @@ void demonstrateGeospatial() {
 
     uint64_t unsignedDelta = (deltaLat < 0) ? (uint64_t)((-deltaLat) * 2 - 1)
                                             : (uint64_t)(deltaLat * 2);
-    varintWidth deltaWidth = varintExternalPut(NULL, unsignedDelta);
+    varintWidth deltaWidth = varintExternalLen(unsignedDelta);
     printf("%d bytes (varint)\n", deltaWidth);
     printf("   - Savings: %.1f%%\n", 100.0 * (1.0 - (double)deltaWidth / 4.0));
 
