@@ -146,42 +146,62 @@ bool receiveResponse(TrieClient *client, StatusCode *status, uint8_t *data, size
     bytesRead = 1;
 
     // Keep reading until we have a complete varint
+    fprintf(stderr, "DEBUG: Starting varint parsing loop, bytesRead=%zu\n", bytesRead);
     while (varintTaggedGet64(lengthBuf, &messageLen) == 0 && bytesRead < sizeof(lengthBuf)) {
+        fprintf(stderr, "DEBUG: Varint incomplete, reading more... bytesRead=%zu\n", bytesRead);
         if (read(client->sockfd, lengthBuf + bytesRead, 1) != 1) {
+            fprintf(stderr, "DEBUG: Read failed\n");
             return false;
         }
         bytesRead++;
     }
+    fprintf(stderr, "DEBUG: Varint parsing complete, messageLen=%lu\n", messageLen);
 
+    fprintf(stderr, "DEBUG: Checking message length validity\n");
     if (messageLen == 0 || messageLen > MAX_RESPONSE_SIZE) {
         fprintf(stderr, "Invalid message length: %lu\n", messageLen);
         return false;
     }
 
     // Read message
+    fprintf(stderr, "DEBUG: Allocating %lu bytes for message\n", messageLen);
     uint8_t *msgBuf = (uint8_t *)malloc(messageLen);
+    fprintf(stderr, "DEBUG: malloc() returned %p\n", (void*)msgBuf);
     if (!msgBuf) {
+        fprintf(stderr, "DEBUG: malloc failed!\n");
         return false;
     }
 
     size_t totalRead = 0;
+    fprintf(stderr, "DEBUG: Reading %lu bytes of message\n", messageLen);
     while (totalRead < messageLen) {
+        fprintf(stderr, "DEBUG: totalRead=%zu, need %lu more bytes\n", totalRead, messageLen - totalRead);
         ssize_t n = read(client->sockfd, msgBuf + totalRead, messageLen - totalRead);
+        fprintf(stderr, "DEBUG: read() returned %zd\n", n);
         if (n <= 0) {
+            fprintf(stderr, "DEBUG: Read failed or EOF, freeing and returning\n");
             free(msgBuf);
             return false;
         }
         totalRead += n;
     }
+    fprintf(stderr, "DEBUG: Message read complete\n");
 
     // Parse response
+    fprintf(stderr, "DEBUG: Parsing response, msgBuf[0]=0x%02x\n", msgBuf[0]);
     *status = (StatusCode)msgBuf[0];
+    fprintf(stderr, "DEBUG: Set status=%d\n", *status);
     *dataLen = messageLen - 1;
+    fprintf(stderr, "DEBUG: Set dataLen=%zu\n", *dataLen);
     if (*dataLen > 0) {
+        fprintf(stderr, "DEBUG: Copying %zu bytes to data buffer\n", *dataLen);
         memcpy(data, msgBuf + 1, *dataLen);
+        fprintf(stderr, "DEBUG: memcpy complete\n");
     }
 
+    fprintf(stderr, "DEBUG: About to free msgBuf\n");
     free(msgBuf);
+    fprintf(stderr, "DEBUG: free() complete, returning true\n");
     return true;
 }
 
