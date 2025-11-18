@@ -4,6 +4,8 @@
  * Simple client for testing the async trie server
  */
 
+#define _POSIX_C_SOURCE 200809L
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -15,6 +17,7 @@
 #include <arpa/inet.h>
 
 #include "../../src/varint.h"
+#include "../../src/varintTagged.h"
 
 #define MAX_RESPONSE_SIZE 65536
 

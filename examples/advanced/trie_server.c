@@ -55,6 +55,7 @@
 #include <signal.h>
 
 #include "../../src/varint.h"
+#include "../../src/varintTagged.h"
 
 // ============================================================================
 // CONFIGURATION
