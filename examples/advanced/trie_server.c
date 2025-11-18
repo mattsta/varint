@@ -1145,6 +1145,9 @@ bool serverInit(TrieServer *server, uint16_t port, const char *authToken, const 
     server->listenFd = socket(AF_INET, SOCK_STREAM, 0);
     if (server->listenFd < 0) {
         perror("socket");
+        trieFree(&server->trie);
+        if (server->authToken) free(server->authToken);
+        if (server->saveFilePath) free(server->saveFilePath);
         return false;
     }
 
@@ -1162,6 +1165,9 @@ bool serverInit(TrieServer *server, uint16_t port, const char *authToken, const 
     if (bind(server->listenFd, (struct sockaddr *)&addr, sizeof(addr)) < 0) {
         perror("bind");
         close(server->listenFd);
+        trieFree(&server->trie);
+        if (server->authToken) free(server->authToken);
+        if (server->saveFilePath) free(server->saveFilePath);
         return false;
     }
 
@@ -1169,6 +1175,9 @@ bool serverInit(TrieServer *server, uint16_t port, const char *authToken, const 
     if (listen(server->listenFd, 128) < 0) {
         perror("listen");
         close(server->listenFd);
+        trieFree(&server->trie);
+        if (server->authToken) free(server->authToken);
+        if (server->saveFilePath) free(server->saveFilePath);
         return false;
     }
 
@@ -1179,6 +1188,9 @@ bool serverInit(TrieServer *server, uint16_t port, const char *authToken, const 
     if (server->epollFd < 0) {
         perror("epoll_create1");
         close(server->listenFd);
+        trieFree(&server->trie);
+        if (server->authToken) free(server->authToken);
+        if (server->saveFilePath) free(server->saveFilePath);
         return false;
     }
 
@@ -1191,6 +1203,9 @@ bool serverInit(TrieServer *server, uint16_t port, const char *authToken, const 
         perror("epoll_ctl: listen socket");
         close(server->epollFd);
         close(server->listenFd);
+        trieFree(&server->trie);
+        if (server->authToken) free(server->authToken);
+        if (server->saveFilePath) free(server->saveFilePath);
         return false;
     }
     printf("DEBUG: Listen socket registered successfully\n");
