@@ -62,6 +62,31 @@ target_link_libraries(timeseries_db varint)
 add_executable(graph_database reference/graph_database.c)
 target_link_libraries(graph_database varint)
 
+# Advanced examples (high-performance real-world systems)
+add_executable(blockchain_ledger advanced/blockchain_ledger.c)
+target_link_libraries(blockchain_ledger varint m)
+
+add_executable(dns_server advanced/dns_server.c)
+target_link_libraries(dns_server varint)
+
+add_executable(game_replay_system advanced/game_replay_system.c)
+target_link_libraries(game_replay_system varint m)
+
+add_executable(bytecode_vm advanced/bytecode_vm.c)
+target_link_libraries(bytecode_vm varint)
+
+add_executable(inverted_index advanced/inverted_index.c)
+target_link_libraries(inverted_index varint m)
+
+add_executable(financial_orderbook advanced/financial_orderbook.c)
+target_link_libraries(financial_orderbook varint m)
+
+add_executable(log_aggregation advanced/log_aggregation.c)
+target_link_libraries(log_aggregation varint)
+
+add_executable(geospatial_routing advanced/geospatial_routing.c)
+target_link_libraries(geospatial_routing varint m)
+
 # Custom target to build all examples
 add_custom_target(examples DEPENDS
     example_tagged
@@ -80,6 +105,14 @@ add_custom_target(examples DEPENDS
     kv_store
     timeseries_db
     graph_database
+    blockchain_ledger
+    dns_server
+    game_replay_system
+    bytecode_vm
+    inverted_index
+    financial_orderbook
+    log_aggregation
+    geospatial_routing
 )
 
 message(STATUS "Examples configured. Build with 'make examples'")
