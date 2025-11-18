@@ -54,7 +54,6 @@
 #include <signal.h>
 
 #include "../../src/varint.h"
-#include "../../src/varintTagged.h"
 
 // ============================================================================
 // CONFIGURATION
@@ -432,7 +431,12 @@ bool serverInit(TrieServer *server, uint16_t port, const char *authToken, const 
 
     setNonBlocking(server->listenFd);
 
-    printf("Trie server listening on port %d\n", port);
+    printf("Trie server listening on port %d (fd=%d, FD_SETSIZE=%d)\n", port, server->listenFd, FD_SETSIZE);
+    if (server->listenFd >= FD_SETSIZE) {
+        fprintf(stderr, "ERROR: listen fd %d exceeds FD_SETSIZE %d\n", server->listenFd, FD_SETSIZE);
+        close(server->listenFd);
+        return false;
+    }
     if (server->requireAuth) {
         printf("Authentication: ENABLED\n");
     }
@@ -467,12 +471,16 @@ void serverRun(TrieServer *server) {
 
         FD_ZERO(&readFds);
         FD_ZERO(&writeFds);
-        FD_SET(server->listenFd, &readFds);
+
+        // Check listen socket fd is valid
+        if (server->listenFd >= 0 && server->listenFd < FD_SETSIZE) {
+            FD_SET(server->listenFd, &readFds);
+        }
 
         // Add client sockets to fd sets
         for (int i = 0; i < MAX_CLIENTS; i++) {
             ClientConnection *client = &server->clients[i];
-            if (client->fd < 0) continue;
+            if (client->fd < 0 || client->fd >= FD_SETSIZE) continue;
 
             if (client->state == CONN_READING_LENGTH || client->state == CONN_READING_MESSAGE) {
                 FD_SET(client->fd, &readFds);
@@ -495,38 +503,44 @@ void serverRun(TrieServer *server) {
         }
 
         // Check for new connections
-        if (FD_ISSET(server->listenFd, &readFds)) {
+        if (server->listenFd >= 0 && server->listenFd < FD_SETSIZE && FD_ISSET(server->listenFd, &readFds)) {
             struct sockaddr_in clientAddr;
             socklen_t addrLen = sizeof(clientAddr);
             int clientFd = accept(server->listenFd, (struct sockaddr *)&clientAddr, &addrLen);
 
             if (clientFd >= 0) {
-                // Find free slot
-                int slot = -1;
-                for (int i = 0; i < MAX_CLIENTS; i++) {
-                    if (server->clients[i].fd < 0) {
-                        slot = i;
-                        break;
-                    }
-                }
-
-                if (slot >= 0) {
-                    setNonBlocking(clientFd);
-                    ClientConnection *client = &server->clients[slot];
-                    resetClient(client);
-                    client->fd = clientFd;
-                    client->state = CONN_READING_LENGTH;
-                    client->authenticated = !server->requireAuth;
-                    client->lastActivity = time(NULL);
-                    client->rateLimitWindowStart = time(NULL);
-
-                    server->totalConnections++;
-
-                    printf("New connection from %s (slot %d, total connections: %lu)\n",
-                           inet_ntoa(clientAddr.sin_addr), slot, server->totalConnections);
-                } else {
-                    fprintf(stderr, "Max clients reached, rejecting connection\n");
+                // Check if fd is within select() limits
+                if (clientFd >= FD_SETSIZE) {
+                    fprintf(stderr, "Client fd %d exceeds FD_SETSIZE %d, rejecting\n", clientFd, FD_SETSIZE);
                     close(clientFd);
+                } else {
+                    // Find free slot
+                    int slot = -1;
+                    for (int i = 0; i < MAX_CLIENTS; i++) {
+                        if (server->clients[i].fd < 0) {
+                            slot = i;
+                            break;
+                        }
+                    }
+
+                    if (slot >= 0) {
+                        setNonBlocking(clientFd);
+                        ClientConnection *client = &server->clients[slot];
+                        resetClient(client);
+                        client->fd = clientFd;
+                        client->state = CONN_READING_LENGTH;
+                        client->authenticated = !server->requireAuth;
+                        client->lastActivity = time(NULL);
+                        client->rateLimitWindowStart = time(NULL);
+
+                        server->totalConnections++;
+
+                        printf("New connection from %s (slot %d, total connections: %lu)\n",
+                               inet_ntoa(clientAddr.sin_addr), slot, server->totalConnections);
+                    } else {
+                        fprintf(stderr, "Max clients reached, rejecting connection\n");
+                        close(clientFd);
+                    }
                 }
             }
         }
@@ -534,7 +548,7 @@ void serverRun(TrieServer *server) {
         // Handle client I/O
         for (int i = 0; i < MAX_CLIENTS; i++) {
             ClientConnection *client = &server->clients[i];
-            if (client->fd < 0) continue;
+            if (client->fd < 0 || client->fd >= FD_SETSIZE) continue;
 
             bool active = false;
 
@@ -870,6 +884,8 @@ int main(int argc, char *argv[]) {
     char *authToken = NULL;
     char *saveFile = NULL;
 
+    printf("DEBUG: Starting trie_server\n");
+
     // Simple argument parsing
     for (int i = 1; i < argc; i++) {
         if (strcmp(argv[i], "--port") == 0 && i + 1 < argc) {
@@ -889,14 +905,28 @@ int main(int argc, char *argv[]) {
         }
     }
 
-    TrieServer server;
-    if (!serverInit(&server, port, authToken, saveFile)) {
-        fprintf(stderr, "Failed to initialize server\n");
+    printf("DEBUG: Calling serverInit\n");
+    fflush(stdout);
+
+    // Allocate server on heap (struct is 16MB, too large for stack)
+    TrieServer *server = (TrieServer *)malloc(sizeof(TrieServer));
+    if (!server) {
+        fprintf(stderr, "Failed to allocate server memory\n");
         return 1;
     }
 
-    serverRun(&server);
-    serverShutdown(&server);
+    if (!serverInit(server, port, authToken, saveFile)) {
+        fprintf(stderr, "Failed to initialize server\n");
+        free(server);
+        return 1;
+    }
+
+    printf("DEBUG: serverInit complete, calling serverRun\n");
+    fflush(stdout);
+
+    serverRun(server);
+    serverShutdown(server);
+    free(server);
 
     return 0;
 }
