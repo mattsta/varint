@@ -448,12 +448,14 @@ bool serverInit(TrieServer *server, uint16_t port, const char *authToken, const 
     struct epoll_event ev;
     ev.events = EPOLLIN;
     ev.data.fd = server->listenFd;
+    printf("DEBUG: Registering listen socket (fd=%d) with epoll (fd=%d)\n", server->listenFd, server->epollFd);
     if (epoll_ctl(server->epollFd, EPOLL_CTL_ADD, server->listenFd, &ev) < 0) {
         perror("epoll_ctl: listen socket");
         close(server->epollFd);
         close(server->listenFd);
         return false;
     }
+    printf("DEBUG: Listen socket registered successfully\n");
 
     printf("Trie server listening on port %d (using epoll for high-performance async I/O)\n", port);
     if (server->requireAuth) {
@@ -483,13 +485,20 @@ void serverRun(TrieServer *server) {
     signal(SIGTERM, signalHandler);
 
     printf("Server ready. Press Ctrl+C to stop.\n");
+    printf("DEBUG: Entering event loop with epollFd=%d, listenFd=%d\n", server->epollFd, server->listenFd);
 
     #define MAX_EVENTS 64
     struct epoll_event events[MAX_EVENTS];
 
+    int loopCount = 0;
     while (server->running && !g_shutdown) {
         // Wait for events (1 second timeout)
         int nfds = epoll_wait(server->epollFd, events, MAX_EVENTS, 1000);
+
+        if (loopCount < 5 || nfds > 0) {
+            printf("DEBUG: epoll_wait iteration %d returned nfds=%d\n", loopCount, nfds);
+        }
+        loopCount++;
 
         if (nfds < 0) {
             if (errno == EINTR) continue;
@@ -497,12 +506,18 @@ void serverRun(TrieServer *server) {
             break;
         }
 
+        if (nfds > 0) {
+            printf("DEBUG: epoll_wait returned %d events\n", nfds);
+        }
+
         // Process all events
         for (int n = 0; n < nfds; n++) {
             int fd = events[n].data.fd;
+            printf("DEBUG: Event on fd=%d (events=0x%x)\n", fd, events[n].events);
 
             // New connection on listen socket
             if (fd == server->listenFd) {
+                printf("DEBUG: New connection attempt on listen socket\n");
                 struct sockaddr_in clientAddr;
                 socklen_t addrLen = sizeof(clientAddr);
                 int clientFd = accept(server->listenFd, (struct sockaddr *)&clientAddr, &addrLen);
@@ -527,9 +542,9 @@ void serverRun(TrieServer *server) {
                         client->lastActivity = time(NULL);
                         client->rateLimitWindowStart = time(NULL);
 
-                        // Register client with epoll for reading
+                        // Register client with epoll for edge-triggered reading
                         struct epoll_event ev;
-                        ev.events = EPOLLIN;
+                        ev.events = EPOLLIN | EPOLLET;  // Edge-triggered prevents busy-loop
                         ev.data.fd = clientFd;
                         if (epoll_ctl(server->epollFd, EPOLL_CTL_ADD, clientFd, &ev) < 0) {
                             perror("epoll_ctl: client socket");
@@ -583,9 +598,9 @@ void serverRun(TrieServer *server) {
                         client->writeOffset = 0;
                         client->writeLength = 0;
 
-                        // Modify epoll to monitor for read only
+                        // Modify epoll to monitor for read only (edge-triggered)
                         struct epoll_event ev;
-                        ev.events = EPOLLIN;
+                        ev.events = EPOLLIN | EPOLLET;
                         ev.data.fd = client->fd;
                         epoll_ctl(server->epollFd, EPOLL_CTL_MOD, client->fd, &ev);
                     }
@@ -718,9 +733,9 @@ void sendResponse(int epollFd, ClientConnection *client, StatusCode status, cons
     client->writeOffset = 0;
     client->state = CONN_WRITING_RESPONSE;
 
-    // Modify epoll to monitor for both read and write
+    // Modify epoll to monitor for both read and write (edge-triggered)
     struct epoll_event ev;
-    ev.events = EPOLLIN | EPOLLOUT;
+    ev.events = EPOLLIN | EPOLLOUT | EPOLLET;
     ev.data.fd = client->fd;
     epoll_ctl(epollFd, EPOLL_CTL_MOD, client->fd, &ev);
 }
@@ -834,14 +849,15 @@ bool processCommand(TrieServer *server, ClientConnection *client, const uint8_t 
 }
 
 void handleClient(TrieServer *server, ClientConnection *client) {
-    if (client->state == CONN_READING_LENGTH || client->state == CONN_READING_MESSAGE) {
+    // In edge-triggered mode, we must read until EAGAIN
+    while (client->state == CONN_READING_LENGTH || client->state == CONN_READING_MESSAGE) {
         ssize_t bytesRead = read(client->fd,
                                  client->readBuffer + client->readOffset,
                                  READ_BUFFER_SIZE - client->readOffset);
 
         if (bytesRead <= 0) {
             if (bytesRead < 0 && (errno == EAGAIN || errno == EWOULDBLOCK)) {
-                return;  // No data available
+                return;  // No more data available
             }
             // Connection closed or error
             resetClient(server->epollFd, client);
@@ -860,8 +876,9 @@ void handleClient(TrieServer *server, ClientConnection *client) {
                     if (client->readOffset >= 9) {
                         // Invalid varint (too long)
                         resetClient(server->epollFd, client);
+                        return;
                     }
-                    return;
+                    continue;  // Try reading more data
                 }
 
                 client->messageLength = (size_t)msgLen;
@@ -902,6 +919,10 @@ void handleClient(TrieServer *server, ClientConnection *client) {
                 client->messageLength = 0;
                 client->messageBytesRead = 0;
                 client->state = CONN_READING_LENGTH;
+                // Continue processing if we have more data
+            } else {
+                // Need more data, continue reading
+                continue;
             }
         }
     }
