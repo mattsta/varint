@@ -828,8 +828,8 @@ void testBenchmarkComparisons() {
             trieInsert(&trie, pattern, i, "Sub");
         }
 
-        // Benchmark naive matching
-        int numMatches = 5000;
+        // Benchmark naive matching - use more iterations for accurate timing
+        int numMatches = 50000;
         clock_t start = clock();
         MatchResult result;
         for (int i = 0; i < numMatches; i++) {
@@ -854,7 +854,18 @@ void testBenchmarkComparisons() {
         size_t naiveMem = naiveMemoryUsage(&naive) / 1024;
         size_t trieMem = trieMemoryUsage(&trie) / 1024;
 
-        double speedup = naiveTime / trieTime;
+        // Calculate speedup with proper handling of edge cases
+        double speedup;
+        if (trieTime < 0.01) {
+            // If trie time is too small to measure accurately, use minimum measurable time
+            speedup = naiveTime / 0.01;
+        } else {
+            speedup = naiveTime / trieTime;
+        }
+
+        // Clamp speedup to reasonable range for display
+        if (speedup > 999.9) speedup = 999.9;
+        if (speedup < 0.1) speedup = 0.1;
 
         printf("  %-10d | %12.2f | %12.2f | %9.1fx | %12zu | %12zu\n",
                numPatterns, naiveTime, trieTime, speedup, naiveMem, trieMem);
@@ -916,29 +927,39 @@ void testWildcardComplexity() {
             "stock.nyse"
         };
 
-        // Benchmark naive
+        // Benchmark naive - more iterations for accurate timing
         clock_t start = clock();
         MatchResult result;
-        for (int run = 0; run < 10000; run++) {
+        for (int run = 0; run < 100000; run++) {
             for (int i = 0; i < 5; i++) {
                 naiveMatch(&naive, testInputs[i], &result);
             }
         }
         clock_t end = clock();
-        double naiveTime = ((double)(end - start) / CLOCKS_PER_SEC) * 1e6 / 50000;
+        double naiveTime = ((double)(end - start) / CLOCKS_PER_SEC) * 1e6 / 500000;
 
         // Benchmark trie
         start = clock();
-        for (int run = 0; run < 10000; run++) {
+        for (int run = 0; run < 100000; run++) {
             for (int i = 0; i < 5; i++) {
                 trieMatch(&trie, testInputs[i], &result);
             }
         }
         end = clock();
-        double trieTime = ((double)(end - start) / CLOCKS_PER_SEC) * 1e6 / 50000;
+        double trieTime = ((double)(end - start) / CLOCKS_PER_SEC) * 1e6 / 500000;
+
+        // Calculate speedup with proper handling
+        double speedup;
+        if (trieTime < 0.01) {
+            speedup = naiveTime / 0.01;
+        } else {
+            speedup = naiveTime / trieTime;
+        }
+        if (speedup > 999.9) speedup = 999.9;
+        if (speedup < 0.1) speedup = 0.1;
 
         printf("  %-20s | %12.2f | %12.2f | %9.1fx\n",
-               scenarios[s].name, naiveTime, trieTime, naiveTime / trieTime);
+               scenarios[s].name, naiveTime, trieTime, speedup);
 
         naiveFree(&naive);
         trieFree(&trie);
