@@ -62,13 +62,22 @@ void encodeHeader(uint8_t *buffer, const PacketHeader *header) {
     varintBitstreamSet(&packed, offset, 12, header->length);
     offset += 12;
 
-    // Write to buffer (only first 4 bytes)
+    // varintBitstream packs from high bits down, so shift right to move data to low bits
+    // We used 28 bits total, so shift right by (64 - 28) = 36 bits
+    packed >>= (64 - 28);
+
+    // Write to buffer (native endianness via memcpy)
     memcpy(buffer, &packed, HEADER_BYTES);
 }
 
 void decodeHeader(const uint8_t *buffer, PacketHeader *header) {
-    uint64_t packed;
+    // Read from buffer (native endianness via memcpy)
+    uint64_t packed = 0;
     memcpy(&packed, buffer, HEADER_BYTES);
+
+    // varintBitstream expects data in high bits, so shift left
+    // We have 28 bits of data, so shift left by (64 - 28) = 36 bits
+    packed <<= (64 - 28);
 
     size_t offset = 0;
 

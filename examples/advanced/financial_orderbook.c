@@ -79,16 +79,23 @@ void setOrderFlags(OrderFlags *flags, OrderSide side, OrderType type, bool visib
     varintBitstreamSet(&packed, 0, 1, side);
     varintBitstreamSet(&packed, 1, 2, type);
     varintBitstreamSet(&packed, 3, 1, visible ? 1 : 0);
+    // varintBitstream packs from high bits down, we used 4 bits total
+    // Shift right by (64 - 4) = 60 bits to move data to low bits
+    packed >>= 60;
     flags->flags = (uint16_t)packed;
 }
 
 OrderSide getOrderSide(const OrderFlags *flags) {
     uint64_t packed = flags->flags;
+    // varintBitstream expects data in high bits, shift left by 60
+    packed <<= 60;
     return (OrderSide)varintBitstreamGet(&packed, 0, 1);
 }
 
 OrderType getOrderType(const OrderFlags *flags) {
     uint64_t packed = flags->flags;
+    // varintBitstream expects data in high bits, shift left by 60
+    packed <<= 60;
     return (OrderType)varintBitstreamGet(&packed, 1, 2);
 }
 

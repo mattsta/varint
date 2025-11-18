@@ -22,6 +22,7 @@
  * Run: ./log_aggregation
  */
 
+#define _POSIX_C_SOURCE 200809L
 #include "varintChained.h"
 #include "varintExternal.h"
 #include <assert.h>
