@@ -42,6 +42,7 @@
 #include <string.h>
 #include <stdint.h>
 #include <stdbool.h>
+#include <ctype.h>
 #include <time.h>
 #include <errno.h>
 #include <assert.h>
@@ -276,15 +277,185 @@ static void resetClient(int epollFd, ClientConnection *client) {
 // TRIE IMPLEMENTATION (Core functions from trie_interactive.c)
 // ============================================================================
 
+// Secure string copy with bounds checking
+static void secureStrCopy(char *dst, size_t dstSize, const char *src) {
+    if (!dst || !src || dstSize == 0) return;
+
+    size_t i;
+    for (i = 0; i < dstSize - 1 && src[i] != '\0'; i++) {
+        dst[i] = src[i];
+    }
+    dst[i] = '\0';
+}
+
+// Validate pattern string (alphanumeric, dots, wildcards only)
+static bool validatePattern(const char *pattern) {
+    if (!pattern || strlen(pattern) == 0 || strlen(pattern) >= MAX_PATTERN_LENGTH) {
+        return false;
+    }
+
+    for (size_t i = 0; pattern[i] != '\0'; i++) {
+        char c = pattern[i];
+        if (!isalnum(c) && c != '.' && c != '*' && c != '#' && c != '_' && c != '-') {
+            return false;
+        }
+    }
+
+    return true;
+}
+
+// Validate subscriber ID (non-zero, reasonable range)
+static bool validateSubscriberId(uint32_t id) {
+    return id > 0 && id < 0xFFFFFF; // Max 16 million subscribers
+}
+
+// Validate subscriber name
+static bool validateSubscriberName(const char *name) {
+    if (!name || strlen(name) == 0 || strlen(name) >= MAX_SUBSCRIBER_NAME) {
+        return false;
+    }
+
+    for (size_t i = 0; name[i] != '\0'; i++) {
+        if (!isalnum(name[i]) && name[i] != '_' && name[i] != '-') {
+            return false;
+        }
+    }
+
+    return true;
+}
+
+// ============================================================================
+// SUBSCRIBER LIST OPERATIONS
+// ============================================================================
+
+static void subscriberListInit(SubscriberList *list) {
+    list->count = 0;
+}
+
+static bool subscriberListAdd(SubscriberList *list, uint32_t id, const char *name) {
+    if (list->count >= MAX_SUBSCRIBERS) {
+        return false;
+    }
+
+    // Check for duplicates
+    for (size_t i = 0; i < list->count; i++) {
+        if (list->subscribers[i].id == id) {
+            return false; // Already exists
+        }
+    }
+
+    list->subscribers[list->count].id = id;
+    secureStrCopy(list->subscribers[list->count].name, MAX_SUBSCRIBER_NAME, name);
+    list->count++;
+    return true;
+}
+
+static bool subscriberListRemove(SubscriberList *list, uint32_t id) {
+    for (size_t i = 0; i < list->count; i++) {
+        if (list->subscribers[i].id == id) {
+            // Shift remaining elements
+            for (size_t j = i; j < list->count - 1; j++) {
+                list->subscribers[j] = list->subscribers[j + 1];
+            }
+            list->count--;
+            return true;
+        }
+    }
+    return false;
+}
+
+static bool subscriberListContains(const SubscriberList *list, uint32_t id) {
+    for (size_t i = 0; i < list->count; i++) {
+        if (list->subscribers[i].id == id) {
+            return true;
+        }
+    }
+    return false;
+}
+
+// ============================================================================
+// PATTERN PARSING
+// ============================================================================
+
+typedef struct {
+    char segments[MAX_SEGMENTS][MAX_SEGMENT_LENGTH];
+    SegmentType types[MAX_SEGMENTS];
+    size_t count;
+} ParsedPattern;
+
+static bool parsePattern(const char *pattern, ParsedPattern *parsed) {
+    if (!pattern || !parsed) return false;
+
+    parsed->count = 0;
+    const char *start = pattern;
+    const char *end = pattern;
+
+    while (*end != '\0' && parsed->count < MAX_SEGMENTS) {
+        if (*end == '.') {
+            size_t len = end - start;
+            if (len == 0 || len >= MAX_SEGMENT_LENGTH) {
+                return false;
+            }
+
+            if (len == 1 && *start == '*') {
+                parsed->types[parsed->count] = SEGMENT_STAR;
+                parsed->segments[parsed->count][0] = '*';
+                parsed->segments[parsed->count][1] = '\0';
+            } else if (len == 1 && *start == '#') {
+                parsed->types[parsed->count] = SEGMENT_HASH;
+                parsed->segments[parsed->count][0] = '#';
+                parsed->segments[parsed->count][1] = '\0';
+            } else {
+                parsed->types[parsed->count] = SEGMENT_LITERAL;
+                memcpy(parsed->segments[parsed->count], start, len);
+                parsed->segments[parsed->count][len] = '\0';
+            }
+
+            parsed->count++;
+            start = end + 1;
+        }
+        end++;
+    }
+
+    // Handle last segment
+    if (start != end && parsed->count < MAX_SEGMENTS) {
+        size_t len = end - start;
+        if (len >= MAX_SEGMENT_LENGTH) {
+            return false;
+        }
+
+        if (len == 1 && *start == '*') {
+            parsed->types[parsed->count] = SEGMENT_STAR;
+            parsed->segments[parsed->count][0] = '*';
+            parsed->segments[parsed->count][1] = '\0';
+        } else if (len == 1 && *start == '#') {
+            parsed->types[parsed->count] = SEGMENT_HASH;
+            parsed->segments[parsed->count][0] = '#';
+            parsed->segments[parsed->count][1] = '\0';
+        } else {
+            parsed->types[parsed->count] = SEGMENT_LITERAL;
+            memcpy(parsed->segments[parsed->count], start, len);
+            parsed->segments[parsed->count][len] = '\0';
+        }
+
+        parsed->count++;
+    }
+
+    return parsed->count > 0;
+}
+
+// ============================================================================
+// TRIE NODE OPERATIONS
+// ============================================================================
+
 static TrieNode *trieNodeCreate(const char *segment, SegmentType type) {
     TrieNode *node = (TrieNode *)calloc(1, sizeof(TrieNode));
     if (!node) return NULL;
 
-    strncpy(node->segment, segment, MAX_SEGMENT_LENGTH - 1);
-    node->segment[MAX_SEGMENT_LENGTH - 1] = '\0';
+    secureStrCopy(node->segment, MAX_SEGMENT_LENGTH, segment);
     node->type = type;
     node->isTerminal = false;
-    node->subscribers.count = 0;
+    subscriberListInit(&node->subscribers);
     node->children = NULL;
     node->childCount = 0;
     node->childCapacity = 0;
@@ -302,6 +473,35 @@ static void trieNodeFree(TrieNode *node) {
     free(node);
 }
 
+static bool trieNodeAddChild(TrieNode *parent, TrieNode *child) {
+    if (!parent || !child) return false;
+
+    if (parent->childCount >= parent->childCapacity) {
+        size_t newCapacity = parent->childCapacity == 0 ? 4 : parent->childCapacity * 2;
+        TrieNode **newChildren = (TrieNode **)realloc(parent->children, newCapacity * sizeof(TrieNode *));
+        if (!newChildren) return false;
+
+        parent->children = newChildren;
+        parent->childCapacity = newCapacity;
+    }
+
+    parent->children[parent->childCount++] = child;
+    return true;
+}
+
+static TrieNode *trieNodeFindChild(TrieNode *parent, const char *segment, SegmentType type) {
+    if (!parent) return NULL;
+
+    for (size_t i = 0; i < parent->childCount; i++) {
+        TrieNode *child = parent->children[i];
+        if (child->type == type && strcmp(child->segment, segment) == 0) {
+            return child;
+        }
+    }
+
+    return NULL;
+}
+
 void trieInit(PatternTrie *trie) {
     trie->root = trieNodeCreate("", SEGMENT_LITERAL);
     trie->patternCount = 0;
@@ -316,48 +516,311 @@ void trieFree(PatternTrie *trie) {
     }
 }
 
-// Simplified trie operations - full implementation would include all from trie_interactive.c
-// For now, stub implementations to get the server structure working
+// ============================================================================
+// TRIE OPERATIONS - Full implementations
+// ============================================================================
+
+static TrieNode *trieFindNode(TrieNode *root, const ParsedPattern *parsed) {
+    if (!root || !parsed) return NULL;
+
+    TrieNode *current = root;
+
+    for (size_t i = 0; i < parsed->count; i++) {
+        TrieNode *child = trieNodeFindChild(current, parsed->segments[i], parsed->types[i]);
+        if (!child) {
+            return NULL;
+        }
+        current = child;
+    }
+
+    return current;
+}
 
 bool trieInsert(PatternTrie *trie, const char *pattern, uint32_t subscriberId, const char *subscriberName) {
-    // TODO: Full implementation
+    if (!trie || !validatePattern(pattern) || !validateSubscriberId(subscriberId) || !validateSubscriberName(subscriberName)) {
+        return false;
+    }
+
+    ParsedPattern parsed;
+    if (!parsePattern(pattern, &parsed)) {
+        return false;
+    }
+
+    TrieNode *current = trie->root;
+
+    for (size_t i = 0; i < parsed.count; i++) {
+        TrieNode *child = trieNodeFindChild(current, parsed.segments[i], parsed.types[i]);
+
+        if (!child) {
+            child = trieNodeCreate(parsed.segments[i], parsed.types[i]);
+            if (!child) return false;
+
+            if (!trieNodeAddChild(current, child)) {
+                trieNodeFree(child);
+                return false;
+            }
+
+            trie->nodeCount++;
+        }
+
+        current = child;
+    }
+
+    bool isNewPattern = !current->isTerminal;
+    bool isNewSubscriber = !subscriberListContains(&current->subscribers, subscriberId);
+
+    if (!subscriberListAdd(&current->subscribers, subscriberId, subscriberName)) {
+        return false;
+    }
+
+    current->isTerminal = true;
+
+    if (isNewPattern) {
+        trie->patternCount++;
+    }
+    if (isNewSubscriber) {
+        trie->subscriberCount++;
+    }
+
     return true;
 }
 
 bool trieRemovePattern(PatternTrie *trie, const char *pattern) {
-    // TODO: Full implementation
+    if (!trie || !validatePattern(pattern)) {
+        return false;
+    }
+
+    ParsedPattern parsed;
+    if (!parsePattern(pattern, &parsed)) {
+        return false;
+    }
+
+    // Find the node
+    TrieNode *node = trieFindNode(trie->root, &parsed);
+    if (!node || !node->isTerminal) {
+        return false; // Pattern doesn't exist
+    }
+
+    // Remove all subscribers and mark as non-terminal
+    size_t removedSubscribers = node->subscribers.count;
+    node->subscribers.count = 0;
+    node->isTerminal = false;
+
+    trie->patternCount--;
+    trie->subscriberCount -= removedSubscribers;
+
+    // TODO: Could implement node pruning here if node has no children
+    // For now, we keep the structure (lazy deletion)
+
     return true;
 }
 
 bool trieRemoveSubscriber(PatternTrie *trie, const char *pattern, uint32_t subscriberId) {
-    // TODO: Full implementation
+    if (!trie || !validatePattern(pattern) || !validateSubscriberId(subscriberId)) {
+        return false;
+    }
+
+    ParsedPattern parsed;
+    if (!parsePattern(pattern, &parsed)) {
+        return false;
+    }
+
+    TrieNode *node = trieFindNode(trie->root, &parsed);
+    if (!node || !node->isTerminal) {
+        return false;
+    }
+
+    if (!subscriberListRemove(&node->subscribers, subscriberId)) {
+        return false;
+    }
+
+    trie->subscriberCount--;
+
+    // If no more subscribers, mark as non-terminal
+    if (node->subscribers.count == 0) {
+        node->isTerminal = false;
+        trie->patternCount--;
+    }
+
     return true;
 }
 
-void trieMatch(PatternTrie *trie, const char *input, MatchResult *result) {
-    // TODO: Full implementation
+// ============================================================================
+// PATTERN MATCHING
+// ============================================================================
+
+static void matchResultInit(MatchResult *result) {
     result->count = 0;
 }
 
-void trieListPatterns(const PatternTrie *trie, char patterns[][MAX_PATTERN_LENGTH], size_t *count, size_t maxCount) {
-    // TODO: Full implementation
-    *count = 0;
+static void matchResultAdd(MatchResult *result, const SubscriberList *subscribers) {
+    for (size_t i = 0; i < subscribers->count && result->count < MAX_SUBSCRIBERS; i++) {
+        // Check for duplicates
+        bool exists = false;
+        for (size_t j = 0; j < result->count; j++) {
+            if (result->subscriberIds[j] == subscribers->subscribers[i].id) {
+                exists = true;
+                break;
+            }
+        }
+
+        if (!exists) {
+            result->subscriberIds[result->count] = subscribers->subscribers[i].id;
+            secureStrCopy(result->subscriberNames[result->count], MAX_SUBSCRIBER_NAME,
+                         subscribers->subscribers[i].name);
+            result->count++;
+        }
+    }
 }
 
-void trieStats(const PatternTrie *trie, size_t *totalNodes, size_t *terminalNodes, size_t *wildcardNodes, size_t *maxDepth) {
-    *totalNodes = trie->nodeCount;
+static void trieMatchRecursive(TrieNode *node, const char **segments, size_t segmentCount,
+                               size_t currentSegment, MatchResult *result) {
+    if (currentSegment >= segmentCount) {
+        if (node->isTerminal) {
+            matchResultAdd(result, &node->subscribers);
+        }
+
+        // Check for # wildcards that can match zero segments
+        for (size_t i = 0; i < node->childCount; i++) {
+            TrieNode *child = node->children[i];
+            if (child->type == SEGMENT_HASH) {
+                trieMatchRecursive(child, segments, segmentCount, currentSegment, result);
+            }
+        }
+        return;
+    }
+
+    const char *segment = segments[currentSegment];
+
+    for (size_t i = 0; i < node->childCount; i++) {
+        TrieNode *child = node->children[i];
+
+        if (child->type == SEGMENT_LITERAL) {
+            if (strcmp(child->segment, segment) == 0) {
+                trieMatchRecursive(child, segments, segmentCount, currentSegment + 1, result);
+            }
+        } else if (child->type == SEGMENT_STAR) {
+            trieMatchRecursive(child, segments, segmentCount, currentSegment + 1, result);
+        } else if (child->type == SEGMENT_HASH) {
+            // Try matching 0 segments
+            trieMatchRecursive(child, segments, segmentCount, currentSegment, result);
+            // Try matching 1+ segments
+            for (size_t j = currentSegment; j < segmentCount; j++) {
+                trieMatchRecursive(child, segments, segmentCount, j + 1, result);
+            }
+        }
+    }
+}
+
+void trieMatch(PatternTrie *trie, const char *input, MatchResult *result) {
+    if (!trie || !input || !result) return;
+
+    matchResultInit(result);
+
+    ParsedPattern parsed;
+    if (!parsePattern(input, &parsed)) {
+        return;
+    }
+
+    const char *segments[MAX_SEGMENTS];
+    for (size_t i = 0; i < parsed.count; i++) {
+        segments[i] = parsed.segments[i];
+    }
+
+    trieMatchRecursive(trie->root, segments, parsed.count, 0, result);
+}
+
+// ============================================================================
+// LISTING AND STATISTICS
+// ============================================================================
+
+static void trieListPatternsRecursive(TrieNode *node, char *currentPath, size_t pathLen,
+                                     char patterns[][MAX_PATTERN_LENGTH], size_t *count, size_t maxCount) {
+    if (!node || *count >= maxCount) return;
+
+    if (node->isTerminal) {
+        secureStrCopy(patterns[*count], MAX_PATTERN_LENGTH, currentPath);
+        (*count)++;
+    }
+
+    for (size_t i = 0; i < node->childCount && *count < maxCount; i++) {
+        TrieNode *child = node->children[i];
+
+        size_t newLen = pathLen;
+        if (pathLen > 0) {
+            if (newLen + 1 < MAX_PATTERN_LENGTH) {
+                currentPath[newLen++] = '.';
+            }
+        }
+
+        size_t segLen = strlen(child->segment);
+        if (newLen + segLen < MAX_PATTERN_LENGTH) {
+            memcpy(currentPath + newLen, child->segment, segLen);
+            currentPath[newLen + segLen] = '\0';
+
+            trieListPatternsRecursive(child, currentPath, newLen + segLen, patterns, count, maxCount);
+            currentPath[pathLen] = '\0'; // Restore path
+        }
+    }
+}
+
+void trieListPatterns(const PatternTrie *trie, char patterns[][MAX_PATTERN_LENGTH], size_t *count, size_t maxCount) {
+    if (!trie || !patterns || !count) return;
+
+    *count = 0;
+    char currentPath[MAX_PATTERN_LENGTH] = "";
+
+    trieListPatternsRecursive(trie->root, currentPath, 0, patterns, count, maxCount);
+}
+
+void trieStats(const PatternTrie *trie, size_t *totalNodes, size_t *terminalNodes,
+               size_t *wildcardNodes, size_t *maxDepth) {
+    if (!trie) return;
+
+    *totalNodes = 0;
     *terminalNodes = 0;
     *wildcardNodes = 0;
     *maxDepth = 0;
+
+    TrieNode *queue[4096];
+    size_t depths[4096];
+    size_t front = 0, back = 0;
+
+    queue[back] = trie->root;
+    depths[back] = 0;
+    back++;
+
+    while (front < back) {
+        TrieNode *node = queue[front];
+        size_t depth = depths[front];
+        front++;
+
+        (*totalNodes)++;
+        if (node->isTerminal) (*terminalNodes)++;
+        if (node->type != SEGMENT_LITERAL) (*wildcardNodes)++;
+        if (depth > *maxDepth) *maxDepth = depth;
+
+        for (size_t i = 0; i < node->childCount && back < 4096; i++) {
+            queue[back] = node->children[i];
+            depths[back] = depth + 1;
+            back++;
+        }
+    }
 }
 
 bool trieSave(const PatternTrie *trie, const char *filename) {
     // TODO: Full implementation from trie_interactive.c
+    // For now, just return success
+    (void)trie;
+    (void)filename;
     return true;
 }
 
 bool trieLoad(PatternTrie *trie, const char *filename) {
     // TODO: Full implementation from trie_interactive.c
+    // For now, just return success
+    (void)trie;
+    (void)filename;
     return true;
 }
 
@@ -785,6 +1248,199 @@ bool processCommand(TrieServer *server, ClientConnection *client, const uint8_t 
         case CMD_PING: {
             // PING - just respond OK
             sendResponse(server->epollFd, client, STATUS_OK, NULL, 0);
+            break;
+        }
+
+        case CMD_ADD: {
+            // ADD <pattern_len:varint><pattern:bytes><subscriber_id:varint><subscriber_name_len:varint><subscriber_name:bytes>
+            uint64_t patternLen;
+            varintTaggedGet64(data + offset, &patternLen);
+            offset += varintTaggedGetLen(data + offset);
+
+            if (offset + patternLen > length) {
+                sendResponse(server->epollFd, client, STATUS_ERROR, NULL, 0);
+                server->totalErrors++;
+                return false;
+            }
+
+            char pattern[MAX_PATTERN_LENGTH];
+            secureStrCopy(pattern, MAX_PATTERN_LENGTH, (const char *)(data + offset));
+            offset += patternLen;
+
+            uint64_t subscriberId;
+            varintTaggedGet64(data + offset, &subscriberId);
+            offset += varintTaggedGetLen(data + offset);
+
+            uint64_t subscriberNameLen;
+            varintTaggedGet64(data + offset, &subscriberNameLen);
+            offset += varintTaggedGetLen(data + offset);
+
+            if (offset + subscriberNameLen > length) {
+                sendResponse(server->epollFd, client, STATUS_ERROR, NULL, 0);
+                server->totalErrors++;
+                return false;
+            }
+
+            char subscriberName[MAX_SUBSCRIBER_NAME];
+            secureStrCopy(subscriberName, MAX_SUBSCRIBER_NAME, (const char *)(data + offset));
+
+            if (trieInsert(&server->trie, pattern, (uint32_t)subscriberId, subscriberName)) {
+                sendResponse(server->epollFd, client, STATUS_OK, NULL, 0);
+            } else {
+                sendResponse(server->epollFd, client, STATUS_ERROR, NULL, 0);
+                server->totalErrors++;
+            }
+            break;
+        }
+
+        case CMD_REMOVE: {
+            // REMOVE <pattern_len:varint><pattern:bytes>
+            uint64_t patternLen;
+            varintTaggedGet64(data + offset, &patternLen);
+            offset += varintTaggedGetLen(data + offset);
+
+            if (offset + patternLen > length) {
+                sendResponse(server->epollFd, client, STATUS_ERROR, NULL, 0);
+                server->totalErrors++;
+                return false;
+            }
+
+            char pattern[MAX_PATTERN_LENGTH];
+            secureStrCopy(pattern, MAX_PATTERN_LENGTH, (const char *)(data + offset));
+
+            if (trieRemovePattern(&server->trie, pattern)) {
+                sendResponse(server->epollFd, client, STATUS_OK, NULL, 0);
+            } else {
+                sendResponse(server->epollFd, client, STATUS_ERROR, NULL, 0);
+                server->totalErrors++;
+            }
+            break;
+        }
+
+        case CMD_SUBSCRIBE: {
+            // SUBSCRIBE <pattern_len:varint><pattern:bytes><subscriber_id:varint><subscriber_name_len:varint><subscriber_name:bytes>
+            uint64_t patternLen;
+            varintTaggedGet64(data + offset, &patternLen);
+            offset += varintTaggedGetLen(data + offset);
+
+            if (offset + patternLen > length) {
+                sendResponse(server->epollFd, client, STATUS_ERROR, NULL, 0);
+                server->totalErrors++;
+                return false;
+            }
+
+            char pattern[MAX_PATTERN_LENGTH];
+            secureStrCopy(pattern, MAX_PATTERN_LENGTH, (const char *)(data + offset));
+            offset += patternLen;
+
+            uint64_t subscriberId;
+            varintTaggedGet64(data + offset, &subscriberId);
+            offset += varintTaggedGetLen(data + offset);
+
+            uint64_t subscriberNameLen;
+            varintTaggedGet64(data + offset, &subscriberNameLen);
+            offset += varintTaggedGetLen(data + offset);
+
+            if (offset + subscriberNameLen > length) {
+                sendResponse(server->epollFd, client, STATUS_ERROR, NULL, 0);
+                server->totalErrors++;
+                return false;
+            }
+
+            char subscriberName[MAX_SUBSCRIBER_NAME];
+            secureStrCopy(subscriberName, MAX_SUBSCRIBER_NAME, (const char *)(data + offset));
+
+            // CMD_SUBSCRIBE is the same as CMD_ADD - both insert pattern with subscriber
+            if (trieInsert(&server->trie, pattern, (uint32_t)subscriberId, subscriberName)) {
+                sendResponse(server->epollFd, client, STATUS_OK, NULL, 0);
+            } else {
+                sendResponse(server->epollFd, client, STATUS_ERROR, NULL, 0);
+                server->totalErrors++;
+            }
+            break;
+        }
+
+        case CMD_UNSUBSCRIBE: {
+            // UNSUBSCRIBE <pattern_len:varint><pattern:bytes><subscriber_id:varint>
+            uint64_t patternLen;
+            varintTaggedGet64(data + offset, &patternLen);
+            offset += varintTaggedGetLen(data + offset);
+
+            if (offset + patternLen > length) {
+                sendResponse(server->epollFd, client, STATUS_ERROR, NULL, 0);
+                server->totalErrors++;
+                return false;
+            }
+
+            char pattern[MAX_PATTERN_LENGTH];
+            secureStrCopy(pattern, MAX_PATTERN_LENGTH, (const char *)(data + offset));
+            offset += patternLen;
+
+            uint64_t subscriberId;
+            varintTaggedGet64(data + offset, &subscriberId);
+
+            if (trieRemoveSubscriber(&server->trie, pattern, (uint32_t)subscriberId)) {
+                sendResponse(server->epollFd, client, STATUS_OK, NULL, 0);
+            } else {
+                sendResponse(server->epollFd, client, STATUS_ERROR, NULL, 0);
+                server->totalErrors++;
+            }
+            break;
+        }
+
+        case CMD_MATCH: {
+            // MATCH <input_len:varint><input:bytes>
+            // Response: <count:varint>[<subscriber_id:varint><subscriber_name_len:varint><subscriber_name:bytes>]*
+            uint64_t inputLen;
+            varintTaggedGet64(data + offset, &inputLen);
+            offset += varintTaggedGetLen(data + offset);
+
+            if (offset + inputLen > length) {
+                sendResponse(server->epollFd, client, STATUS_ERROR, NULL, 0);
+                server->totalErrors++;
+                return false;
+            }
+
+            char input[MAX_PATTERN_LENGTH];
+            secureStrCopy(input, MAX_PATTERN_LENGTH, (const char *)(data + offset));
+
+            MatchResult result;
+            trieMatch(&server->trie, input, &result);
+
+            // Build response
+            size_t pos = 0;
+            pos += varintTaggedPut64(responseBuf + pos, result.count);
+
+            for (size_t i = 0; i < result.count; i++) {
+                pos += varintTaggedPut64(responseBuf + pos, result.subscriberIds[i]);
+                size_t nameLen = strlen(result.subscriberNames[i]);
+                pos += varintTaggedPut64(responseBuf + pos, nameLen);
+                memcpy(responseBuf + pos, result.subscriberNames[i], nameLen);
+                pos += nameLen;
+            }
+
+            sendResponse(server->epollFd, client, STATUS_OK, responseBuf, pos);
+            break;
+        }
+
+        case CMD_LIST: {
+            // LIST - return all patterns
+            // Response: <count:varint>[<pattern_len:varint><pattern:bytes>]*
+            char patterns[MAX_SUBSCRIBERS][MAX_PATTERN_LENGTH];
+            size_t count;
+            trieListPatterns(&server->trie, patterns, &count, MAX_SUBSCRIBERS);
+
+            size_t pos = 0;
+            pos += varintTaggedPut64(responseBuf + pos, count);
+
+            for (size_t i = 0; i < count; i++) {
+                size_t patternLen = strlen(patterns[i]);
+                pos += varintTaggedPut64(responseBuf + pos, patternLen);
+                memcpy(responseBuf + pos, patterns[i], patternLen);
+                pos += patternLen;
+            }
+
+            sendResponse(server->epollFd, client, STATUS_OK, responseBuf, pos);
             break;
         }
 
