@@ -40,11 +40,6 @@ typedef struct {
 } TrieClient;
 
 bool clientConnect(TrieClient *client, const char *host, uint16_t port) {
-    // Initialize all fields FIRST
-    client->port = port;
-    client->connected = false;
-    client->host = NULL;  // Set to NULL initially - allocate only on success
-
     client->sockfd = socket(AF_INET, SOCK_STREAM, 0);
     if (client->sockfd < 0) {
         perror("socket");
@@ -68,45 +63,27 @@ bool clientConnect(TrieClient *client, const char *host, uint16_t port) {
         return false;
     }
 
-    // Connection succeeded - NOW allocate host string
-    // Use manual allocation instead of strdup to avoid potential 32/64-bit issues
-    size_t hostLen = strlen(host);
-    char *hostCopy = (char *)malloc(hostLen + 1);
-    fprintf(stderr, "DEBUG: malloc(%zu) returned %p (0x%lx) for host\n", hostLen + 1, (void*)hostCopy, (unsigned long)(uintptr_t)hostCopy);
-    if (!hostCopy) {
+    client->host = strdup(host);
+    if (!client->host) {
         close(client->sockfd);
         return false;
     }
-    memcpy(hostCopy, host, hostLen + 1);
 
-    client->host = hostCopy;
-    fprintf(stderr, "DEBUG: After assignment, client->host = %p (0x%lx)\n", (void*)client->host, (unsigned long)(uintptr_t)client->host);
-
+    client->port = port;
     client->connected = true;
     printf("Connected to %s:%d\n", host, port);
-    fprintf(stderr, "DEBUG: Returning from clientConnect, client->host = %p\n", (void*)client->host);
     return true;
 }
 
 void clientClose(TrieClient *client) {
-    fprintf(stderr, "DEBUG: clientClose() entry, client=%p\n", (void*)client);
-    fprintf(stderr, "DEBUG: client->sockfd=%d, host=%p, port=%u, connected=%d\n",
-            client->sockfd, (void*)client->host, client->port, client->connected);
     if (client->connected) {
-        fprintf(stderr, "DEBUG: BEFORE close: client->host=%p\n", (void*)client->host);
         close(client->sockfd);
-        fprintf(stderr, "DEBUG: AFTER close: client->host=%p\n", (void*)client->host);
         client->connected = false;
-        fprintf(stderr, "DEBUG: AFTER connected=false: client->host=%p\n", (void*)client->host);
     }
-    fprintf(stderr, "DEBUG: About to check host pointer, client->host=%p\n", (void*)client->host);
     if (client->host) {
-        fprintf(stderr, "DEBUG: About to free host string at %p\n", (void*)client->host);
         free(client->host);
-        fprintf(stderr, "DEBUG: free(host) completed\n");
         client->host = NULL;
     }
-    fprintf(stderr, "DEBUG: clientClose() exit\n");
 }
 
 bool sendCommand(TrieClient *client, CommandType cmd, const uint8_t *payload, size_t payloadLen) {
@@ -115,8 +92,15 @@ bool sendCommand(TrieClient *client, CommandType cmd, const uint8_t *payload, si
         return false;
     }
 
+    // Allocate buffer on heap to avoid stack overflow
+    const size_t bufferSize = 4096;
+    uint8_t *buffer = (uint8_t *)malloc(bufferSize);
+    if (!buffer) {
+        fprintf(stderr, "Failed to allocate send buffer\n");
+        return false;
+    }
+
     // Build message: [Length:varint][CommandID:1byte][Payload]
-    uint8_t buffer[4096];
     size_t offset = 0;
 
     // Reserve space for length
@@ -144,6 +128,8 @@ bool sendCommand(TrieClient *client, CommandType cmd, const uint8_t *payload, si
 
     // Send
     ssize_t sent = write(client->sockfd, buffer, totalSize);
+    free(buffer);
+
     if (sent != (ssize_t)totalSize) {
         perror("write");
         return false;
@@ -217,49 +203,33 @@ bool receiveResponse(TrieClient *client, StatusCode *status, uint8_t *data, size
 }
 
 bool cmdPing(TrieClient *client) {
-    fprintf(stderr, "DEBUG: cmdPing() entry, client=%p\n", (void*)client);
     printf("Sending PING...\n");
 
-    fprintf(stderr, "DEBUG: About to sendCommand\n");
     if (!sendCommand(client, CMD_PING, NULL, 0)) {
-        fprintf(stderr, "DEBUG: sendCommand failed\n");
         return false;
     }
-    fprintf(stderr, "DEBUG: sendCommand succeeded\n");
 
     StatusCode status;
-    fprintf(stderr, "DEBUG: About to malloc %d bytes\n", MAX_RESPONSE_SIZE);
     uint8_t *data = (uint8_t *)malloc(MAX_RESPONSE_SIZE);
     if (!data) {
         fprintf(stderr, "Failed to allocate response buffer\n");
         return false;
     }
-    fprintf(stderr, "DEBUG: malloc succeeded, data=%p\n", (void*)data);
     size_t dataLen;
 
-    fprintf(stderr, "DEBUG: About to receiveResponse\n");
     if (!receiveResponse(client, &status, data, &dataLen, MAX_RESPONSE_SIZE)) {
         fprintf(stderr, "Failed to receive response\n");
-        fprintf(stderr, "DEBUG: About to free data after receive failure\n");
         free(data);
-        fprintf(stderr, "DEBUG: free completed after receive failure\n");
         return false;
     }
-    fprintf(stderr, "DEBUG: receiveResponse succeeded, status=%d, dataLen=%zu\n", status, dataLen);
 
-    fprintf(stderr, "DEBUG: About to free data after receive success\n");
     free(data);
-    fprintf(stderr, "DEBUG: free completed after receive success\n");
 
     if (status == STATUS_OK) {
-        fprintf(stderr, "DEBUG: status is OK, about to print PONG\n");
         printf("PONG (OK)\n");
-        fprintf(stderr, "DEBUG: cmdPing() returning true\n");
         return true;
     } else {
-        fprintf(stderr, "DEBUG: status is error, about to print error\n");
         printf("Error: status = 0x%02X\n", status);
-        fprintf(stderr, "DEBUG: cmdPing() returning false\n");
         return false;
     }
 }
@@ -341,47 +311,23 @@ int main(int argc, char *argv[]) {
     const char *host = argc > 2 ? argv[2] : "127.0.0.1";
     uint16_t port = argc > 3 ? atoi(argv[3]) : 9999;
 
-    fprintf(stderr, "DEBUG: About to allocate client struct on heap\n");
-    TrieClient *client = (TrieClient *)calloc(1, sizeof(TrieClient));  // Allocate on heap to avoid stack corruption
-    if (!client) {
-        fprintf(stderr, "Failed to allocate client\n");
-        return 1;
-    }
-    fprintf(stderr, "DEBUG: client struct allocated, client=%p\n", (void*)client);
+    TrieClient client = {0};
 
-    fprintf(stderr, "DEBUG: About to connect to %s:%d\n", host, port);
-    if (!clientConnect(client, host, port)) {
+    if (!clientConnect(&client, host, port)) {
         fprintf(stderr, "Failed to connect to server\n");
-        free(client);
         return 1;
     }
-    fprintf(stderr, "DEBUG: Connected successfully\n");
-    fprintf(stderr, "DEBUG: AFTER connect: client.sockfd=%d, host=%p, port=%u, connected=%d\n",
-            client->sockfd, (void*)client->host, client->port, client->connected);
 
     bool success = false;
 
-    fprintf(stderr, "DEBUG: About to execute command: %s\n", command);
     if (strcmp(command, "ping") == 0) {
-        fprintf(stderr, "DEBUG: Calling cmdPing()\n");
-        success = cmdPing(client);
-        fprintf(stderr, "DEBUG: cmdPing() returned %d\n", success);
-        fprintf(stderr, "DEBUG: AFTER cmdPing: client.sockfd=%d, host=%p, port=%u, connected=%d\n",
-                client->sockfd, (void*)client->host, client->port, client->connected);
+        success = cmdPing(&client);
     } else if (strcmp(command, "stats") == 0) {
-        fprintf(stderr, "DEBUG: Calling cmdStats()\n");
-        success = cmdStats(client);
-        fprintf(stderr, "DEBUG: cmdStats() returned %d\n", success);
-        fprintf(stderr, "DEBUG: AFTER cmdStats: client.sockfd=%d, host=%p, port=%u, connected=%d\n",
-                client->sockfd, (void*)client->host, client->port, client->connected);
+        success = cmdStats(&client);
     } else {
         fprintf(stderr, "Unknown command: %s\n", command);
     }
 
-    fprintf(stderr, "DEBUG: About to call clientClose()\n");
-    clientClose(client);
-    fprintf(stderr, "DEBUG: clientClose() returned\n");
-    free(client);
-    fprintf(stderr, "DEBUG: About to return from main() with code %d\n", success ? 0 : 1);
+    clientClose(&client);
     return success ? 0 : 1;
 }
