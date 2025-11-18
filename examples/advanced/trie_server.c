@@ -74,6 +74,14 @@
 #define AUTO_SAVE_THRESHOLD 1000  // commands
 #define CLIENT_TIMEOUT 300  // seconds (5 minutes idle)
 
+// Debug logging (comment out for production)
+// #define ENABLE_DEBUG_LOGGING
+#ifdef ENABLE_DEBUG_LOGGING
+    #define DEBUG_LOG(...) fprintf(stderr, "DEBUG: " __VA_ARGS__)
+#else
+    #define DEBUG_LOG(...) ((void)0)
+#endif
+
 // ============================================================================
 // TRIE DATA STRUCTURES (from trie_interactive.c)
 // ============================================================================
@@ -1201,7 +1209,7 @@ void serverRun(TrieServer *server) {
     signal(SIGTERM, signalHandler);
 
     fprintf(stderr, "Server ready. Press Ctrl+C to stop.\n");
-    fprintf(stderr, "DEBUG: Entering event loop with epollFd=%d, listenFd=%d\n", server->epollFd, server->listenFd);
+    DEBUG_LOG("Entering event loop with epollFd=%d, listenFd=%d\n", server->epollFd, server->listenFd);
 
     #define MAX_EVENTS 64
     struct epoll_event events[MAX_EVENTS];
@@ -1212,7 +1220,7 @@ void serverRun(TrieServer *server) {
         int nfds = epoll_wait(server->epollFd, events, MAX_EVENTS, 1000);
 
         if (loopCount < 5 || nfds > 0) {
-            fprintf(stderr, "DEBUG: epoll_wait iteration %d returned nfds=%d\n", loopCount, nfds);
+            DEBUG_LOG("epoll_wait iteration %d returned nfds=%d\n", loopCount, nfds);
         }
         loopCount++;
 
@@ -1223,17 +1231,17 @@ void serverRun(TrieServer *server) {
         }
 
         if (nfds > 0) {
-            fprintf(stderr, "DEBUG: epoll_wait returned %d events\n", nfds);
+            DEBUG_LOG("epoll_wait returned %d events\n", nfds);
         }
 
         // Process all events
         for (int n = 0; n < nfds; n++) {
             int fd = events[n].data.fd;
-            fprintf(stderr, "DEBUG: Event on fd=%d (events=0x%x)\n", fd, events[n].events);
+            DEBUG_LOG("Event on fd=%d (events=0x%x)\n", fd, events[n].events);
 
             // New connection on listen socket
             if (fd == server->listenFd) {
-                printf("DEBUG: New connection attempt on listen socket\n");
+                DEBUG_LOG("New connection attempt on listen socket\n");
                 struct sockaddr_in clientAddr;
                 socklen_t addrLen = sizeof(clientAddr);
                 int clientFd = accept(server->listenFd, (struct sockaddr *)&clientAddr, &addrLen);
@@ -1302,18 +1310,18 @@ void serverRun(TrieServer *server) {
 
             // Handle write events
             if (events[n].events & EPOLLOUT) {
-                fprintf(stderr, "DEBUG: EPOLLOUT event on fd=%d, state=%d\n", fd, client->state);
+                DEBUG_LOG("EPOLLOUT event on fd=%d, state=%d\n", fd, client->state);
             }
             if (events[n].events & EPOLLOUT && client->state == CONN_WRITING_RESPONSE) {
-                fprintf(stderr, "DEBUG: Writing response, writeOffset=%zu, writeLength=%zu\n",
+                DEBUG_LOG("Writing response, writeOffset=%zu, writeLength=%zu\n",
                         client->writeOffset, client->writeLength);
                 ssize_t sent = write(client->fd,
                                     client->writeBuffer + client->writeOffset,
                                     client->writeLength - client->writeOffset);
-                fprintf(stderr, "DEBUG: write() returned %zd (errno=%d)\n", sent, sent < 0 ? errno : 0);
+                DEBUG_LOG("write() returned %zd (errno=%d)\n", sent, sent < 0 ? errno : 0);
                 if (sent > 0) {
                     client->writeOffset += sent;
-                    fprintf(stderr, "DEBUG: Sent %zd bytes, writeOffset now %zu\n", sent, client->writeOffset);
+                    DEBUG_LOG("Sent %zd bytes, writeOffset now %zu\n", sent, client->writeOffset);
                     if (client->writeOffset >= client->writeLength) {
                         // Response fully sent, switch back to reading
                         client->state = CONN_READING_LENGTH;
@@ -1417,7 +1425,7 @@ void serverShutdown(TrieServer *server) {
 // ============================================================================
 
 void sendResponse(int epollFd, ClientConnection *client, StatusCode status, const uint8_t *data, size_t dataLen) {
-    fprintf(stderr, "DEBUG: sendResponse called - fd=%d status=0x%02X dataLen=%zu\n", client->fd, status, dataLen);
+    DEBUG_LOG("sendResponse called - fd=%d status=0x%02X dataLen=%zu\n", client->fd, status, dataLen);
     // Build response: [Length:varint][Status:1byte][Data]
     uint8_t tempBuf[MAX_MESSAGE_SIZE];
     size_t offset = 0;
@@ -1461,21 +1469,21 @@ void sendResponse(int epollFd, ClientConnection *client, StatusCode status, cons
     struct epoll_event ev;
     ev.events = EPOLLIN | EPOLLOUT | EPOLLET;
     ev.data.fd = client->fd;
-    fprintf(stderr, "DEBUG: Modifying epoll for fd=%d to EPOLLIN|EPOLLOUT|EPOLLET, writeLength=%zu\n",
+    DEBUG_LOG("Modifying epoll for fd=%d to EPOLLIN|EPOLLOUT|EPOLLET, writeLength=%zu\n",
             client->fd, client->writeLength);
     int ret = epoll_ctl(epollFd, EPOLL_CTL_MOD, client->fd, &ev);
-    fprintf(stderr, "DEBUG: epoll_ctl MOD returned %d (errno=%d)\n", ret, ret < 0 ? errno : 0);
+    DEBUG_LOG("epoll_ctl MOD returned %d (errno=%d)\n", ret, ret < 0 ? errno : 0);
 }
 
 bool processCommand(TrieServer *server, ClientConnection *client, const uint8_t *data, size_t length) {
-    fprintf(stderr, "DEBUG: processCommand called - length=%zu\n", length);
+    DEBUG_LOG("processCommand called - length=%zu\n", length);
     if (length == 0) {
         sendResponse(server->epollFd, client, STATUS_ERROR, NULL, 0);
         return false;
     }
 
     CommandType cmd = (CommandType)data[0];
-    fprintf(stderr, "DEBUG: Command ID: 0x%02X\n", cmd);
+    DEBUG_LOG("Command ID: 0x%02X\n", cmd);
     size_t offset = 1;
 
     // Check authentication
@@ -1844,38 +1852,40 @@ void handleClient(TrieServer *server, ClientConnection *client) {
                                  client->readBuffer + client->readOffset,
                                  READ_BUFFER_SIZE - client->readOffset);
 
-        fprintf(stderr, "DEBUG: handleClient fd=%d bytesRead=%zd errno=%d state=%d\n",
+        DEBUG_LOG("handleClient fd=%d bytesRead=%zd errno=%d state=%d\n",
                 client->fd, bytesRead, errno, client->state);
 
         if (bytesRead <= 0) {
             if (bytesRead < 0 && (errno == EAGAIN || errno == EWOULDBLOCK)) {
-                fprintf(stderr, "DEBUG: EAGAIN, returning\n");
+                DEBUG_LOG("EAGAIN, returning\n");
                 return;  // No more data available
             }
             // Connection closed or error
-            fprintf(stderr, "DEBUG: Connection closed or error, resetting client\n");
+            DEBUG_LOG("Connection closed or error, resetting client\n");
             resetClient(server->epollFd, client);
             return;
         }
 
-        fprintf(stderr, "DEBUG: Read %zd bytes, readOffset=%zu\n", bytesRead, client->readOffset);
+        DEBUG_LOG("Read %zd bytes, readOffset=%zu\n", bytesRead, client->readOffset);
+#ifdef ENABLE_DEBUG_LOGGING
         // Print hex dump of what we read
         fprintf(stderr, "DEBUG: Data (hex): ");
         for (ssize_t i = 0; i < bytesRead && i < 16; i++) {
             fprintf(stderr, "%02x ", client->readBuffer[client->readOffset + i]);
         }
         fprintf(stderr, "\n");
+#endif
 
         client->readOffset += bytesRead;
 
         // Parse message length if we're in that state
         if (client->state == CONN_READING_LENGTH) {
-            fprintf(stderr, "DEBUG: Trying to parse varint length from %zu bytes\n", client->readOffset);
+            DEBUG_LOG("Trying to parse varint length from %zu bytes\n", client->readOffset);
             // Try to read varint length
             if (client->readOffset > 0) {
                 uint64_t msgLen;
                 size_t varintLen = varintTaggedGet64(client->readBuffer, &msgLen);
-                fprintf(stderr, "DEBUG: varintTaggedGet64 returned %zu, msgLen=%lu\n", varintLen, msgLen);
+                DEBUG_LOG("varintTaggedGet64 returned %zu, msgLen=%lu\n", varintLen, msgLen);
                 if (varintLen == 0) {
                     // Not enough bytes yet for complete varint
                     if (client->readOffset >= 9) {
@@ -1915,9 +1925,9 @@ void handleClient(TrieServer *server, ClientConnection *client) {
 
                 // Reset for next message
                 // Only reset state if processCommand didn't change it (e.g., to CONN_WRITING_RESPONSE)
-                fprintf(stderr, "DEBUG: After processCommand, client state=%d\n", client->state);
+                DEBUG_LOG("After processCommand, client state=%d\n", client->state);
                 if (client->state == CONN_READING_MESSAGE) {
-                    fprintf(stderr, "DEBUG: State is still CONN_READING_MESSAGE, resetting to CONN_READING_LENGTH\n");
+                    DEBUG_LOG("State is still CONN_READING_MESSAGE, resetting to CONN_READING_LENGTH\n");
                     size_t extraBytes = client->messageBytesRead - client->messageLength;
                     if (extraBytes > 0) {
                         memmove(client->readBuffer,
@@ -1929,7 +1939,7 @@ void handleClient(TrieServer *server, ClientConnection *client) {
                     client->messageBytesRead = 0;
                     client->state = CONN_READING_LENGTH;
                 } else {
-                    fprintf(stderr, "DEBUG: State changed to %d, breaking out of loop\n", client->state);
+                    DEBUG_LOG("State changed to %d, breaking out of loop\n", client->state);
                 }
                 // If state changed to CONN_WRITING_RESPONSE, exit loop to let event loop handle it
                 break;
