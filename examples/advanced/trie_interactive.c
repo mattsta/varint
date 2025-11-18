@@ -1384,6 +1384,130 @@ static void testPersistence(void) {
     printf("  PASS\n");
 }
 
+static void testBinaryRoundtrip(void) {
+    printf("\n[TEST 8] Binary save/load roundtrip verification\n");
+
+    PatternTrie trie1, trie2, trie3;
+    trieInit(&trie1);
+
+    // Create comprehensive test data
+    trieInsert(&trie1, "stock.nasdaq.aapl", 1, "Sub1");
+    trieInsert(&trie1, "stock.nasdaq.aapl", 2, "Sub2");
+    trieInsert(&trie1, "stock.*.goog", 10, "Sub10");
+    trieInsert(&trie1, "forex.#", 20, "Sub20");
+    trieInsert(&trie1, "forex.#", 21, "Sub21");
+    trieInsert(&trie1, "forex.eur.usd", 30, "Sub30");
+    trieInsert(&trie1, "crypto.*.btc", 40, "Sub40");
+    trieInsert(&trie1, "options.#.call", 50, "Sub50");
+
+    const char *file1 = "/tmp/trie_roundtrip1.dat";
+    const char *file2 = "/tmp/trie_roundtrip2.dat";
+
+    // Save original trie
+    assert(trieSave(&trie1, file1));
+    printf("  ✓ Saved original trie\n");
+
+    // Load into second trie
+    assert(trieLoad(&trie2, file1));
+    printf("  ✓ Loaded into second trie\n");
+
+    // Save second trie
+    assert(trieSave(&trie2, file2));
+    printf("  ✓ Saved second trie\n");
+
+    // Compare binary files byte-for-byte
+    FILE *f1 = fopen(file1, "rb");
+    FILE *f2 = fopen(file2, "rb");
+    assert(f1 && f2);
+
+    fseek(f1, 0, SEEK_END);
+    fseek(f2, 0, SEEK_END);
+    long size1 = ftell(f1);
+    long size2 = ftell(f2);
+    assert(size1 == size2);
+    printf("  ✓ File sizes match (%ld bytes)\n", size1);
+
+    fseek(f1, 0, SEEK_SET);
+    fseek(f2, 0, SEEK_SET);
+
+    uint8_t buf1[4096], buf2[4096];
+    size_t bytesCompared = 0;
+    while (!feof(f1) && !feof(f2)) {
+        size_t n1 = fread(buf1, 1, sizeof(buf1), f1);
+        size_t n2 = fread(buf2, 1, sizeof(buf2), f2);
+        assert(n1 == n2);
+        assert(memcmp(buf1, buf2, n1) == 0);
+        bytesCompared += n1;
+    }
+    fclose(f1);
+    fclose(f2);
+    printf("  ✓ Binary files are identical (%zu bytes compared)\n", bytesCompared);
+
+    // Load into third trie and verify all functionality
+    assert(trieLoad(&trie3, file2));
+    printf("  ✓ Loaded third trie from second file\n");
+
+    // Verify metadata is identical across all three tries
+    assert(trie1.patternCount == trie2.patternCount);
+    assert(trie2.patternCount == trie3.patternCount);
+    assert(trie1.subscriberCount == trie2.subscriberCount);
+    assert(trie2.subscriberCount == trie3.subscriberCount);
+    printf("  ✓ Metadata matches across all tries (patterns: %zu, subscribers: %zu)\n",
+           trie1.patternCount, trie1.subscriberCount);
+
+    // Verify pattern matching is identical across all three tries
+    const char *testInputs[] = {
+        "stock.nasdaq.aapl",
+        "stock.nyse.goog",
+        "forex.eur.usd",
+        "forex.jpy.usd",
+        "crypto.binance.btc",
+        "options.spy.call"
+    };
+
+    for (size_t i = 0; i < sizeof(testInputs) / sizeof(testInputs[0]); i++) {
+        MatchResult r1, r2, r3;
+        trieMatch(&trie1, testInputs[i], &r1);
+        trieMatch(&trie2, testInputs[i], &r2);
+        trieMatch(&trie3, testInputs[i], &r3);
+
+        assert(r1.count == r2.count);
+        assert(r2.count == r3.count);
+
+        // Verify subscriber IDs and names match
+        for (size_t j = 0; j < r1.count; j++) {
+            assert(r1.subscriberIds[j] == r2.subscriberIds[j]);
+            assert(r2.subscriberIds[j] == r3.subscriberIds[j]);
+            assert(strcmp(r1.subscriberNames[j], r2.subscriberNames[j]) == 0);
+            assert(strcmp(r2.subscriberNames[j], r3.subscriberNames[j]) == 0);
+        }
+    }
+    printf("  ✓ All pattern matches identical across all tries\n");
+
+    // Verify pattern listing is identical
+    char patterns1[100][MAX_PATTERN_LENGTH];
+    char patterns2[100][MAX_PATTERN_LENGTH];
+    char patterns3[100][MAX_PATTERN_LENGTH];
+    size_t count1, count2, count3;
+
+    trieListPatterns(&trie1, patterns1, &count1, 100);
+    trieListPatterns(&trie2, patterns2, &count2, 100);
+    trieListPatterns(&trie3, patterns3, &count3, 100);
+
+    assert(count1 == count2);
+    assert(count2 == count3);
+    printf("  ✓ Pattern listings identical (%zu patterns)\n", count1);
+
+    // Cleanup
+    trieFree(&trie1);
+    trieFree(&trie2);
+    trieFree(&trie3);
+    remove(file1);
+    remove(file2);
+
+    printf("  PASS\n");
+}
+
 static void runAllTests(void) {
     printf("\n=== Running Test Suite ===\n");
 
@@ -1394,9 +1518,10 @@ static void runAllTests(void) {
     testListPatterns();
     testEdgeCases();
     testPersistence();
+    testBinaryRoundtrip();
 
     printf("\n===============================================\n");
-    printf("  ALL 7 TESTS PASSED ✓\n");
+    printf("  ALL 8 TESTS PASSED ✓\n");
     printf("===============================================\n");
 }
 
@@ -1404,9 +1529,93 @@ static void runAllTests(void) {
 // MAIN
 // ============================================================================
 
+// ============================================================================
+// BATCH MODE
+// ============================================================================
+
+static void runBatchMode(FILE *input) {
+    PatternTrie trie;
+    trieInit(&trie);
+
+    char line[512];
+    size_t commandCount = 0;
+    size_t successCount = 0;
+
+    printf("=== Batch Mode ===\n");
+
+    while (fgets(line, sizeof(line), input)) {
+        // Remove newline
+        size_t len = strlen(line);
+        if (len > 0 && line[len - 1] == '\n') {
+            line[len - 1] = '\0';
+        }
+
+        // Skip empty lines and comments
+        if (line[0] == '\0' || line[0] == '#') {
+            continue;
+        }
+
+        commandCount++;
+        printf("> %s\n", line);
+
+        Command cmd;
+        if (parseCommand(line, &cmd)) {
+            handleCommand(&trie, &cmd);
+            successCount++;
+        } else {
+            printf("✗ Failed to parse command\n");
+        }
+    }
+
+    printf("\n=== Batch Summary ===\n");
+    printf("Commands executed: %zu/%zu successful\n", successCount, commandCount);
+    printf("Final stats:\n");
+    Command statsCmd = {.type = CMD_STATS};
+    handleCommand(&trie, &statsCmd);
+
+    trieFree(&trie);
+}
+
+static void printUsage(const char *program) {
+    printf("Usage: %s [MODE]\n\n", program);
+    printf("Modes:\n");
+    printf("  (none)              - Interactive CLI mode\n");
+    printf("  --test              - Run comprehensive test suite\n");
+    printf("  --batch [file]      - Batch mode: read commands from file or stdin\n");
+    printf("  --help              - Show this help message\n");
+    printf("\nExamples:\n");
+    printf("  %s                                    # Interactive mode\n", program);
+    printf("  %s --test                             # Run tests\n", program);
+    printf("  %s --batch commands.txt               # Execute commands from file\n", program);
+    printf("  echo 'add test 1 Sub' | %s --batch    # Execute commands from stdin\n", program);
+    printf("\n");
+}
+
 int main(int argc, char *argv[]) {
+    if (argc > 1 && (strcmp(argv[1], "--help") == 0 || strcmp(argv[1], "-h") == 0)) {
+        printUsage(argv[0]);
+        return 0;
+    }
+
     if (argc > 1 && strcmp(argv[1], "--test") == 0) {
         runAllTests();
+        return 0;
+    }
+
+    if (argc > 1 && strcmp(argv[1], "--batch") == 0) {
+        if (argc > 2) {
+            // Read from file
+            FILE *file = fopen(argv[2], "r");
+            if (!file) {
+                fprintf(stderr, "Error: Cannot open file '%s'\n", argv[2]);
+                return 1;
+            }
+            runBatchMode(file);
+            fclose(file);
+        } else {
+            // Read from stdin
+            runBatchMode(stdin);
+        }
         return 0;
     }
 
