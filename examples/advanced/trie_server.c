@@ -802,8 +802,19 @@ void trieStats(const PatternTrie *trie, size_t *totalNodes, size_t *terminalNode
     *wildcardNodes = 0;
     *maxDepth = 0;
 
-    TrieNode *queue[4096];
-    size_t depths[4096];
+    // Allocate queue dynamically based on node count (with safety margin)
+    size_t queueSize = (trie->nodeCount > 0) ? (trie->nodeCount + 100) : 4096;
+    TrieNode **queue = (TrieNode **)malloc(queueSize * sizeof(TrieNode *));
+    size_t *depths = (size_t *)malloc(queueSize * sizeof(size_t));
+
+    if (!queue || !depths) {
+        // Allocation failed, fall back to using trie metadata if available
+        *totalNodes = trie->nodeCount;
+        free(queue);
+        free(depths);
+        return;
+    }
+
     size_t front = 0, back = 0;
 
     queue[back] = trie->root;
@@ -820,12 +831,15 @@ void trieStats(const PatternTrie *trie, size_t *totalNodes, size_t *terminalNode
         if (node->type != SEGMENT_LITERAL) (*wildcardNodes)++;
         if (depth > *maxDepth) *maxDepth = depth;
 
-        for (size_t i = 0; i < node->childCount && back < 4096; i++) {
+        for (size_t i = 0; i < node->childCount && back < queueSize; i++) {
             queue[back] = node->children[i];
             depths[back] = depth + 1;
             back++;
         }
     }
+
+    free(queue);
+    free(depths);
 }
 
 // ============================================================================
