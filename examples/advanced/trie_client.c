@@ -40,18 +40,14 @@ typedef struct {
 } TrieClient;
 
 bool clientConnect(TrieClient *client, const char *host, uint16_t port) {
-    client->host = strdup(host);
-    if (!client->host) {
-        return false;
-    }
+    // Initialize all fields FIRST
     client->port = port;
     client->connected = false;
+    client->host = NULL;  // Set to NULL initially - allocate only on success
 
     client->sockfd = socket(AF_INET, SOCK_STREAM, 0);
     if (client->sockfd < 0) {
         perror("socket");
-        free(client->host);
-        client->host = NULL;
         return false;
     }
 
@@ -63,16 +59,19 @@ bool clientConnect(TrieClient *client, const char *host, uint16_t port) {
     if (inet_pton(AF_INET, host, &addr.sin_addr) <= 0) {
         perror("inet_pton");
         close(client->sockfd);
-        free(client->host);
-        client->host = NULL;
         return false;
     }
 
     if (connect(client->sockfd, (struct sockaddr *)&addr, sizeof(addr)) < 0) {
         perror("connect");
         close(client->sockfd);
-        free(client->host);
-        client->host = NULL;
+        return false;
+    }
+
+    // Connection succeeded - NOW allocate host string
+    client->host = strdup(host);
+    if (!client->host) {
+        close(client->sockfd);
         return false;
     }
 
