@@ -48,7 +48,7 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <sys/socket.h>
-#include <sys/select.h>
+#include <sys/epoll.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <signal.h>
@@ -185,6 +185,7 @@ typedef struct {
 
 typedef struct {
     int listenFd;
+    int epollFd;
     PatternTrie trie;
     ClientConnection clients[MAX_CLIENTS];
     bool running;
@@ -230,7 +231,7 @@ void serverRun(TrieServer *server);
 void serverShutdown(TrieServer *server);
 void handleClient(TrieServer *server, ClientConnection *client);
 bool processCommand(TrieServer *server, ClientConnection *client, const uint8_t *data, size_t length);
-void sendResponse(ClientConnection *client, StatusCode status, const uint8_t *data, size_t dataLen);
+void sendResponse(int epollFd, ClientConnection *client, StatusCode status, const uint8_t *data, size_t dataLen);
 
 // ============================================================================
 // UTILITY FUNCTIONS
@@ -258,8 +259,12 @@ static bool checkRateLimit(ClientConnection *client) {
     return true;
 }
 
-static void resetClient(ClientConnection *client) {
+static void resetClient(int epollFd, ClientConnection *client) {
     if (client->fd >= 0) {
+        // Remove from epoll before closing
+        if (epollFd >= 0) {
+            epoll_ctl(epollFd, EPOLL_CTL_DEL, client->fd, NULL);
+        }
         close(client->fd);
     }
     memset(client, 0, sizeof(ClientConnection));
@@ -431,12 +436,26 @@ bool serverInit(TrieServer *server, uint16_t port, const char *authToken, const 
 
     setNonBlocking(server->listenFd);
 
-    printf("Trie server listening on port %d (fd=%d, FD_SETSIZE=%d)\n", port, server->listenFd, FD_SETSIZE);
-    if (server->listenFd >= FD_SETSIZE) {
-        fprintf(stderr, "ERROR: listen fd %d exceeds FD_SETSIZE %d\n", server->listenFd, FD_SETSIZE);
+    // Create epoll instance
+    server->epollFd = epoll_create1(0);
+    if (server->epollFd < 0) {
+        perror("epoll_create1");
         close(server->listenFd);
         return false;
     }
+
+    // Register listen socket with epoll
+    struct epoll_event ev;
+    ev.events = EPOLLIN;
+    ev.data.fd = server->listenFd;
+    if (epoll_ctl(server->epollFd, EPOLL_CTL_ADD, server->listenFd, &ev) < 0) {
+        perror("epoll_ctl: listen socket");
+        close(server->epollFd);
+        close(server->listenFd);
+        return false;
+    }
+
+    printf("Trie server listening on port %d (using epoll for high-performance async I/O)\n", port);
     if (server->requireAuth) {
         printf("Authentication: ENABLED\n");
     }
@@ -465,55 +484,30 @@ void serverRun(TrieServer *server) {
 
     printf("Server ready. Press Ctrl+C to stop.\n");
 
+    #define MAX_EVENTS 64
+    struct epoll_event events[MAX_EVENTS];
+
     while (server->running && !g_shutdown) {
-        fd_set readFds, writeFds;
-        int maxFd = server->listenFd;
+        // Wait for events (1 second timeout)
+        int nfds = epoll_wait(server->epollFd, events, MAX_EVENTS, 1000);
 
-        FD_ZERO(&readFds);
-        FD_ZERO(&writeFds);
-
-        // Check listen socket fd is valid
-        if (server->listenFd >= 0 && server->listenFd < FD_SETSIZE) {
-            FD_SET(server->listenFd, &readFds);
-        }
-
-        // Add client sockets to fd sets
-        for (int i = 0; i < MAX_CLIENTS; i++) {
-            ClientConnection *client = &server->clients[i];
-            if (client->fd < 0 || client->fd >= FD_SETSIZE) continue;
-
-            if (client->state == CONN_READING_LENGTH || client->state == CONN_READING_MESSAGE) {
-                FD_SET(client->fd, &readFds);
-            }
-            if (client->state == CONN_WRITING_RESPONSE && client->writeLength > 0) {
-                FD_SET(client->fd, &writeFds);
-            }
-
-            if (client->fd > maxFd) {
-                maxFd = client->fd;
-            }
-        }
-
-        struct timeval timeout = {1, 0};  // 1 second timeout
-        int activity = select(maxFd + 1, &readFds, &writeFds, NULL, &timeout);
-
-        if (activity < 0 && errno != EINTR) {
-            perror("select");
+        if (nfds < 0) {
+            if (errno == EINTR) continue;
+            perror("epoll_wait");
             break;
         }
 
-        // Check for new connections
-        if (server->listenFd >= 0 && server->listenFd < FD_SETSIZE && FD_ISSET(server->listenFd, &readFds)) {
-            struct sockaddr_in clientAddr;
-            socklen_t addrLen = sizeof(clientAddr);
-            int clientFd = accept(server->listenFd, (struct sockaddr *)&clientAddr, &addrLen);
+        // Process all events
+        for (int n = 0; n < nfds; n++) {
+            int fd = events[n].data.fd;
 
-            if (clientFd >= 0) {
-                // Check if fd is within select() limits
-                if (clientFd >= FD_SETSIZE) {
-                    fprintf(stderr, "Client fd %d exceeds FD_SETSIZE %d, rejecting\n", clientFd, FD_SETSIZE);
-                    close(clientFd);
-                } else {
+            // New connection on listen socket
+            if (fd == server->listenFd) {
+                struct sockaddr_in clientAddr;
+                socklen_t addrLen = sizeof(clientAddr);
+                int clientFd = accept(server->listenFd, (struct sockaddr *)&clientAddr, &addrLen);
+
+                if (clientFd >= 0) {
                     // Find free slot
                     int slot = -1;
                     for (int i = 0; i < MAX_CLIENTS; i++) {
@@ -526,70 +520,97 @@ void serverRun(TrieServer *server) {
                     if (slot >= 0) {
                         setNonBlocking(clientFd);
                         ClientConnection *client = &server->clients[slot];
-                        resetClient(client);
+                        resetClient(server->epollFd, client);
                         client->fd = clientFd;
                         client->state = CONN_READING_LENGTH;
                         client->authenticated = !server->requireAuth;
                         client->lastActivity = time(NULL);
                         client->rateLimitWindowStart = time(NULL);
 
-                        server->totalConnections++;
-
-                        printf("New connection from %s (slot %d, total connections: %lu)\n",
-                               inet_ntoa(clientAddr.sin_addr), slot, server->totalConnections);
+                        // Register client with epoll for reading
+                        struct epoll_event ev;
+                        ev.events = EPOLLIN;
+                        ev.data.fd = clientFd;
+                        if (epoll_ctl(server->epollFd, EPOLL_CTL_ADD, clientFd, &ev) < 0) {
+                            perror("epoll_ctl: client socket");
+                            close(clientFd);
+                            client->fd = -1;
+                        } else {
+                            server->totalConnections++;
+                            printf("New connection from %s (slot %d, total connections: %lu)\n",
+                                   inet_ntoa(clientAddr.sin_addr), slot, server->totalConnections);
+                        }
                     } else {
                         fprintf(stderr, "Max clients reached, rejecting connection\n");
                         close(clientFd);
                     }
                 }
+                continue;
             }
-        }
 
-        // Handle client I/O
-        for (int i = 0; i < MAX_CLIENTS; i++) {
-            ClientConnection *client = &server->clients[i];
-            if (client->fd < 0 || client->fd >= FD_SETSIZE) continue;
+            // Find client for this fd
+            ClientConnection *client = NULL;
+            int clientSlot = -1;
+            for (int i = 0; i < MAX_CLIENTS; i++) {
+                if (server->clients[i].fd == fd) {
+                    client = &server->clients[i];
+                    clientSlot = i;
+                    break;
+                }
+            }
+
+            if (!client) continue;
 
             bool active = false;
 
-            if (FD_ISSET(client->fd, &readFds)) {
+            // Handle read events
+            if (events[n].events & EPOLLIN) {
                 handleClient(server, client);
                 active = true;
             }
 
-            if (FD_ISSET(client->fd, &writeFds) && client->state == CONN_WRITING_RESPONSE) {
+            // Handle write events
+            if (events[n].events & EPOLLOUT && client->state == CONN_WRITING_RESPONSE) {
                 ssize_t sent = write(client->fd,
                                     client->writeBuffer + client->writeOffset,
                                     client->writeLength - client->writeOffset);
                 if (sent > 0) {
                     client->writeOffset += sent;
                     if (client->writeOffset >= client->writeLength) {
-                        // Response fully sent, reset for next command
+                        // Response fully sent, switch back to reading
                         client->state = CONN_READING_LENGTH;
                         client->readOffset = 0;
                         client->writeOffset = 0;
                         client->writeLength = 0;
+
+                        // Modify epoll to monitor for read only
+                        struct epoll_event ev;
+                        ev.events = EPOLLIN;
+                        ev.data.fd = client->fd;
+                        epoll_ctl(server->epollFd, EPOLL_CTL_MOD, client->fd, &ev);
                     }
                     active = true;
                 } else if (sent < 0 && errno != EAGAIN && errno != EWOULDBLOCK) {
-                    resetClient(client);
+                    resetClient(server->epollFd, client);
                 }
             }
 
             if (active) {
                 client->lastActivity = time(NULL);
             }
+        }
 
-            // Check for timeout
-            time_t now = time(NULL);
-            if (now - client->lastActivity > CLIENT_TIMEOUT) {
+        // Check for client timeouts (periodic maintenance)
+        time_t now = time(NULL);
+        for (int i = 0; i < MAX_CLIENTS; i++) {
+            ClientConnection *client = &server->clients[i];
+            if (client->fd >= 0 && now - client->lastActivity > CLIENT_TIMEOUT) {
                 printf("Client %d timed out\n", i);
-                resetClient(client);
+                resetClient(server->epollFd, client);
             }
         }
 
         // Auto-save check
-        time_t now = time(NULL);
         if (server->saveFilePath) {
             bool shouldSave = false;
 
@@ -620,7 +641,7 @@ void serverShutdown(TrieServer *server) {
     // Close all client connections
     for (int i = 0; i < MAX_CLIENTS; i++) {
         if (server->clients[i].fd >= 0) {
-            resetClient(&server->clients[i]);
+            resetClient(server->epollFd, &server->clients[i]);
         }
     }
 
@@ -633,6 +654,11 @@ void serverShutdown(TrieServer *server) {
     // Close listen socket
     if (server->listenFd >= 0) {
         close(server->listenFd);
+    }
+
+    // Close epoll fd
+    if (server->epollFd >= 0) {
+        close(server->epollFd);
     }
 
     // Free resources
@@ -652,7 +678,7 @@ void serverShutdown(TrieServer *server) {
 // PROTOCOL HANDLING
 // ============================================================================
 
-void sendResponse(ClientConnection *client, StatusCode status, const uint8_t *data, size_t dataLen) {
+void sendResponse(int epollFd, ClientConnection *client, StatusCode status, const uint8_t *data, size_t dataLen) {
     // Build response: [Length:varint][Status:1byte][Data]
     uint8_t tempBuf[MAX_MESSAGE_SIZE];
     size_t offset = 0;
@@ -691,11 +717,17 @@ void sendResponse(ClientConnection *client, StatusCode status, const uint8_t *da
     client->writeLength = totalSize;
     client->writeOffset = 0;
     client->state = CONN_WRITING_RESPONSE;
+
+    // Modify epoll to monitor for both read and write
+    struct epoll_event ev;
+    ev.events = EPOLLIN | EPOLLOUT;
+    ev.data.fd = client->fd;
+    epoll_ctl(epollFd, EPOLL_CTL_MOD, client->fd, &ev);
 }
 
 bool processCommand(TrieServer *server, ClientConnection *client, const uint8_t *data, size_t length) {
     if (length == 0) {
-        sendResponse(client, STATUS_ERROR, NULL, 0);
+        sendResponse(server->epollFd, client, STATUS_ERROR, NULL, 0);
         return false;
     }
 
@@ -704,13 +736,13 @@ bool processCommand(TrieServer *server, ClientConnection *client, const uint8_t 
 
     // Check authentication
     if (server->requireAuth && !client->authenticated && cmd != CMD_AUTH) {
-        sendResponse(client, STATUS_AUTH_REQUIRED, NULL, 0);
+        sendResponse(server->epollFd, client, STATUS_AUTH_REQUIRED, NULL, 0);
         return false;
     }
 
     // Check rate limit
     if (!checkRateLimit(client)) {
-        sendResponse(client, STATUS_RATE_LIMITED, NULL, 0);
+        sendResponse(server->epollFd, client, STATUS_RATE_LIMITED, NULL, 0);
         server->totalErrors++;
         return false;
     }
@@ -724,14 +756,14 @@ bool processCommand(TrieServer *server, ClientConnection *client, const uint8_t 
     switch (cmd) {
         case CMD_PING: {
             // PING - just respond OK
-            sendResponse(client, STATUS_OK, NULL, 0);
+            sendResponse(server->epollFd, client, STATUS_OK, NULL, 0);
             break;
         }
 
         case CMD_AUTH: {
             // AUTH <token_len:varint><token:bytes>
             if (!server->requireAuth) {
-                sendResponse(client, STATUS_OK, NULL, 0);
+                sendResponse(server->epollFd, client, STATUS_OK, NULL, 0);
                 break;
             }
 
@@ -740,7 +772,7 @@ bool processCommand(TrieServer *server, ClientConnection *client, const uint8_t 
             offset += varintTaggedGetLen(data + offset);
 
             if (offset + tokenLen > length) {
-                sendResponse(client, STATUS_ERROR, NULL, 0);
+                sendResponse(server->epollFd, client, STATUS_ERROR, NULL, 0);
                 server->totalErrors++;
                 return false;
             }
@@ -748,9 +780,9 @@ bool processCommand(TrieServer *server, ClientConnection *client, const uint8_t 
             if (tokenLen == strlen(server->authToken) &&
                 memcmp(data + offset, server->authToken, tokenLen) == 0) {
                 client->authenticated = true;
-                sendResponse(client, STATUS_OK, NULL, 0);
+                sendResponse(server->epollFd, client, STATUS_OK, NULL, 0);
             } else {
-                sendResponse(client, STATUS_ERROR, NULL, 0);
+                sendResponse(server->epollFd, client, STATUS_ERROR, NULL, 0);
                 server->totalErrors++;
             }
             break;
@@ -771,7 +803,7 @@ bool processCommand(TrieServer *server, ClientConnection *client, const uint8_t 
             pos += varintTaggedPut64(responseBuf + pos, server->totalCommands);
             pos += varintTaggedPut64(responseBuf + pos, time(NULL) - server->startTime);
 
-            sendResponse(client, STATUS_OK, responseBuf, pos);
+            sendResponse(server->epollFd, client, STATUS_OK, responseBuf, pos);
             break;
         }
 
@@ -781,19 +813,19 @@ bool processCommand(TrieServer *server, ClientConnection *client, const uint8_t 
                 if (trieSave(&server->trie, server->saveFilePath)) {
                     server->lastSaveTime = time(NULL);
                     server->commandsSinceLastSave = 0;
-                    sendResponse(client, STATUS_OK, NULL, 0);
+                    sendResponse(server->epollFd, client, STATUS_OK, NULL, 0);
                 } else {
-                    sendResponse(client, STATUS_ERROR, NULL, 0);
+                    sendResponse(server->epollFd, client, STATUS_ERROR, NULL, 0);
                     server->totalErrors++;
                 }
             } else {
-                sendResponse(client, STATUS_ERROR, NULL, 0);
+                sendResponse(server->epollFd, client, STATUS_ERROR, NULL, 0);
             }
             break;
         }
 
         default:
-            sendResponse(client, STATUS_INVALID_CMD, NULL, 0);
+            sendResponse(server->epollFd, client, STATUS_INVALID_CMD, NULL, 0);
             server->totalErrors++;
             return false;
     }
@@ -812,7 +844,7 @@ void handleClient(TrieServer *server, ClientConnection *client) {
                 return;  // No data available
             }
             // Connection closed or error
-            resetClient(client);
+            resetClient(server->epollFd, client);
             return;
         }
 
@@ -827,14 +859,14 @@ void handleClient(TrieServer *server, ClientConnection *client) {
                     // Not enough bytes yet for complete varint
                     if (client->readOffset >= 9) {
                         // Invalid varint (too long)
-                        resetClient(client);
+                        resetClient(server->epollFd, client);
                     }
                     return;
                 }
 
                 client->messageLength = (size_t)msgLen;
                 if (client->messageLength == 0 || client->messageLength > MAX_MESSAGE_SIZE) {
-                    resetClient(client);
+                    resetClient(server->epollFd, client);
                     return;
                 }
 
