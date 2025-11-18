@@ -511,6 +511,177 @@ bool cmdList(TrieClient *client) {
     return true;
 }
 
+bool cmdSubscribe(TrieClient *client, const char *pattern, uint32_t subscriberId, const char *subscriberName) {
+    printf("Sending SUBSCRIBE pattern='%s' subscriberId=%u subscriberName='%s'...\n", pattern, subscriberId, subscriberName);
+
+    // Build payload: <pattern_len:varint><pattern:bytes><subscriber_id:varint><subscriber_name_len:varint><subscriber_name:bytes>
+    uint8_t *payload = (uint8_t *)malloc(4096);
+    if (!payload) return false;
+
+    size_t offset = 0;
+    size_t patternLen = strlen(pattern);
+    offset += varintTaggedPut64(payload + offset, patternLen);
+    memcpy(payload + offset, pattern, patternLen);
+    offset += patternLen;
+
+    offset += varintTaggedPut64(payload + offset, subscriberId);
+
+    size_t nameLen = strlen(subscriberName);
+    offset += varintTaggedPut64(payload + offset, nameLen);
+    memcpy(payload + offset, subscriberName, nameLen);
+    offset += nameLen;
+
+    bool result = sendCommand(client, CMD_SUBSCRIBE, payload, offset);
+    free(payload);
+
+    if (!result) {
+        fprintf(stderr, "Failed to send command\n");
+        return false;
+    }
+
+    StatusCode status;
+    uint8_t *data = (uint8_t *)malloc(MAX_RESPONSE_SIZE);
+    if (!data) return false;
+    size_t dataLen;
+
+    if (!receiveResponse(client, &status, data, &dataLen, MAX_RESPONSE_SIZE)) {
+        fprintf(stderr, "Failed to receive response\n");
+        free(data);
+        return false;
+    }
+
+    free(data);
+
+    if (status == STATUS_OK) {
+        printf("SUBSCRIBE successful\n");
+        return true;
+    } else {
+        printf("Error: status = 0x%02X\n", status);
+        return false;
+    }
+}
+
+bool cmdUnsubscribe(TrieClient *client, const char *pattern, uint32_t subscriberId) {
+    printf("Sending UNSUBSCRIBE pattern='%s' subscriberId=%u...\n", pattern, subscriberId);
+
+    // Build payload: <pattern_len:varint><pattern:bytes><subscriber_id:varint>
+    uint8_t *payload = (uint8_t *)malloc(4096);
+    if (!payload) return false;
+
+    size_t offset = 0;
+    size_t patternLen = strlen(pattern);
+    offset += varintTaggedPut64(payload + offset, patternLen);
+    memcpy(payload + offset, pattern, patternLen);
+    offset += patternLen;
+
+    offset += varintTaggedPut64(payload + offset, subscriberId);
+
+    bool result = sendCommand(client, CMD_UNSUBSCRIBE, payload, offset);
+    free(payload);
+
+    if (!result) {
+        fprintf(stderr, "Failed to send command\n");
+        return false;
+    }
+
+    StatusCode status;
+    uint8_t *data = (uint8_t *)malloc(MAX_RESPONSE_SIZE);
+    if (!data) return false;
+    size_t dataLen;
+
+    if (!receiveResponse(client, &status, data, &dataLen, MAX_RESPONSE_SIZE)) {
+        fprintf(stderr, "Failed to receive response\n");
+        free(data);
+        return false;
+    }
+
+    free(data);
+
+    if (status == STATUS_OK) {
+        printf("UNSUBSCRIBE successful\n");
+        return true;
+    } else {
+        printf("Error: status = 0x%02X\n", status);
+        return false;
+    }
+}
+
+bool cmdSave(TrieClient *client) {
+    printf("Sending SAVE...\n");
+
+    if (!sendCommand(client, CMD_SAVE, NULL, 0)) {
+        fprintf(stderr, "Failed to send command\n");
+        return false;
+    }
+
+    StatusCode status;
+    uint8_t *data = (uint8_t *)malloc(MAX_RESPONSE_SIZE);
+    if (!data) return false;
+    size_t dataLen;
+
+    if (!receiveResponse(client, &status, data, &dataLen, MAX_RESPONSE_SIZE)) {
+        fprintf(stderr, "Failed to receive response\n");
+        free(data);
+        return false;
+    }
+
+    free(data);
+
+    if (status == STATUS_OK) {
+        printf("SAVE successful\n");
+        return true;
+    } else {
+        printf("Error: status = 0x%02X\n", status);
+        return false;
+    }
+}
+
+bool cmdAuth(TrieClient *client, const char *token) {
+    printf("Sending AUTH...\n");
+
+    // Build payload: <token_len:varint><token:bytes>
+    uint8_t *payload = (uint8_t *)malloc(4096);
+    if (!payload) return false;
+
+    size_t offset = 0;
+    size_t tokenLen = strlen(token);
+    offset += varintTaggedPut64(payload + offset, tokenLen);
+    memcpy(payload + offset, token, tokenLen);
+    offset += tokenLen;
+
+    bool result = sendCommand(client, CMD_AUTH, payload, offset);
+    free(payload);
+
+    if (!result) {
+        fprintf(stderr, "Failed to send command\n");
+        return false;
+    }
+
+    StatusCode status;
+    uint8_t *data = (uint8_t *)malloc(MAX_RESPONSE_SIZE);
+    if (!data) return false;
+    size_t dataLen;
+
+    if (!receiveResponse(client, &status, data, &dataLen, MAX_RESPONSE_SIZE)) {
+        fprintf(stderr, "Failed to receive response\n");
+        free(data);
+        return false;
+    }
+
+    free(data);
+
+    if (status == STATUS_OK) {
+        printf("AUTH successful\n");
+        return true;
+    } else if (status == STATUS_AUTH_REQUIRED) {
+        printf("AUTH failed: Invalid token\n");
+        return false;
+    } else {
+        printf("Error: status = 0x%02X\n", status);
+        return false;
+    }
+}
+
 int main(int argc, char *argv[]) {
     if (argc < 2) {
         printf("Usage: %s <command> [args] [host] [port]\n", argv[0]);
@@ -519,14 +690,20 @@ int main(int argc, char *argv[]) {
         printf("  stats                                  - Get server statistics\n");
         printf("  add <pattern> <id> <name>              - Add pattern with subscriber\n");
         printf("  remove <pattern>                       - Remove pattern\n");
+        printf("  subscribe <pattern> <id> <name>        - Subscribe to existing pattern\n");
+        printf("  unsubscribe <pattern> <id>             - Unsubscribe from pattern\n");
         printf("  match <input>                          - Match input against patterns\n");
         printf("  list                                   - List all patterns\n");
+        printf("  save                                   - Trigger manual save\n");
+        printf("  auth <token>                           - Authenticate with token\n");
         printf("\nDefault host: 127.0.0.1\n");
         printf("Default port: 9999\n");
         printf("\nExamples:\n");
         printf("  %s add \"sensors.*.temperature\" 1 \"temp-monitor\"\n", argv[0]);
+        printf("  %s subscribe \"sensors.*.temperature\" 2 \"logger\"\n", argv[0]);
         printf("  %s match \"sensors.room1.temperature\"\n", argv[0]);
         printf("  %s list\n", argv[0]);
+        printf("  %s save\n", argv[0]);
         return 1;
     }
 
@@ -536,9 +713,9 @@ int main(int argc, char *argv[]) {
     const char *host;
     uint16_t port;
 
-    if (strcmp(command, "add") == 0) {
+    if (strcmp(command, "add") == 0 || strcmp(command, "subscribe") == 0) {
         if (argc < 5) {
-            fprintf(stderr, "Usage: %s add <pattern> <id> <name> [host] [port]\n", argv[0]);
+            fprintf(stderr, "Usage: %s %s <pattern> <id> <name> [host] [port]\n", argv[0], command);
             return 1;
         }
         host = argc > 5 ? argv[5] : "127.0.0.1";
@@ -546,6 +723,20 @@ int main(int argc, char *argv[]) {
     } else if (strcmp(command, "remove") == 0 || strcmp(command, "match") == 0) {
         if (argc < 3) {
             fprintf(stderr, "Usage: %s %s <pattern> [host] [port]\n", argv[0], command);
+            return 1;
+        }
+        host = argc > 3 ? argv[3] : "127.0.0.1";
+        port = argc > 4 ? atoi(argv[4]) : 9999;
+    } else if (strcmp(command, "unsubscribe") == 0) {
+        if (argc < 4) {
+            fprintf(stderr, "Usage: %s unsubscribe <pattern> <id> [host] [port]\n", argv[0]);
+            return 1;
+        }
+        host = argc > 4 ? argv[4] : "127.0.0.1";
+        port = argc > 5 ? atoi(argv[5]) : 9999;
+    } else if (strcmp(command, "auth") == 0) {
+        if (argc < 3) {
+            fprintf(stderr, "Usage: %s auth <token> [host] [port]\n", argv[0]);
             return 1;
         }
         host = argc > 3 ? argv[3] : "127.0.0.1";
@@ -572,10 +763,18 @@ int main(int argc, char *argv[]) {
         success = cmdAdd(&client, argv[2], atoi(argv[3]), argv[4]);
     } else if (strcmp(command, "remove") == 0) {
         success = cmdRemove(&client, argv[2]);
+    } else if (strcmp(command, "subscribe") == 0) {
+        success = cmdSubscribe(&client, argv[2], atoi(argv[3]), argv[4]);
+    } else if (strcmp(command, "unsubscribe") == 0) {
+        success = cmdUnsubscribe(&client, argv[2], atoi(argv[3]));
     } else if (strcmp(command, "match") == 0) {
         success = cmdMatch(&client, argv[2]);
     } else if (strcmp(command, "list") == 0) {
         success = cmdList(&client);
+    } else if (strcmp(command, "save") == 0) {
+        success = cmdSave(&client);
+    } else if (strcmp(command, "auth") == 0) {
+        success = cmdAuth(&client, argv[2]);
     } else {
         fprintf(stderr, "Unknown command: %s\n", command);
     }

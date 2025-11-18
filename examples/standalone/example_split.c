@@ -53,10 +53,10 @@ void example_three_levels() {
         {63, 1, "Level 1 max (6 bits)"},
         {64, 2, "Level 2 min"},
         {16446, 2, "Level 2 max (14 bits)"},
-        {16447, 2, "Level 3 min (1-byte var)"},
-        {16447 + 255, 2, "Level 3 (1-byte var max)"},
-        {16447 + 256, 3, "Level 3 (2-byte var)"},
-        {16447 + 65535, 3, "Level 3 (2-byte var max)"},
+        {16447, 2, "Level 3 min"},
+        {16702, 3, "Level 3 (16447+255)"},
+        {16703, 3, "Level 3 (16447+256)"},
+        {81982, 4, "Level 3 (16447+65535)"},
         {UINT64_MAX, 9, "uint64_t max"},
     };
 
