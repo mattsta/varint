@@ -1497,8 +1497,14 @@ bool processCommand(TrieServer *server, ClientConnection *client, const uint8_t 
         case CMD_ADD: {
             // ADD <pattern_len:varint><pattern:bytes><subscriber_id:varint><subscriber_name_len:varint><subscriber_name:bytes>
             uint64_t patternLen;
-            varintTaggedGet64(data + offset, &patternLen);
-            offset += varintTaggedGetLen(data + offset);
+            varintWidth width = varintTaggedGet64(data + offset, &patternLen);
+            if (width == VARINT_WIDTH_INVALID) {
+                fprintf(stderr, "Error: Invalid varint for patternLen in CMD_ADD\n");
+                sendResponse(server->epollFd, client, STATUS_ERROR, NULL, 0);
+                server->totalErrors++;
+                return false;
+            }
+            offset += width;
 
             if (offset + patternLen > length) {
                 sendResponse(server->epollFd, client, STATUS_ERROR, NULL, 0);
@@ -1511,12 +1517,24 @@ bool processCommand(TrieServer *server, ClientConnection *client, const uint8_t 
             offset += patternLen;
 
             uint64_t subscriberId;
-            varintTaggedGet64(data + offset, &subscriberId);
-            offset += varintTaggedGetLen(data + offset);
+            width = varintTaggedGet64(data + offset, &subscriberId);
+            if (width == VARINT_WIDTH_INVALID) {
+                fprintf(stderr, "Error: Invalid varint for subscriberId in CMD_ADD\n");
+                sendResponse(server->epollFd, client, STATUS_ERROR, NULL, 0);
+                server->totalErrors++;
+                return false;
+            }
+            offset += width;
 
             uint64_t subscriberNameLen;
-            varintTaggedGet64(data + offset, &subscriberNameLen);
-            offset += varintTaggedGetLen(data + offset);
+            width = varintTaggedGet64(data + offset, &subscriberNameLen);
+            if (width == VARINT_WIDTH_INVALID) {
+                fprintf(stderr, "Error: Invalid varint for subscriberNameLen in CMD_ADD\n");
+                sendResponse(server->epollFd, client, STATUS_ERROR, NULL, 0);
+                server->totalErrors++;
+                return false;
+            }
+            offset += width;
 
             if (offset + subscriberNameLen > length) {
                 sendResponse(server->epollFd, client, STATUS_ERROR, NULL, 0);
@@ -1539,8 +1557,14 @@ bool processCommand(TrieServer *server, ClientConnection *client, const uint8_t 
         case CMD_REMOVE: {
             // REMOVE <pattern_len:varint><pattern:bytes>
             uint64_t patternLen;
-            varintTaggedGet64(data + offset, &patternLen);
-            offset += varintTaggedGetLen(data + offset);
+            varintWidth width = varintTaggedGet64(data + offset, &patternLen);
+            if (width == VARINT_WIDTH_INVALID) {
+                fprintf(stderr, "Error: Invalid varint for patternLen in CMD_REMOVE\n");
+                sendResponse(server->epollFd, client, STATUS_ERROR, NULL, 0);
+                server->totalErrors++;
+                return false;
+            }
+            offset += width;
 
             if (offset + patternLen > length) {
                 sendResponse(server->epollFd, client, STATUS_ERROR, NULL, 0);
