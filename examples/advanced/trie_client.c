@@ -13,7 +13,6 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
-#include <errno.h>
 
 #include "../../src/varint.h"
 
@@ -42,12 +41,17 @@ typedef struct {
 
 bool clientConnect(TrieClient *client, const char *host, uint16_t port) {
     client->host = strdup(host);
+    if (!client->host) {
+        return false;
+    }
     client->port = port;
     client->connected = false;
 
     client->sockfd = socket(AF_INET, SOCK_STREAM, 0);
     if (client->sockfd < 0) {
         perror("socket");
+        free(client->host);
+        client->host = NULL;
         return false;
     }
 
@@ -59,12 +63,16 @@ bool clientConnect(TrieClient *client, const char *host, uint16_t port) {
     if (inet_pton(AF_INET, host, &addr.sin_addr) <= 0) {
         perror("inet_pton");
         close(client->sockfd);
+        free(client->host);
+        client->host = NULL;
         return false;
     }
 
     if (connect(client->sockfd, (struct sockaddr *)&addr, sizeof(addr)) < 0) {
         perror("connect");
         close(client->sockfd);
+        free(client->host);
+        client->host = NULL;
         return false;
     }
 
@@ -78,7 +86,10 @@ void clientClose(TrieClient *client) {
         close(client->sockfd);
         client->connected = false;
     }
-    free(client->host);
+    if (client->host) {
+        free(client->host);
+        client->host = NULL;
+    }
 }
 
 bool sendCommand(TrieClient *client, CommandType cmd, const uint8_t *payload, size_t payloadLen) {
@@ -125,9 +136,7 @@ bool sendCommand(TrieClient *client, CommandType cmd, const uint8_t *payload, si
 }
 
 bool receiveResponse(TrieClient *client, StatusCode *status, uint8_t *data, size_t *dataLen) {
-    fprintf(stderr, "DEBUG: receiveResponse - waiting for response...\n");
     if (!client->connected) {
-        fprintf(stderr, "DEBUG: Not connected!\n");
         return false;
     }
 
@@ -137,71 +146,48 @@ bool receiveResponse(TrieClient *client, StatusCode *status, uint8_t *data, size
     uint64_t messageLen;
 
     // Read at least one byte
-    fprintf(stderr, "DEBUG: Reading first byte of length...\n");
-    ssize_t n = read(client->sockfd, lengthBuf, 1);
-    fprintf(stderr, "DEBUG: read() returned %zd (errno=%d)\n", n, n < 0 ? errno : 0);
-    if (n != 1) {
+    if (read(client->sockfd, lengthBuf, 1) != 1) {
         return false;
     }
     bytesRead = 1;
 
     // Keep reading until we have a complete varint
-    fprintf(stderr, "DEBUG: Starting varint parsing loop, bytesRead=%zu\n", bytesRead);
     while (varintTaggedGet64(lengthBuf, &messageLen) == 0 && bytesRead < sizeof(lengthBuf)) {
-        fprintf(stderr, "DEBUG: Varint incomplete, reading more... bytesRead=%zu\n", bytesRead);
         if (read(client->sockfd, lengthBuf + bytesRead, 1) != 1) {
-            fprintf(stderr, "DEBUG: Read failed\n");
             return false;
         }
         bytesRead++;
     }
-    fprintf(stderr, "DEBUG: Varint parsing complete, messageLen=%lu\n", messageLen);
 
-    fprintf(stderr, "DEBUG: Checking message length validity\n");
     if (messageLen == 0 || messageLen > MAX_RESPONSE_SIZE) {
         fprintf(stderr, "Invalid message length: %lu\n", messageLen);
         return false;
     }
 
     // Read message
-    fprintf(stderr, "DEBUG: Allocating %lu bytes for message\n", messageLen);
     uint8_t *msgBuf = (uint8_t *)malloc(messageLen);
-    fprintf(stderr, "DEBUG: malloc() returned %p\n", (void*)msgBuf);
     if (!msgBuf) {
-        fprintf(stderr, "DEBUG: malloc failed!\n");
         return false;
     }
 
     size_t totalRead = 0;
-    fprintf(stderr, "DEBUG: Reading %lu bytes of message\n", messageLen);
     while (totalRead < messageLen) {
-        fprintf(stderr, "DEBUG: totalRead=%zu, need %lu more bytes\n", totalRead, messageLen - totalRead);
         ssize_t n = read(client->sockfd, msgBuf + totalRead, messageLen - totalRead);
-        fprintf(stderr, "DEBUG: read() returned %zd\n", n);
         if (n <= 0) {
-            fprintf(stderr, "DEBUG: Read failed or EOF, freeing and returning\n");
             free(msgBuf);
             return false;
         }
         totalRead += n;
     }
-    fprintf(stderr, "DEBUG: Message read complete\n");
 
     // Parse response
-    fprintf(stderr, "DEBUG: Parsing response, msgBuf[0]=0x%02x\n", msgBuf[0]);
     *status = (StatusCode)msgBuf[0];
-    fprintf(stderr, "DEBUG: Set status=%d\n", *status);
     *dataLen = messageLen - 1;
-    fprintf(stderr, "DEBUG: Set dataLen=%zu\n", *dataLen);
     if (*dataLen > 0) {
-        fprintf(stderr, "DEBUG: Copying %zu bytes to data buffer\n", *dataLen);
         memcpy(data, msgBuf + 1, *dataLen);
-        fprintf(stderr, "DEBUG: memcpy complete\n");
     }
 
-    fprintf(stderr, "DEBUG: About to free msgBuf\n");
     free(msgBuf);
-    fprintf(stderr, "DEBUG: free() complete, returning true\n");
     return true;
 }
 
@@ -213,13 +199,20 @@ bool cmdPing(TrieClient *client) {
     }
 
     StatusCode status;
-    uint8_t data[MAX_RESPONSE_SIZE];
+    uint8_t *data = (uint8_t *)malloc(MAX_RESPONSE_SIZE);
+    if (!data) {
+        fprintf(stderr, "Failed to allocate response buffer\n");
+        return false;
+    }
     size_t dataLen;
 
     if (!receiveResponse(client, &status, data, &dataLen)) {
         fprintf(stderr, "Failed to receive response\n");
+        free(data);
         return false;
     }
+
+    free(data);
 
     if (status == STATUS_OK) {
         printf("PONG (OK)\n");
@@ -238,16 +231,22 @@ bool cmdStats(TrieClient *client) {
     }
 
     StatusCode status;
-    uint8_t data[MAX_RESPONSE_SIZE];
+    uint8_t *data = (uint8_t *)malloc(MAX_RESPONSE_SIZE);
+    if (!data) {
+        fprintf(stderr, "Failed to allocate response buffer\n");
+        return false;
+    }
     size_t dataLen;
 
     if (!receiveResponse(client, &status, data, &dataLen)) {
         fprintf(stderr, "Failed to receive response\n");
+        free(data);
         return false;
     }
 
     if (status != STATUS_OK) {
         printf("Error: status = 0x%02X\n", status);
+        free(data);
         return false;
     }
 
@@ -281,6 +280,7 @@ bool cmdStats(TrieClient *client) {
     printf("  Commands:     %lu\n", commands);
     printf("  Uptime:       %lu seconds\n", uptime);
 
+    free(data);
     return true;
 }
 
@@ -299,7 +299,7 @@ int main(int argc, char *argv[]) {
     const char *host = argc > 2 ? argv[2] : "127.0.0.1";
     uint16_t port = argc > 3 ? atoi(argv[3]) : 9999;
 
-    TrieClient client;
+    TrieClient client = {0};  // Initialize to zero to avoid uninitialized fields
     if (!clientConnect(&client, host, port)) {
         fprintf(stderr, "Failed to connect to server\n");
         return 1;
