@@ -165,7 +165,8 @@
 
 /* Shared defines */
 #define BITS_PER_SLOT (sizeof(SLOT_STORAGE_TYPE) * 8)
-#define VALUE_MASK (MICRO_PROMOTION_TYPE)((1ULL << BITS_PER_VALUE) - 1)
+/* Cast to uint32_t to avoid undefined behavior with left shifts */
+#define VALUE_MASK ((uint32_t)(MICRO_PROMOTION_TYPE)((1ULL << BITS_PER_VALUE) - 1))
 
 /* This define is an optimization.  If we are using compact storage
  * (example: storing 12 bit packed across slots of uint8_t), then we
@@ -250,11 +251,11 @@ PACKED_STATIC void PACKED_ARRAY_SET(void *_dst, const PACKED_LEN_TYPE offset,
          * be expected.  If you're debugging a raw byte array of packed
          * integers, remember to not read the bit values in the bytes
          * as if they should just be concatenated together. */
-        low = MICRO_PROMOTION_TYPE_CAST(val) << startBit;
-        high = MICRO_PROMOTION_TYPE_CAST(val) >> bitsAvailable;
+        low = (uint32_t)MICRO_PROMOTION_TYPE_CAST(val) << startBit;
+        high = (uint32_t)MICRO_PROMOTION_TYPE_CAST(val) >> bitsAvailable;
 
-        out[0] = (out[0] & ~(VALUE_MASK << startBit)) | low;
-        out[1] = (out[1] & ~(VALUE_MASK >> bitsAvailable)) | high;
+        out[0] = (out[0] & ~((uint32_t)VALUE_MASK << startBit)) | low;
+        out[1] = (out[1] & ~((uint32_t)VALUE_MASK >> bitsAvailable)) | high;
 #if SLOT_CAN_HOLD_ENTIRE_VALUE
     }
 #endif
@@ -308,11 +309,11 @@ PACKED_STATIC void PACKED_ARRAY_SET_HALF(void *_dst,
         const VALUE_TYPE val = current / 2;
 
         /* SET */
-        low = MICRO_PROMOTION_TYPE_CAST(val) << startBit;
-        high = MICRO_PROMOTION_TYPE_CAST(val) >> bitsAvailable;
+        low = (uint32_t)MICRO_PROMOTION_TYPE_CAST(val) << startBit;
+        high = (uint32_t)MICRO_PROMOTION_TYPE_CAST(val) >> bitsAvailable;
 
-        out[0] = (out[0] & ~(VALUE_MASK << startBit)) | low;
-        out[1] = (out[1] & ~(VALUE_MASK >> bitsAvailable)) | high;
+        out[0] = (out[0] & ~((uint32_t)VALUE_MASK << startBit)) | low;
+        out[1] = (out[1] & ~((uint32_t)VALUE_MASK >> bitsAvailable)) | high;
 #if SLOT_CAN_HOLD_ENTIRE_VALUE
     }
 #endif
@@ -357,11 +358,11 @@ PACKED_STATIC void PACKED_ARRAY_SET_INCR(void *_dst,
         val = val >= (1 << BITS_PER_VALUE) ? current - incrBy : val;
 
         /* SET */
-        low = MICRO_PROMOTION_TYPE_CAST(val) << startBit;
-        high = MICRO_PROMOTION_TYPE_CAST(val) >> bitsAvailable;
+        low = (uint32_t)MICRO_PROMOTION_TYPE_CAST(val) << startBit;
+        high = (uint32_t)MICRO_PROMOTION_TYPE_CAST(val) >> bitsAvailable;
 
-        out[0] = (out[0] & ~(VALUE_MASK << startBit)) | low;
-        out[1] = (out[1] & ~(VALUE_MASK >> bitsAvailable)) | high;
+        out[0] = (out[0] & ~((uint32_t)VALUE_MASK << startBit)) | low;
+        out[1] = (out[1] & ~((uint32_t)VALUE_MASK >> bitsAvailable)) | high;
 #if SLOT_CAN_HOLD_ENTIRE_VALUE
     }
 #endif

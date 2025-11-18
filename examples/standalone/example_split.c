@@ -166,9 +166,9 @@ void example_reversed() {
 
     // Now demonstrate reversed encoding
     printf("\nReversed encoding (for backward traversal):\n");
-    uint8_t reversed[64];
+    uint8_t reversed[128];  // Increased buffer size
     memset(reversed, 0, sizeof(reversed));
-    offset = 50;  // Start somewhere in the middle
+    offset = 20;  // Start earlier to fit all values
 
     for (size_t i = 0; i < 4; i++) {
         varintWidth width;
