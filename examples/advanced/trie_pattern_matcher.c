@@ -322,22 +322,22 @@ size_t trieNodeSerialize(const TrieNode *node, uint8_t *buffer) {
     flags >>= 56; // We used 3 bits, shift to low byte
     buffer[offset++] = (uint8_t)flags;
 
-    // Segment length and data
+    // Segment length and data (using varintTagged for fast self-describing length)
     size_t segLen = strlen(node->segment);
-    offset += varintExternalPut(buffer + offset, segLen);
+    offset += varintTaggedPut64(buffer + offset, segLen);
     memcpy(buffer + offset, node->segment, segLen);
     offset += segLen;
 
     // Subscriber count and IDs (if terminal)
     if (node->isTerminal) {
-        offset += varintExternalPut(buffer + offset, node->subscribers.count);
+        offset += varintTaggedPut64(buffer + offset, node->subscribers.count);
         for (size_t i = 0; i < node->subscribers.count; i++) {
-            offset += varintExternalPut(buffer + offset, node->subscribers.subscribers[i].id);
+            offset += varintTaggedPut64(buffer + offset, node->subscribers.subscribers[i].id);
         }
     }
 
     // Child count
-    offset += varintExternalPut(buffer + offset, node->childCount);
+    offset += varintTaggedPut64(buffer + offset, node->childCount);
 
     // Serialize children recursively
     for (size_t i = 0; i < node->childCount; i++) {
@@ -350,12 +350,94 @@ size_t trieNodeSerialize(const TrieNode *node, uint8_t *buffer) {
 size_t trieSerialize(const PatternTrie *trie, uint8_t *buffer) {
     size_t offset = 0;
 
-    // Trie metadata
-    offset += varintExternalPut(buffer + offset, trie->patternCount);
-    offset += varintExternalPut(buffer + offset, trie->nodeCount);
+    // Trie metadata (using varintTagged for fast self-describing format)
+    offset += varintTaggedPut64(buffer + offset, trie->patternCount);
+    offset += varintTaggedPut64(buffer + offset, trie->nodeCount);
 
     // Serialize root node
     offset += trieNodeSerialize(trie->root, buffer + offset);
+
+    return offset;
+}
+
+// ============================================================================
+// DESERIALIZATION
+// ============================================================================
+
+size_t trieNodeDeserialize(TrieNode **node, const uint8_t *buffer) {
+    size_t offset = 0;
+
+    // Allocate new node
+    *node = trieNodeCreate("", SEGMENT_LITERAL);
+
+    // Read flags byte
+    uint8_t flagsByte = buffer[offset++];
+    uint64_t flags = (uint64_t)flagsByte << 56; // Shift to high byte for varintBitstreamGet
+    (*node)->isTerminal = varintBitstreamGet(&flags, 0, 1) ? true : false;
+    (*node)->type = (SegmentType)varintBitstreamGet(&flags, 1, 2);
+
+    // Read segment length and data (using varintTagged for fast self-describing length)
+    uint64_t segLen;
+    varintTaggedGet64(buffer + offset, &segLen);
+    offset += varintTaggedGetLen(buffer + offset);
+
+    // Copy segment data
+    if (segLen < sizeof((*node)->segment)) {
+        memcpy((*node)->segment, buffer + offset, segLen);
+        (*node)->segment[segLen] = '\0';
+    }
+    offset += segLen;
+
+    // Read subscribers if terminal
+    if ((*node)->isTerminal) {
+        uint64_t subCount;
+        varintTaggedGet64(buffer + offset, &subCount);
+        offset += varintTaggedGetLen(buffer + offset);
+
+        for (size_t i = 0; i < subCount; i++) {
+            uint64_t id;
+            varintTaggedGet64(buffer + offset, &id);
+            offset += varintTaggedGetLen(buffer + offset);
+            subscriberListAdd(&(*node)->subscribers, id, "Deserialized");
+        }
+    }
+
+    // Read child count
+    uint64_t childCount;
+    varintTaggedGet64(buffer + offset, &childCount);
+    offset += varintTaggedGetLen(buffer + offset);
+
+    // Deserialize children recursively
+    for (size_t i = 0; i < childCount; i++) {
+        TrieNode *child;
+        offset += trieNodeDeserialize(&child, buffer + offset);
+        trieNodeAddChild(*node, child);
+    }
+
+    return offset;
+}
+
+size_t trieDeserialize(PatternTrie *trie, const uint8_t *buffer) {
+    size_t offset = 0;
+
+    // Read trie metadata (using varintTagged for fast self-describing format)
+    uint64_t patternCount, nodeCount;
+    varintTaggedGet64(buffer + offset, &patternCount);
+    offset += varintTaggedGetLen(buffer + offset);
+
+    varintTaggedGet64(buffer + offset, &nodeCount);
+    offset += varintTaggedGetLen(buffer + offset);
+
+    // Initialize trie
+    trieInit(trie);
+
+    // Deserialize root node (and all children recursively)
+    trieNodeFree(trie->root); // Free the default root
+    offset += trieNodeDeserialize(&trie->root, buffer + offset);
+
+    // Restore metadata
+    trie->patternCount = patternCount;
+    trie->nodeCount = nodeCount;
 
     return offset;
 }
@@ -559,31 +641,96 @@ void testMultipleSubscribers() {
 }
 
 void testSerialization() {
-    printf("\n[TEST 6] Trie serialization\n");
+    printf("\n[TEST 6] Trie serialization and deserialization (roundtrip)\n");
 
-    PatternTrie trie;
-    trieInit(&trie);
+    PatternTrie originalTrie;
+    trieInit(&originalTrie);
 
-    trieInsert(&trie, "stock.nasdaq.aapl", 1, "AAPL");
-    trieInsert(&trie, "stock.*.goog", 2, "GOOG");
-    trieInsert(&trie, "stock.#", 3, "All Stocks");
+    // Insert test patterns with various wildcards
+    trieInsert(&originalTrie, "stock.nasdaq.aapl", 1, "AAPL");
+    trieInsert(&originalTrie, "stock.*.goog", 2, "GOOG");
+    trieInsert(&originalTrie, "stock.#", 3, "All Stocks");
+    trieInsert(&originalTrie, "forex.#.usd", 4, "USD");
+    trieInsert(&originalTrie, "crypto.*.btc", 5, "BTC");
 
+    // Test queries on original trie
+    MatchResult originalResult;
+    trieMatch(&originalTrie, "stock.nasdaq.aapl", &originalResult);
+    size_t originalMatchCount1 = originalResult.count;
+
+    trieMatch(&originalTrie, "stock.nyse.goog", &originalResult);
+    size_t originalMatchCount2 = originalResult.count;
+
+    trieMatch(&originalTrie, "stock.anything.here", &originalResult);
+    size_t originalMatchCount3 = originalResult.count;
+
+    // Serialize
     uint8_t buffer[4096];
-    size_t size = trieSerialize(&trie, buffer);
+    size_t serializedSize = trieSerialize(&originalTrie, buffer);
 
-    printf("  ✓ Serialized trie: %zu bytes\n", size);
-    printf("  ✓ Patterns: %zu\n", trie.patternCount);
-    printf("  ✓ Nodes: %zu\n", trie.nodeCount);
+    printf("  ✓ Serialized trie: %zu bytes\n", serializedSize);
+    printf("  ✓ Patterns: %zu\n", originalTrie.patternCount);
+    printf("  ✓ Nodes: %zu\n", originalTrie.nodeCount);
 
-    // Estimate uncompressed size
-    size_t uncompressed = trie.nodeCount * (64 + 16); // Approx node size
+    // Estimate uncompressed size using actual structure sizes
+    size_t estimatedNodeSize = sizeof(TrieNode) + sizeof(TrieNode*) * 4; // Base node + avg children pointers
+    size_t uncompressed = originalTrie.nodeCount * estimatedNodeSize;
     printf("  ✓ Uncompressed estimate: ~%zu bytes\n", uncompressed);
-    printf("  ✓ Compression ratio: %.2fx\n", (double)uncompressed / size);
+    printf("  ✓ Compression ratio: %.2fx\n", (double)uncompressed / serializedSize);
 
-    assert(size < uncompressed);
+    assert(serializedSize < uncompressed);
 
-    trieFree(&trie);
-    printf("  PASS: Serialization works correctly\n");
+    // Deserialize into new trie
+    PatternTrie deserializedTrie;
+    size_t deserializedSize = trieDeserialize(&deserializedTrie, buffer);
+
+    printf("  ✓ Deserialized %zu bytes\n", deserializedSize);
+    assert(deserializedSize == serializedSize);
+
+    // Verify metadata
+    assert(deserializedTrie.patternCount == originalTrie.patternCount);
+    assert(deserializedTrie.nodeCount == originalTrie.nodeCount);
+    printf("  ✓ Metadata matches (patterns: %zu, nodes: %zu)\n",
+           deserializedTrie.patternCount, deserializedTrie.nodeCount);
+
+    // Test same queries on deserialized trie
+    MatchResult deserializedResult;
+
+    trieMatch(&deserializedTrie, "stock.nasdaq.aapl", &deserializedResult);
+    assert(deserializedResult.count == originalMatchCount1);
+    assert(deserializedResult.subscriberIds[0] == 1);
+    printf("  ✓ Exact match works after deserialization\n");
+
+    trieMatch(&deserializedTrie, "stock.nyse.goog", &deserializedResult);
+    assert(deserializedResult.count == originalMatchCount2);
+    assert(deserializedResult.subscriberIds[0] == 2);
+    printf("  ✓ Star wildcard match works after deserialization\n");
+
+    trieMatch(&deserializedTrie, "stock.anything.here", &deserializedResult);
+    assert(deserializedResult.count == originalMatchCount3);
+    assert(deserializedResult.subscriberIds[0] == 3);
+    printf("  ✓ Hash wildcard match works after deserialization\n");
+
+    // Test additional patterns
+    trieMatch(&deserializedTrie, "forex.eur.usd", &deserializedResult);
+    assert(deserializedResult.count == 1);
+    assert(deserializedResult.subscriberIds[0] == 4);
+    printf("  ✓ Complex hash wildcard match works\n");
+
+    trieMatch(&deserializedTrie, "crypto.exchange.btc", &deserializedResult);
+    assert(deserializedResult.count == 1);
+    assert(deserializedResult.subscriberIds[0] == 5);
+    printf("  ✓ Star wildcard in crypto pattern works\n");
+
+    // Verify no false matches
+    trieMatch(&deserializedTrie, "stock.nasdaq.msft", &deserializedResult);
+    assert(deserializedResult.count == 1); // Should only match "stock.#"
+    assert(deserializedResult.subscriberIds[0] == 3);
+    printf("  ✓ No false matches in deserialized trie\n");
+
+    trieFree(&originalTrie);
+    trieFree(&deserializedTrie);
+    printf("  PASS: Serialization roundtrip works correctly\n");
 }
 
 void testEdgeCases() {
