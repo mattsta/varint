@@ -56,6 +56,7 @@
 
 #include "../../src/varint.h"
 #include "../../src/varintTagged.h"
+#include "../../src/varintBitstream.h"
 
 // ============================================================================
 // CONFIGURATION
@@ -809,19 +810,260 @@ void trieStats(const PatternTrie *trie, size_t *totalNodes, size_t *terminalNode
     }
 }
 
+// ============================================================================
+// PERSISTENCE (SERIALIZATION/DESERIALIZATION)
+// ============================================================================
+
+static size_t trieNodeSerialize(const TrieNode *node, uint8_t *buffer) {
+    size_t offset = 0;
+
+    // Node flags: isTerminal(1) | type(2) | reserved(5)
+    uint64_t flags = 0;
+    varintBitstreamSet(&flags, 0, 1, node->isTerminal ? 1 : 0);
+    varintBitstreamSet(&flags, 1, 2, node->type);
+    flags >>= 56;
+    buffer[offset++] = (uint8_t)flags;
+
+    // Segment length and data
+    size_t segLen = strlen(node->segment);
+    offset += varintTaggedPut64(buffer + offset, segLen);
+    memcpy(buffer + offset, node->segment, segLen);
+    offset += segLen;
+
+    // Subscriber count and data
+    offset += varintTaggedPut64(buffer + offset, node->subscribers.count);
+    for (size_t i = 0; i < node->subscribers.count; i++) {
+        offset += varintTaggedPut64(buffer + offset, node->subscribers.subscribers[i].id);
+
+        size_t nameLen = strlen(node->subscribers.subscribers[i].name);
+        offset += varintTaggedPut64(buffer + offset, nameLen);
+        memcpy(buffer + offset, node->subscribers.subscribers[i].name, nameLen);
+        offset += nameLen;
+    }
+
+    // Child count
+    offset += varintTaggedPut64(buffer + offset, node->childCount);
+
+    // Serialize children recursively
+    for (size_t i = 0; i < node->childCount; i++) {
+        offset += trieNodeSerialize(node->children[i], buffer + offset);
+    }
+
+    return offset;
+}
+
+static size_t trieNodeDeserialize(TrieNode **node, const uint8_t *buffer) {
+    size_t offset = 0;
+
+    *node = trieNodeCreate("", SEGMENT_LITERAL);
+    if (!*node) return 0;
+
+    // Read flags
+    uint8_t flagsByte = buffer[offset++];
+    uint64_t flags = (uint64_t)flagsByte << 56;
+    (*node)->isTerminal = varintBitstreamGet(&flags, 0, 1) ? true : false;
+    (*node)->type = (SegmentType)varintBitstreamGet(&flags, 1, 2);
+
+    // Read segment
+    uint64_t segLen;
+    varintTaggedGet64(buffer + offset, &segLen);
+    offset += varintTaggedGetLen(buffer + offset);
+
+    if (segLen < MAX_SEGMENT_LENGTH) {
+        memcpy((*node)->segment, buffer + offset, segLen);
+        (*node)->segment[segLen] = '\0';
+    }
+    offset += segLen;
+
+    // Read subscribers
+    uint64_t subCount;
+    varintTaggedGet64(buffer + offset, &subCount);
+    offset += varintTaggedGetLen(buffer + offset);
+
+    for (size_t i = 0; i < subCount && i < MAX_SUBSCRIBERS; i++) {
+        uint64_t id;
+        varintTaggedGet64(buffer + offset, &id);
+        offset += varintTaggedGetLen(buffer + offset);
+
+        uint64_t nameLen;
+        varintTaggedGet64(buffer + offset, &nameLen);
+        offset += varintTaggedGetLen(buffer + offset);
+
+        char name[MAX_SUBSCRIBER_NAME];
+        if (nameLen < MAX_SUBSCRIBER_NAME) {
+            memcpy(name, buffer + offset, nameLen);
+            name[nameLen] = '\0';
+        } else {
+            name[0] = '\0';
+        }
+        offset += nameLen;
+
+        subscriberListAdd(&(*node)->subscribers, (uint32_t)id, name);
+    }
+
+    // Read children
+    uint64_t childCount;
+    varintTaggedGet64(buffer + offset, &childCount);
+    offset += varintTaggedGetLen(buffer + offset);
+
+    for (size_t i = 0; i < childCount; i++) {
+        TrieNode *child;
+        size_t childSize = trieNodeDeserialize(&child, buffer + offset);
+        if (childSize == 0) break;
+
+        trieNodeAddChild(*node, child);
+        offset += childSize;
+    }
+
+    return offset;
+}
+
 bool trieSave(const PatternTrie *trie, const char *filename) {
-    // TODO: Full implementation from trie_interactive.c
-    // For now, just return success
-    (void)trie;
-    (void)filename;
-    return true;
+    if (!trie || !filename) return false;
+
+    FILE *file = fopen(filename, "wb");
+    if (!file) {
+        fprintf(stderr, "Error: Failed to open file for writing: %s (%s)\n",
+                filename, strerror(errno));
+        return false;
+    }
+
+    // Allocate buffer (max 16MB for safety)
+    size_t bufferSize = 16 * 1024 * 1024;
+    uint8_t *buffer = (uint8_t *)malloc(bufferSize);
+    if (!buffer) {
+        fprintf(stderr, "Error: Failed to allocate save buffer\n");
+        fclose(file);
+        return false;
+    }
+
+    size_t offset = 0;
+
+    // Write magic header
+    const char *magic = "TRIE";
+    memcpy(buffer + offset, magic, 4);
+    offset += 4;
+
+    // Write version
+    buffer[offset++] = 1;
+
+    // Write metadata
+    offset += varintTaggedPut64(buffer + offset, trie->patternCount);
+    offset += varintTaggedPut64(buffer + offset, trie->nodeCount);
+    offset += varintTaggedPut64(buffer + offset, trie->subscriberCount);
+
+    // Serialize trie
+    offset += trieNodeSerialize(trie->root, buffer + offset);
+
+    // Write to file
+    size_t written = fwrite(buffer, 1, offset, file);
+    bool success = (written == offset);
+
+    if (!success) {
+        fprintf(stderr, "Error: Failed to write complete data to file\n");
+    }
+
+    free(buffer);
+    fclose(file);
+
+    return success;
 }
 
 bool trieLoad(PatternTrie *trie, const char *filename) {
-    // TODO: Full implementation from trie_interactive.c
-    // For now, just return success
-    (void)trie;
-    (void)filename;
+    if (!trie || !filename) return false;
+
+    FILE *file = fopen(filename, "rb");
+    if (!file) {
+        // Don't print error for missing file on initial load
+        if (errno != ENOENT) {
+            fprintf(stderr, "Error: Failed to open file for reading: %s (%s)\n",
+                    filename, strerror(errno));
+        }
+        return false;
+    }
+
+    // Get file size
+    fseek(file, 0, SEEK_END);
+    long fileSize = ftell(file);
+    fseek(file, 0, SEEK_SET);
+
+    if (fileSize <= 0 || fileSize > 16 * 1024 * 1024) {
+        fprintf(stderr, "Error: Invalid file size: %ld bytes\n", fileSize);
+        fclose(file);
+        return false;
+    }
+
+    uint8_t *buffer = (uint8_t *)malloc(fileSize);
+    if (!buffer) {
+        fprintf(stderr, "Error: Failed to allocate load buffer\n");
+        fclose(file);
+        return false;
+    }
+
+    size_t readSize = fread(buffer, 1, fileSize, file);
+    fclose(file);
+
+    if (readSize != (size_t)fileSize) {
+        fprintf(stderr, "Error: Failed to read complete file\n");
+        free(buffer);
+        return false;
+    }
+
+    size_t offset = 0;
+
+    // Read and verify magic header
+    if (memcmp(buffer + offset, "TRIE", 4) != 0) {
+        fprintf(stderr, "Error: Invalid file format (bad magic header)\n");
+        free(buffer);
+        return false;
+    }
+    offset += 4;
+
+    // Read version
+    uint8_t version = buffer[offset++];
+    if (version != 1) {
+        fprintf(stderr, "Error: Unsupported file version: %u\n", version);
+        free(buffer);
+        return false;
+    }
+
+    // Read metadata
+    uint64_t patternCount, nodeCount, subscriberCount;
+    varintTaggedGet64(buffer + offset, &patternCount);
+    offset += varintTaggedGetLen(buffer + offset);
+    varintTaggedGet64(buffer + offset, &nodeCount);
+    offset += varintTaggedGetLen(buffer + offset);
+    varintTaggedGet64(buffer + offset, &subscriberCount);
+    offset += varintTaggedGetLen(buffer + offset);
+
+    // Clear existing trie (preserve root structure but reset it)
+    trieNodeFree(trie->root);
+    trie->root = trieNodeCreate("", SEGMENT_LITERAL);
+    if (!trie->root) {
+        fprintf(stderr, "Error: Failed to create root node\n");
+        free(buffer);
+        return false;
+    }
+
+    // Deserialize root node
+    TrieNode *loadedRoot;
+    size_t deserializedSize = trieNodeDeserialize(&loadedRoot, buffer + offset);
+    if (deserializedSize == 0) {
+        fprintf(stderr, "Error: Failed to deserialize trie structure\n");
+        free(buffer);
+        return false;
+    }
+
+    // Copy loaded root's data to existing root
+    trieNodeFree(trie->root);
+    trie->root = loadedRoot;
+
+    // Update trie metadata
+    trie->patternCount = patternCount;
+    trie->nodeCount = nodeCount;
+    trie->subscriberCount = subscriberCount;
+
+    free(buffer);
     return true;
 }
 
