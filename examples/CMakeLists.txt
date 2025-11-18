@@ -94,6 +94,12 @@ target_link_libraries(trie_pattern_matcher varint)
 add_executable(trie_interactive advanced/trie_interactive.c)
 target_link_libraries(trie_interactive varint)
 
+add_executable(trie_server advanced/trie_server.c)
+target_link_libraries(trie_server varint)
+
+add_executable(trie_client advanced/trie_client.c)
+target_link_libraries(trie_client varint)
+
 # Custom target to build all examples
 add_custom_target(examples DEPENDS
     example_tagged
@@ -116,6 +122,8 @@ add_custom_target(examples DEPENDS
     geospatial_routing
     trie_pattern_matcher
     trie_interactive
+    trie_server
+    trie_client
 )
 
 message(STATUS "Examples configured. Build with 'make examples'")
