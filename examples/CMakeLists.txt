@@ -88,6 +88,9 @@ target_link_libraries(log_aggregation varint)
 add_executable(geospatial_routing advanced/geospatial_routing.c)
 target_link_libraries(geospatial_routing varint m)
 
+add_executable(trie_pattern_matcher advanced/trie_pattern_matcher.c)
+target_link_libraries(trie_pattern_matcher varint)
+
 # Custom target to build all examples
 add_custom_target(examples DEPENDS
     example_tagged
@@ -108,6 +111,7 @@ add_custom_target(examples DEPENDS
     financial_orderbook
     log_aggregation
     geospatial_routing
+    trie_pattern_matcher
 )
 
 message(STATUS "Examples configured. Build with 'make examples'")
