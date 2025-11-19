@@ -17,6 +17,17 @@
 #include <string.h>
 #include <stdbool.h>
 #include <stdio.h>
+#include <stdint.h>
+
+/* Check for overflow in size_t multiplication */
+static inline bool size_mul_overflow(size_t a, size_t b, size_t *result) {
+    if (a == 0 || b == 0) {
+        *result = 0;
+        return false;
+    }
+    *result = a * b;
+    return (*result / a) != b;
+}
 
 /* ====================================================================
  * Helper Functions
@@ -59,7 +70,12 @@ size_t varintAdaptiveCountUnique(const uint64_t *values, size_t count) {
         size_t sampleSize = count / 10;
         if (sampleSize < 100) sampleSize = 100; /* Ensure minimum sample size */
 
-        uint64_t *sample = malloc(sampleSize * sizeof(uint64_t));
+        size_t allocSize;
+        if (size_mul_overflow(sampleSize, sizeof(uint64_t), &allocSize)) {
+            return count;  /* Integer overflow, conservative estimate */
+        }
+
+        uint64_t *sample = malloc(allocSize);
         if (!sample) return count; /* Conservative estimate */
 
         /* Collect samples */
@@ -95,7 +111,12 @@ size_t varintAdaptiveCountUnique(const uint64_t *values, size_t count) {
     }
 
     /* For smaller arrays, do exact count with full sort */
-    uint64_t *sorted = malloc(count * sizeof(uint64_t));
+    size_t allocSize;
+    if (size_mul_overflow(count, sizeof(uint64_t), &allocSize)) {
+        return count;  /* Integer overflow, conservative estimate */
+    }
+
+    uint64_t *sorted = malloc(allocSize);
     if (!sorted) return count; /* Conservative estimate */
 
     memcpy(sorted, values, count * sizeof(uint64_t));
@@ -288,7 +309,12 @@ size_t varintAdaptiveEncodeWith(uint8_t *dst, const uint64_t *values,
     switch (encodingType) {
         case VARINT_ADAPTIVE_DELTA: {
             /* Delta encoding for signed values - convert to signed */
-            int64_t *signedValues = malloc(count * sizeof(int64_t));
+            size_t allocSize;
+            if (size_mul_overflow(count, sizeof(int64_t), &allocSize)) {
+                return 0;  /* Integer overflow */
+            }
+
+            int64_t *signedValues = malloc(allocSize);
             if (!signedValues) return 0;
 
             for (size_t i = 0; i < count; i++) {
@@ -426,7 +452,12 @@ size_t varintAdaptiveDecode(const uint8_t *src, uint64_t *values,
             varintBitmap *vb = varintBitmapDecode(data, 1024 * 1024);
             if (vb) {
                 /* Extract values from bitmap */
-                uint16_t *shortValues = malloc(maxCount * sizeof(uint16_t));
+                size_t allocSize;
+                uint16_t *shortValues = NULL;
+                if (!size_mul_overflow(maxCount, sizeof(uint16_t), &allocSize)) {
+                    shortValues = malloc(allocSize);
+                }
+
                 if (shortValues) {
                     uint32_t count = varintBitmapToArray(vb, shortValues);
                     decoded = count < maxCount ? count : maxCount;

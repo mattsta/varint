@@ -4,6 +4,18 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <float.h>
+#include <stdint.h>
+#include <stdbool.h>
+
+/* Check for overflow in size_t multiplication */
+static inline bool size_mul_overflow(size_t a, size_t b, size_t *result) {
+    if (a == 0 || b == 0) {
+        *result = 0;
+        return false;
+    }
+    *result = a * b;
+    return (*result / a) != b;
+}
 
 /* IEEE 754 double precision format:
  * Sign: 1 bit (bit 63)
@@ -194,11 +206,19 @@ size_t varintFloatEncode(uint8_t *output,
     *p++ = mant_bits;
     *p++ = (uint8_t)mode;
 
+    /* Check for integer overflow in allocation sizes */
+    size_t allocSize1, allocSize2, allocSize3;
+    if (size_mul_overflow(count, sizeof(uint64_t), &allocSize1) ||
+        size_mul_overflow(count, sizeof(int16_t), &allocSize2) ||
+        size_mul_overflow(count, sizeof(uint64_t), &allocSize3)) {
+        return 0;  /* Integer overflow */
+    }
+
     /* Allocate temporary arrays for components */
-    uint64_t *signs = malloc(count * sizeof(uint64_t));
-    int16_t *exponents = malloc(count * sizeof(int16_t));
-    uint64_t *mantissas = malloc(count * sizeof(uint64_t));
-    uint64_t *special_flags = malloc(count * sizeof(uint64_t));
+    uint64_t *signs = malloc(allocSize1);
+    int16_t *exponents = malloc(allocSize2);
+    uint64_t *mantissas = malloc(allocSize1);
+    uint64_t *special_flags = malloc(allocSize1);
 
     if (!signs || !exponents || !mantissas || !special_flags) {
         free(signs);
@@ -364,11 +384,26 @@ size_t varintFloatDecode(const uint8_t *input, size_t count, double *output) {
     varintFloatEncodingMode mode = (varintFloatEncodingMode)(*p++);
 
 
+    /* Check for integer overflow in allocation sizes */
+    size_t allocSize1, allocSize2;
+    if (size_mul_overflow(count, sizeof(uint64_t), &allocSize1) ||
+        size_mul_overflow(count, sizeof(int16_t), &allocSize2)) {
+        return 0;  /* Integer overflow */
+    }
+
     /* Allocate temporary arrays */
-    uint64_t *signs = malloc(count * sizeof(uint64_t));
-    int16_t *exponents = malloc(count * sizeof(int16_t));
-    uint64_t *mantissas = malloc(count * sizeof(uint64_t));
-    uint64_t *special_flags = malloc(count * sizeof(uint64_t));
+    uint64_t *signs = malloc(allocSize1);
+    int16_t *exponents = malloc(allocSize2);
+    uint64_t *mantissas = malloc(allocSize1);
+    uint64_t *special_flags = malloc(allocSize1);
+
+    if (!signs || !exponents || !mantissas || !special_flags) {
+        free(signs);
+        free(exponents);
+        free(mantissas);
+        free(special_flags);
+        return 0;
+    }
 
     /* Read special values bitmap */
     size_t special_bitmap_size = (count + 7) / 8;
@@ -452,7 +487,25 @@ size_t varintFloatDecode(const uint8_t *input, size_t count, double *output) {
     }
 
     if (normal_count > 0) {
-        uint64_t *packed_mantissas = malloc(normal_count * sizeof(uint64_t));
+        /* Check for overflow in allocation size */
+        size_t mantAllocSize;
+        if (size_mul_overflow(normal_count, sizeof(uint64_t), &mantAllocSize)) {
+            free(signs);
+            free(exponents);
+            free(mantissas);
+            free(special_flags);
+            return 0;  /* Integer overflow */
+        }
+
+        uint64_t *packed_mantissas = malloc(mantAllocSize);
+        if (!packed_mantissas) {
+            free(signs);
+            free(exponents);
+            free(mantissas);
+            free(special_flags);
+            return 0;
+        }
+
         unpackBits(p, normal_count, mant_bits, packed_mantissas);
         p += (normal_count * mant_bits + 7) / 8;
 
