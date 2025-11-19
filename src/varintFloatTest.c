@@ -45,6 +45,7 @@ int varintFloatTest(int argc, char *argv[]) {
         size_t encoded = varintFloatEncode(buffer, values, count,
                                           VARINT_FLOAT_PRECISION_HIGH,
                                           VARINT_FLOAT_MODE_INDEPENDENT);
+        (void)encoded; /* Size tested via decode */
 
         double decoded[3];
         varintFloatDecode(buffer, count, decoded);
@@ -68,6 +69,7 @@ int varintFloatTest(int argc, char *argv[]) {
         size_t encoded = varintFloatEncode(buffer, values, count,
                                           VARINT_FLOAT_PRECISION_MEDIUM,
                                           VARINT_FLOAT_MODE_INDEPENDENT);
+        (void)encoded; /* Size tested via decode */
 
         double decoded[4];
         varintFloatDecode(buffer, count, decoded);
@@ -91,6 +93,7 @@ int varintFloatTest(int argc, char *argv[]) {
         size_t encoded = varintFloatEncode(buffer, values, count,
                                           VARINT_FLOAT_PRECISION_LOW,
                                           VARINT_FLOAT_MODE_INDEPENDENT);
+        (void)encoded; /* Size tested via decode */
 
         double decoded[5];
         varintFloatDecode(buffer, count, decoded);

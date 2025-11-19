@@ -200,6 +200,14 @@ size_t varintFloatEncode(uint8_t *output,
     uint64_t *mantissas = malloc(count * sizeof(uint64_t));
     uint64_t *special_flags = malloc(count * sizeof(uint64_t));
 
+    if (!signs || !exponents || !mantissas || !special_flags) {
+        free(signs);
+        free(exponents);
+        free(mantissas);
+        free(special_flags);
+        return 0;
+    }
+
     /* Decompose all values */
     for (size_t i = 0; i < count; i++) {
         bool is_normal = varintFloatDecompose(values[i], &signs[i],
@@ -351,6 +359,8 @@ size_t varintFloatDecode(const uint8_t *input, size_t count, double *output) {
     varintFloatPrecision precision = (varintFloatPrecision)(*p++);
     uint8_t exp_bits = *p++;
     uint8_t mant_bits = *p++;
+    (void)precision; /* Precision info embedded in exp/mant_bits */
+    (void)exp_bits;  /* Bits info used implicitly in unpacking */
     varintFloatEncodingMode mode = (varintFloatEncodingMode)(*p++);
 
 
