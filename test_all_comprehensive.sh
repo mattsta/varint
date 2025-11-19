@@ -74,6 +74,7 @@ test_example "examples/standalone/example_chained.c" "src/varintChained.c" ""
 test_example "examples/standalone/example_packed.c" "" ""
 test_example "examples/standalone/example_bitstream.c" "" ""
 test_example "examples/standalone/example_dimension.c" "src/varintDimension.c src/varintExternal.c" "-mf16c -mavx2"
+test_example "examples/standalone/rle_codec.c" "src/varintExternal.c" ""
 
 # INTEGRATION EXAMPLES (may need multiple source files)
 echo ""
@@ -87,6 +88,9 @@ test_example "examples/integration/sensor_network.c" "src/varintExternal.c" ""
 test_example "examples/integration/column_store.c" "src/varintDimension.c src/varintExternal.c" "-mf16c -mavx2"
 test_example "examples/integration/ml_features.c" "src/varintDimension.c src/varintExternal.c" "-mf16c -mavx2"
 test_example "examples/integration/database_system.c" "src/varintTagged.c src/varintExternal.c" ""
+test_example "examples/integration/vector_clock.c" "src/varintTagged.c" ""
+test_example "examples/integration/delta_compression.c" "src/varintExternal.c" "-lm"
+test_example "examples/integration/sparse_matrix_csr.c" "src/varintDimension.c src/varintExternal.c" "-lm -mf16c -mavx2"
 
 # ADVANCED EXAMPLES
 echo ""
@@ -160,6 +164,9 @@ test_example "examples/advanced/financial_orderbook.c" "src/varintExternal.c src
 test_example "examples/advanced/game_replay_system.c" "src/varintExternal.c" "-lm"
 test_example "examples/advanced/geospatial_routing.c" "src/varintExternal.c src/varintTagged.c" "-lm"
 test_example "examples/advanced/log_aggregation.c" "src/varintChained.c src/varintExternal.c" ""
+test_example "examples/advanced/bloom_filter.c" "src/varintChained.c src/varintExternal.c" "-lm"
+test_example "examples/advanced/autocomplete_trie.c" "src/varintExternal.c src/varintTagged.c" ""
+test_example "examples/advanced/pointcloud_octree.c" "src/varintExternal.c src/varintDimension.c" "-lm -mf16c -mavx2"
 
 # Trie pattern matcher and interactive need stdin
 echo ""

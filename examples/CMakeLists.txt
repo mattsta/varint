@@ -99,6 +99,12 @@ target_link_libraries(trie_server varint)
 add_executable(trie_client advanced/trie_client.c)
 target_link_libraries(trie_client varint)
 
+add_executable(autocomplete_trie advanced/autocomplete_trie.c)
+target_link_libraries(autocomplete_trie varint m)
+
+add_executable(pointcloud_octree advanced/pointcloud_octree.c)
+target_link_libraries(pointcloud_octree varint m)
+
 # Custom target to build all examples
 add_custom_target(examples DEPENDS
     example_tagged
@@ -129,6 +135,8 @@ add_custom_target(examples DEPENDS
     trie_interactive
     trie_server
     trie_client
+    autocomplete_trie
+    pointcloud_octree
 )
 
 message(STATUS "Examples configured. Build with 'make examples'")
