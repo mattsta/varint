@@ -85,18 +85,12 @@ varintWidth varintPFORComputeThreshold(const uint64_t *values, uint32_t count,
     /* Calculate exception marker */
     uint64_t marker = varintPFORCalculateMarker(width);
 
-    /* Count exceptions */
+    /* Count exceptions - values above threshold percentile */
     uint32_t exceptionCount = 0;
     for (uint32_t i = 0; i < count; i++) {
-        if (values[i] < min) {
-            /* Value below min is always an exception */
+        if (values[i] > thresholdValue) {
+            /* Value above threshold is an exception */
             exceptionCount++;
-        } else {
-            uint64_t offset = values[i] - min;
-            if (offset >= marker) {
-                /* Value requires exception (offset too large) */
-                exceptionCount++;
-            }
         }
     }
 
@@ -107,6 +101,7 @@ varintWidth varintPFORComputeThreshold(const uint64_t *values, uint32_t count,
     meta->exceptionCount = exceptionCount;
     meta->exceptionMarker = marker;
     meta->threshold = threshold;
+    meta->thresholdValue = thresholdValue;
 
     free(sorted);
     return width;
@@ -166,8 +161,8 @@ size_t varintPFOREncode(uint8_t *dst, const uint64_t *values, uint32_t count,
     for (uint32_t i = 0; i < count; i++) {
         uint64_t value = values[i];
 
-        if (value < meta->min) {
-            /* Below min: store exception */
+        if (value > meta->thresholdValue) {
+            /* Above threshold: store exception marker */
             varintExternalPutFixedWidth(dst, meta->exceptionMarker, meta->width);
             if (exceptions) {
                 exceptions[exceptionIdx].index = i;
@@ -175,20 +170,9 @@ size_t varintPFOREncode(uint8_t *dst, const uint64_t *values, uint32_t count,
                 exceptionIdx++;
             }
         } else {
+            /* Normal value: store offset from min */
             uint64_t offset = value - meta->min;
-            if (offset >= meta->exceptionMarker) {
-                /* Too large: store exception */
-                varintExternalPutFixedWidth(dst, meta->exceptionMarker,
-                                            meta->width);
-                if (exceptions) {
-                    exceptions[exceptionIdx].index = i;
-                    exceptions[exceptionIdx].value = value;
-                    exceptionIdx++;
-                }
-            } else {
-                /* Normal value: store offset */
-                varintExternalPutFixedWidth(dst, offset, meta->width);
-            }
+            varintExternalPutFixedWidth(dst, offset, meta->width);
         }
         dst += meta->width;
     }

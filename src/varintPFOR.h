@@ -32,6 +32,7 @@ typedef struct varintPFORMeta {
     uint32_t exceptionCount;   /* Number of exception values */
     uint64_t exceptionMarker;  /* Marker value for exceptions (all 1s) */
     uint32_t threshold;        /* Percentile threshold (90, 95, 99) */
+    uint64_t thresholdValue;   /* Actual threshold value from percentile */
 } varintPFORMeta;
 
 /* Compute optimal threshold and metadata for encoding.

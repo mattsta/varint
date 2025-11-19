@@ -59,9 +59,11 @@ size_t varintFOREncode(uint8_t *dst, const uint64_t *values, size_t count,
     assert(values != NULL);
     assert(count > 0);
 
+    /* Local metadata storage - must be at function scope */
+    varintFORMetadata localMeta;
+
     /* Analyze if not already done */
     if (meta == NULL || meta->count != count) {
-        varintFORMetadata localMeta;
         varintFORAnalyze(values, count, &localMeta);
         if (meta != NULL) {
             *meta = localMeta;
