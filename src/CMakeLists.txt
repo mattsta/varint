@@ -6,8 +6,8 @@ if(${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
     cmake_policy(SET CMP0042 NEW)
 endif()
 
-set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -Wextra -pedantic -std=c99")
-set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wshadow -march=native")
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -Wextra -pedantic -std=c11")
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wshadow -mtune=native")
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wstrict-aliasing -Wstrict-overflow")
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wno-missing-field-initializers")
 

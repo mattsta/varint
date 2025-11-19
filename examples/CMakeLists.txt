@@ -6,7 +6,7 @@ cmake_minimum_required(VERSION 3.10...3.28)
 include_directories(../src)
 
 # Compiler flags
-set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -Wextra -pedantic -std=c99 -O2")
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -Wextra -pedantic -std=c11 -O2")
 
 # Link against varint library
 link_directories(${CMAKE_BINARY_DIR}/src)
