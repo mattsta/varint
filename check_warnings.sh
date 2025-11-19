@@ -1,8 +1,7 @@
 #!/bin/bash
 # Automated warning checker for varint library
 # Checks all source files with both GCC and Clang strict warnings
-
-set -e
+# SHOWS ALL WARNINGS INLINE - does NOT hide anything
 
 COMPILER="${1:-clang}"
 SRC_DIR="src"
@@ -30,10 +29,14 @@ for file in $(find "$SRC_DIR" -name "*.c" | sort); do
         echo "✓"
         PASSED=$((PASSED + 1))
     else
-        echo "✗"
+        echo "✗ FAILED"
         FAILED_FILES+=("$file")
-        echo "  Errors:"
-        head -5 /tmp/err.log | sed 's/^/    /'
+        echo ""
+        echo "────────────────────────────────────────"
+        echo "ERRORS in $file:"
+        echo "────────────────────────────────────────"
+        cat /tmp/err.log  # SHOW COMPLETE ERROR OUTPUT
+        echo "────────────────────────────────────────"
         echo ""
     fi
 done
@@ -45,11 +48,15 @@ echo "================================="
 
 if [ ${#FAILED_FILES[@]} -gt 0 ]; then
     echo ""
-    echo "Failed files:"
+    echo "❌ FAILED FILES (${#FAILED_FILES[@]} total):"
     for file in "${FAILED_FILES[@]}"; do
         echo "  - $file"
     done
+    echo ""
+    echo "All warnings shown inline above."
     exit 1
 fi
 
+echo ""
+echo "✅ ALL FILES CLEAN"
 exit 0
