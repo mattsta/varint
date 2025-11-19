@@ -85,9 +85,7 @@ void example_temperature_sensors() {
         size_t max_size = varintFloatMaxEncodedSize(count, precisions[p]);
         uint8_t *encoded = malloc(max_size);
 
-        size_t encoded_size = varintFloatEncode(temperatures, count, precisions[p],
-                                                VARINT_FLOAT_MODE_COMMON_EXPONENT,
-                                                encoded);
+        size_t encoded_size = varintFloatEncode(encoded, temperatures, count, precisions[p], VARINT_FLOAT_MODE_COMMON_EXPONENT);
 
         double *decoded = malloc(count * sizeof(double));
         varintFloatDecode(encoded, count, decoded);
@@ -135,10 +133,7 @@ void example_gps_coordinates() {
     size_t max_size = varintFloatMaxEncodedSize(count, VARINT_FLOAT_PRECISION_HIGH);
     uint8_t *encoded = malloc(max_size);
 
-    size_t encoded_size = varintFloatEncode(coordinates, count,
-                                            VARINT_FLOAT_PRECISION_HIGH,
-                                            VARINT_FLOAT_MODE_COMMON_EXPONENT,
-                                            encoded);
+    size_t encoded_size = varintFloatEncode(encoded, coordinates, count, VARINT_FLOAT_PRECISION_HIGH, VARINT_FLOAT_MODE_COMMON_EXPONENT);
 
     double *decoded = malloc(count * sizeof(double));
     size_t decoded_bytes = varintFloatDecode(encoded, count, decoded);
@@ -191,10 +186,7 @@ void example_scientific_data() {
     size_t max_size = varintFloatMaxEncodedSize(count, VARINT_FLOAT_PRECISION_MEDIUM);
     uint8_t *encoded = malloc(max_size);
 
-    size_t encoded_size = varintFloatEncode(pressures, count,
-                                            VARINT_FLOAT_PRECISION_MEDIUM,
-                                            VARINT_FLOAT_MODE_COMMON_EXPONENT,
-                                            encoded);
+    size_t encoded_size = varintFloatEncode(encoded, pressures, count, VARINT_FLOAT_PRECISION_MEDIUM, VARINT_FLOAT_MODE_COMMON_EXPONENT);
 
     double *decoded = malloc(count * sizeof(double));
     varintFloatDecode(encoded, count, decoded);
@@ -256,9 +248,7 @@ void example_precision_comparison() {
         size_t max_size = varintFloatMaxEncodedSize(count, modes[m]);
         uint8_t *encoded = malloc(max_size);
 
-        size_t encoded_size = varintFloatEncode(data, count, modes[m],
-                                                VARINT_FLOAT_MODE_INDEPENDENT,
-                                                encoded);
+        size_t encoded_size = varintFloatEncode(encoded, data, count, modes[m], VARINT_FLOAT_MODE_INDEPENDENT);
 
         double *decoded = malloc(count * sizeof(double));
         varintFloatDecode(encoded, count, decoded);
@@ -316,9 +306,7 @@ void example_encoding_modes() {
         size_t max_size = varintFloatMaxEncodedSize(count, VARINT_FLOAT_PRECISION_HIGH);
         uint8_t *encoded = malloc(max_size);
 
-        size_t encoded_size = varintFloatEncode(readings, count,
-                                                VARINT_FLOAT_PRECISION_HIGH,
-                                                modes[m], encoded);
+        size_t encoded_size = varintFloatEncode(encoded, readings, count, VARINT_FLOAT_PRECISION_HIGH, modes[m]);
 
         double *decoded = malloc(count * sizeof(double));
         varintFloatDecode(encoded, count, decoded);
@@ -369,10 +357,7 @@ void example_special_values() {
     size_t max_size = varintFloatMaxEncodedSize(count, VARINT_FLOAT_PRECISION_HIGH);
     uint8_t *encoded = malloc(max_size);
 
-    size_t encoded_size = varintFloatEncode(special_values, count,
-                                            VARINT_FLOAT_PRECISION_HIGH,
-                                            VARINT_FLOAT_MODE_INDEPENDENT,
-                                            encoded);
+    size_t encoded_size = varintFloatEncode(encoded, special_values, count, VARINT_FLOAT_PRECISION_HIGH, VARINT_FLOAT_MODE_INDEPENDENT);
 
     double *decoded = malloc(count * sizeof(double));
     varintFloatDecode(encoded, count, decoded);
@@ -432,10 +417,10 @@ void example_auto_precision() {
         uint8_t *encoded = malloc(max_size);
 
         varintFloatPrecision selected;
-        size_t encoded_size = varintFloatEncodeAuto(measurements, count,
+        size_t encoded_size = varintFloatEncodeAuto(encoded, measurements, count,
                                                      error_thresholds[t],
                                                      VARINT_FLOAT_MODE_COMMON_EXPONENT,
-                                                     &selected, encoded);
+                                                     &selected);
 
         double *decoded = malloc(count * sizeof(double));
         varintFloatDecode(encoded, count, decoded);
@@ -484,10 +469,7 @@ void example_large_dataset() {
     size_t max_size = varintFloatMaxEncodedSize(count, VARINT_FLOAT_PRECISION_MEDIUM);
     uint8_t *encoded = malloc(max_size);
 
-    size_t encoded_size = varintFloatEncode(sensor_data, count,
-                                            VARINT_FLOAT_PRECISION_MEDIUM,
-                                            VARINT_FLOAT_MODE_COMMON_EXPONENT,
-                                            encoded);
+    size_t encoded_size = varintFloatEncode(encoded, sensor_data, count, VARINT_FLOAT_PRECISION_MEDIUM, VARINT_FLOAT_MODE_COMMON_EXPONENT);
 
     double *decoded = malloc(count * sizeof(double));
     varintFloatDecode(encoded, count, decoded);
@@ -538,10 +520,7 @@ void example_round_trip() {
         size_t max_size = varintFloatMaxEncodedSize(tests[t].count, tests[t].precision);
         uint8_t *encoded = malloc(max_size);
 
-        size_t encoded_size = varintFloatEncode(tests[t].values, tests[t].count,
-                                                tests[t].precision,
-                                                VARINT_FLOAT_MODE_INDEPENDENT,
-                                                encoded);
+        size_t encoded_size = varintFloatEncode(encoded, tests[t].values, tests[t].count, tests[t].precision, VARINT_FLOAT_MODE_INDEPENDENT);
 
         double *decoded = malloc(tests[t].count * sizeof(double));
         size_t decoded_bytes = varintFloatDecode(encoded, tests[t].count, decoded);
@@ -585,9 +564,7 @@ void example_error_bounds() {
         size_t max_size = varintFloatMaxEncodedSize(count, precisions[p]);
         uint8_t *encoded = malloc(max_size);
 
-        size_t encoded_size = varintFloatEncode(test_values, count, precisions[p],
-                                                VARINT_FLOAT_MODE_INDEPENDENT,
-                                                encoded);
+        size_t encoded_size = varintFloatEncode(encoded, test_values, count, precisions[p], VARINT_FLOAT_MODE_INDEPENDENT);
 
         double *decoded = malloc(count * sizeof(double));
         varintFloatDecode(encoded, count, decoded);
