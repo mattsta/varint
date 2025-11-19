@@ -59,6 +59,7 @@ int varintGroupTest(int argc, char *argv[]) {
         uint8_t buffer[64];
 
         size_t encoded = varintGroupEncode(buffer, value, 1);
+        (void)encoded;  /* Intentionally unused in test */
         uint64_t decoded[1];
         uint8_t count;
         varintGroupDecode(buffer, decoded, &count, 1);
@@ -96,6 +97,7 @@ int varintGroupTest(int argc, char *argv[]) {
         uint8_t buffer[256];
 
         size_t encoded = varintGroupEncode(buffer, values, 4);
+        (void)encoded;  /* Intentionally unused in test */
         uint64_t decoded[4];
         uint8_t count;
         varintGroupDecode(buffer, decoded, &count, 4);
@@ -112,6 +114,7 @@ int varintGroupTest(int argc, char *argv[]) {
         uint8_t buffer[256];
 
         size_t encoded = varintGroupEncode(buffer, values, 8);
+        (void)encoded;  /* Intentionally unused in test */
         uint64_t decoded[8];
         uint8_t count;
         varintGroupDecode(buffer, decoded, &count, 8);
@@ -130,7 +133,7 @@ int varintGroupTest(int argc, char *argv[]) {
     TEST("Max field count") {
         uint64_t values[VARINT_GROUP_MAX_FIELDS];
         for (int i = 0; i < VARINT_GROUP_MAX_FIELDS; i++) {
-            values[i] = i * 100;
+            values[i] = (uint64_t)i * 100;
         }
 
         uint8_t buffer[2048];
@@ -161,6 +164,7 @@ int varintGroupTest(int argc, char *argv[]) {
         uint8_t buffer[256];
 
         size_t encoded = varintGroupEncode(buffer, values, 4);
+        (void)encoded;  /* Intentionally unused in test */
         size_t calculated = varintGroupGetSize(buffer);
 
         if (calculated != encoded) {

@@ -80,7 +80,7 @@ int varintFORTest(int argc, char *argv[]) {
         uint64_t values[100];
         uint64_t base = 1000000;
         for (int i = 0; i < 100; i++) {
-            values[i] = base + i;
+            values[i] = base + (uint64_t)i;
         }
 
         uint8_t buffer[1024];
@@ -97,6 +97,7 @@ int varintFORTest(int argc, char *argv[]) {
         /* Verify correctness */
         uint64_t decoded[100];
         size_t decoded_count = varintFORDecode(buffer, decoded, 100);
+        (void)decoded_count;  /* Intentionally unused in test */
 
         for (int i = 0; i < 100; i++) {
             if (decoded[i] != values[i]) {
@@ -129,6 +130,7 @@ int varintFORTest(int argc, char *argv[]) {
         varintFORMeta meta;
 
         size_t encoded = varintFOREncode(buffer, value, 1, &meta);
+        (void)encoded;  /* Intentionally unused in test */
         uint64_t decoded[1];
         size_t count = varintFORDecode(buffer, decoded, 1);
 
@@ -148,7 +150,9 @@ int varintFORTest(int argc, char *argv[]) {
 
         size_t encoded = varintFOREncode(buffer, values, count, &meta);
         uint64_t decoded[3];
+        (void)encoded;  /* Intentionally unused in test */
         size_t decoded_count = varintFORDecode(buffer, decoded, 3);
+        (void)decoded_count;  /* Intentionally unused in test */
 
         for (size_t i = 0; i < count; i++) {
             if (decoded[i] != values[i]) {
@@ -166,10 +170,12 @@ int varintFORTest(int argc, char *argv[]) {
         uint8_t buffer[256];
         varintFORMeta meta;
         size_t encoded = varintFOREncode(buffer, values, 10, &meta);
+        (void)encoded;  /* Intentionally unused in test */
 
         /* Should be very efficient (all offsets = 0) */
         uint64_t decoded[10];
         size_t count = varintFORDecode(buffer, decoded, 10);
+        (void)count;  /* Intentionally unused in test */
 
         for (int i = 0; i < 10; i++) {
             if (decoded[i] != 777) {

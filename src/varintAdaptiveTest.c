@@ -15,7 +15,7 @@ int varintAdaptiveTest(int argc, char *argv[]) {
         uint64_t values[100];
         uint64_t base = 1700000000000ULL;
         for (int i = 0; i < 100; i++) {
-            values[i] = base + (i * 1000);  /* 1 second increments */
+            values[i] = base + ((uint64_t)i * 1000);  /* 1 second increments */
         }
 
         uint8_t buffer[2048];
@@ -83,7 +83,7 @@ int varintAdaptiveTest(int argc, char *argv[]) {
         /* Mostly clustered with a few outliers */
         uint64_t values[100];
         for (int i = 0; i < 97; i++) {
-            values[i] = 1000 + i;  /* Clustered 1000-1096 */
+            values[i] = 1000 + (uint64_t)i;  /* Clustered 1000-1096 */
         }
         values[97] = 100000;  /* Outlier */
         values[98] = 100001;  /* Outlier */
@@ -128,17 +128,17 @@ int varintAdaptiveTest(int argc, char *argv[]) {
 
         /* Initialize sequential */
         for (int i = 0; i < 50; i++) {
-            patterns[0].values[i] = i;
+            patterns[0].values[i] = (uint64_t)i;
         }
 
         /* Initialize repetitive */
         for (int i = 0; i < 50; i++) {
-            patterns[1].values[i] = i % 5;
+            patterns[1].values[i] = (uint64_t)(i % 5);
         }
 
         /* Initialize random in range */
         for (int i = 0; i < 50; i++) {
-            patterns[2].values[i] = (i * 37) % 1000;
+            patterns[2].values[i] = (uint64_t)((i * 37) % 1000);
         }
 
         uint8_t buffer[1024];
@@ -194,6 +194,7 @@ int varintAdaptiveTest(int argc, char *argv[]) {
         uint8_t buffer[1024];
         varintAdaptiveMeta meta;
         size_t encoded = varintAdaptiveEncode(buffer, values, 100, &meta);
+        (void)encoded;  /* Intentionally unused in test */
 
         /* Should compress very well (uniqueRatio = 1/100 < 15%) */
         if (meta.encodingType != VARINT_ADAPTIVE_DICT) {
@@ -250,6 +251,7 @@ int varintAdaptiveTest(int argc, char *argv[]) {
         varintAdaptiveMeta meta;
         size_t encoded = varintAdaptiveEncodeWith(buffer, values, 5,
                                                   VARINT_ADAPTIVE_DELTA, &meta);
+        (void)encoded;  /* Intentionally unused in test */
 
         if (meta.encodingType != VARINT_ADAPTIVE_DELTA) {
             ERR("EncodeWith DELTA: got %d", meta.encodingType);
@@ -273,7 +275,7 @@ int varintAdaptiveTest(int argc, char *argv[]) {
 
         for (int i = 0; i < 1000; i++) {
             /* 1-60 second deltas */
-            values[i] = base + (i * 1000) + (i * 37) % 60000;
+            values[i] = base + ((uint64_t)i * 1000) + ((uint64_t)(i * 37) % 60000);
         }
 
         uint8_t *buffer = malloc(16384);

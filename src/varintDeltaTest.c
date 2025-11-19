@@ -44,6 +44,7 @@ int varintDeltaTest(int argc, char *argv[]) {
         int64_t delta = 42;
 
         size_t encoded = varintDeltaPut(buffer, delta);
+        (void)encoded;  /* Intentionally unused in test */
         if (encoded == 0) {
             ERRR("Failed to encode delta");
         }
@@ -64,6 +65,7 @@ int varintDeltaTest(int argc, char *argv[]) {
         int64_t delta = -123;
 
         size_t encoded = varintDeltaPut(buffer, delta);
+        (void)encoded;  /* Intentionally unused in test */
         int64_t decoded;
         varintDeltaGet(buffer, &decoded);
 
@@ -78,6 +80,7 @@ int varintDeltaTest(int argc, char *argv[]) {
         uint8_t buffer[256];
 
         size_t encoded = varintDeltaEncode(buffer, values, count);
+        (void)encoded;  /* Intentionally unused in test */
         if (encoded == 0) {
             ERRR("Failed to encode delta array");
         }
@@ -102,6 +105,7 @@ int varintDeltaTest(int argc, char *argv[]) {
         uint8_t buffer[256];
 
         size_t encoded = varintDeltaEncode(buffer, values, count);
+        (void)encoded;  /* Intentionally unused in test */
         int64_t decoded[5];
         varintDeltaDecode(buffer, count, decoded);
 
@@ -146,6 +150,7 @@ int varintDeltaTest(int argc, char *argv[]) {
         uint8_t buffer[256];
 
         size_t encoded = varintDeltaEncode(buffer, values, count);
+        (void)encoded;  /* Intentionally unused in test */
         int64_t decoded[3];
         varintDeltaDecode(buffer, count, decoded);
 
@@ -161,6 +166,7 @@ int varintDeltaTest(int argc, char *argv[]) {
         uint8_t buffer[16];
 
         size_t encoded = varintDeltaEncode(buffer, value, 1);
+        (void)encoded;  /* Intentionally unused in test */
         int64_t decoded[1];
         varintDeltaDecode(buffer, 1, decoded);
 
@@ -175,6 +181,7 @@ int varintDeltaTest(int argc, char *argv[]) {
         uint8_t buffer[64];
 
         size_t encoded = varintDeltaEncode(buffer, values, count);
+        (void)encoded;  /* Intentionally unused in test */
         int64_t decoded[4];
         varintDeltaDecode(buffer, count, decoded);
 

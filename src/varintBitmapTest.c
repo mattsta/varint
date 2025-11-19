@@ -82,7 +82,7 @@ int varintBitmapTest(int argc, char *argv[]) {
         /* Add enough values to trigger ARRAY→BITMAP conversion */
         /* Threshold is VARINT_BITMAP_ARRAY_MAX (4096) */
         for (uint32_t i = 0; i < 5000; i++) {
-            varintBitmapAdd(bm, i);
+            varintBitmapAdd(bm, (uint16_t)i);
         }
 
         /* Should have converted to BITMAP container */
@@ -92,7 +92,7 @@ int varintBitmapTest(int argc, char *argv[]) {
 
         /* Verify all values present */
         for (uint32_t i = 0; i < 5000; i++) {
-            if (!varintBitmapContains(bm, i)) {
+            if (!varintBitmapContains(bm, (uint16_t)i)) {
                 ERR("Missing value %u after conversion", i);
                 break;
             }
@@ -106,12 +106,12 @@ int varintBitmapTest(int argc, char *argv[]) {
 
         /* Create BITMAP container */
         for (uint32_t i = 0; i < 5000; i++) {
-            varintBitmapAdd(bm, i);
+            varintBitmapAdd(bm, (uint16_t)i);
         }
 
         /* Remove most values to trigger BITMAP→ARRAY */
         for (uint32_t i = 0; i < 4900; i++) {
-            varintBitmapRemove(bm, i);
+            varintBitmapRemove(bm, (uint16_t)i);
         }
 
         /* Should convert back to ARRAY (cardinality 100 < threshold) */

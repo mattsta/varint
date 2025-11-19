@@ -128,7 +128,7 @@ int varintDictTest(int argc, char *argv[]) {
     TEST("All unique values (poor compression case)") {
         uint64_t values[50];
         for (int i = 0; i < 50; i++) {
-            values[i] = i * 1000;
+            values[i] = (uint64_t)i * 1000;
         }
 
         uint8_t buffer[2048];
