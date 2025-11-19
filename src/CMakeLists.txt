@@ -71,16 +71,81 @@ if(BuildTestBinary)
     add_executable(${DIMENSION}Test varintDimensionTest.c)
     target_link_libraries(${DIMENSION}Test ${DIMENSION}-static)
 
-    if(APPLE)
-        add_custom_command(TARGET ${PROJECT_NAME}Compare POST_BUILD COMMAND dsymutil ${PROJECT_NAME}Compare COMMENT "Generating OS X Debug Info")
-        add_custom_command(TARGET ${DIMENSION}Test POST_BUILD COMMAND dsymutil ${DIMENSION}Test COMMENT "Generating OS X Debug Info")
-        add_custom_command(TARGET ${PACKED}Test POST_BUILD COMMAND dsymutil ${PACKED}Test COMMENT "Generating OS X Debug Info")
-    endif()
+    # ====================================================================
+    # BUILD ALL UNIT TESTS
+    # ====================================================================
 
+    # varintDeltaTest - tests delta encoding with ZigZag
+    add_executable(varintDeltaTest varintDeltaTest.c varintDelta.c varintExternal.c)
+    target_compile_definitions(varintDeltaTest PRIVATE VARINT_DELTA_TEST_STANDALONE)
+
+    # varintFORTest - tests Frame of Reference encoding
+    add_executable(varintFORTest varintFORTest.c varintFOR.c varintExternal.c varintTagged.c)
+    target_compile_definitions(varintFORTest PRIVATE VARINT_FOR_TEST_STANDALONE)
+
+    # varintPFORTest - tests Patched Frame of Reference encoding
+    add_executable(varintPFORTest varintPFORTest.c varintPFOR.c varintFOR.c varintExternal.c varintTagged.c)
+    target_compile_definitions(varintPFORTest PRIVATE VARINT_PFOR_TEST_STANDALONE)
+
+    # varintGroupTest - tests grouped varint encoding
+    add_executable(varintGroupTest varintGroupTest.c varintGroup.c varintExternal.c)
+    target_compile_definitions(varintGroupTest PRIVATE VARINT_GROUP_TEST_STANDALONE)
+
+    # varintDictTest - tests dictionary encoding
+    add_executable(varintDictTest varintDictTest.c varintDict.c varintExternal.c varintTagged.c)
+    target_compile_definitions(varintDictTest PRIVATE VARINT_DICT_TEST_STANDALONE)
+
+    # varintAdaptiveTest - tests adaptive encoding selection
+    add_executable(varintAdaptiveTest varintAdaptiveTest.c
+                   varintAdaptive.c varintDelta.c varintFOR.c varintPFOR.c
+                   varintDict.c varintBitmap.c varintExternal.c varintTagged.c)
+    target_compile_definitions(varintAdaptiveTest PRIVATE VARINT_ADAPTIVE_TEST_STANDALONE)
+
+    # varintFloatTest - tests float compression
+    add_executable(varintFloatTest varintFloatTest.c varintFloat.c varintExternal.c)
+    target_compile_definitions(varintFloatTest PRIVATE VARINT_FLOAT_TEST_STANDALONE)
+
+    # varintBitmapTest - tests bitmap encoding
+    add_executable(varintBitmapTest varintBitmapTest.c varintBitmap.c varintExternal.c)
+    target_compile_definitions(varintBitmapTest PRIVATE VARINT_BITMAP_TEST_STANDALONE)
+
+    # Link math library on non-Apple systems
     if(NOT APPLE)
         target_link_libraries(${PROJECT_NAME}Compare m)
         target_link_libraries(${DIMENSION}Test m)
         target_link_libraries(${PACKED}Test m)
+        target_link_libraries(varintFloatTest m)
+        target_link_libraries(varintAdaptiveTest m)
+    endif()
+
+    # ====================================================================
+    # REGISTER ALL TESTS WITH CTEST
+    # ====================================================================
+
+    add_test(NAME varint-packed COMMAND ${PACKED}Test 1)
+    add_test(NAME varint-dimension COMMAND ${DIMENSION}Test)
+    add_test(NAME varint-delta COMMAND varintDeltaTest)
+    add_test(NAME varint-for COMMAND varintFORTest)
+    add_test(NAME varint-pfor COMMAND varintPFORTest)
+    add_test(NAME varint-group COMMAND varintGroupTest)
+    add_test(NAME varint-dict COMMAND varintDictTest)
+    add_test(NAME varint-adaptive COMMAND varintAdaptiveTest)
+    add_test(NAME varint-float COMMAND varintFloatTest)
+    add_test(NAME varint-bitmap COMMAND varintBitmapTest)
+
+    # Generate debug symbols on macOS
+    if(APPLE)
+        add_custom_command(TARGET ${PROJECT_NAME}Compare POST_BUILD COMMAND dsymutil ${PROJECT_NAME}Compare COMMENT "Generating OS X Debug Info")
+        add_custom_command(TARGET ${DIMENSION}Test POST_BUILD COMMAND dsymutil ${DIMENSION}Test COMMENT "Generating OS X Debug Info")
+        add_custom_command(TARGET ${PACKED}Test POST_BUILD COMMAND dsymutil ${PACKED}Test COMMENT "Generating OS X Debug Info")
+        add_custom_command(TARGET varintDeltaTest POST_BUILD COMMAND dsymutil varintDeltaTest)
+        add_custom_command(TARGET varintFORTest POST_BUILD COMMAND dsymutil varintFORTest)
+        add_custom_command(TARGET varintPFORTest POST_BUILD COMMAND dsymutil varintPFORTest)
+        add_custom_command(TARGET varintGroupTest POST_BUILD COMMAND dsymutil varintGroupTest)
+        add_custom_command(TARGET varintDictTest POST_BUILD COMMAND dsymutil varintDictTest)
+        add_custom_command(TARGET varintAdaptiveTest POST_BUILD COMMAND dsymutil varintAdaptiveTest)
+        add_custom_command(TARGET varintFloatTest POST_BUILD COMMAND dsymutil varintFloatTest)
+        add_custom_command(TARGET varintBitmapTest POST_BUILD COMMAND dsymutil varintBitmapTest)
     endif()
 endif()
 
