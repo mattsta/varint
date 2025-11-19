@@ -1,7 +1,11 @@
 #include "varintDict.h"
+#include <inttypes.h>
 #include "ctest.h"
+#include <inttypes.h>
 #include <string.h>
+#include <inttypes.h>
 #include <stdlib.h>
+#include <inttypes.h>
 
 int varintDictTest(int argc, char *argv[]) {
     (void)argc;
@@ -61,7 +65,7 @@ int varintDictTest(int argc, char *argv[]) {
 
         for (size_t i = 0; i < count; i++) {
             if (decoded[i] != values[i]) {
-                ERR("Decoded[%zu] = %lu, expected %lu", i, decoded[i], values[i]);
+                ERR("Decoded[%zu] = %" PRIu64 ", expected %" PRIu64 "", i, decoded[i], values[i]);
             }
         }
 
@@ -117,7 +121,7 @@ int varintDictTest(int argc, char *argv[]) {
 
         for (int i = 0; i < 50; i++) {
             if (decoded[i] != 777) {
-                ERR("Single value[%d] = %lu, expected 777", i, decoded[i]);
+                ERR("Single value[%d] = %" PRIu64 ", expected 777", i, decoded[i]);
                 break;
             }
         }
@@ -171,7 +175,7 @@ int varintDictTest(int argc, char *argv[]) {
 
         for (size_t i = 0; i < 5; i++) {
             if (decoded[i] != values[i]) {
-                ERR("Large value[%zu] = %lu, expected %lu", i, decoded[i], values[i]);
+                ERR("Large value[%zu] = %" PRIu64 ", expected %" PRIu64 "", i, decoded[i], values[i]);
             }
         }
 
@@ -189,7 +193,7 @@ int varintDictTest(int argc, char *argv[]) {
         }
 
         if (dict->values[0] != 42) {
-            ERR("Dictionary entry = %lu, expected 42", dict->values[0]);
+            ERR("Dictionary entry = %" PRIu64 ", expected 42", dict->values[0]);
         }
 
         varintDictFree(dict);
@@ -239,7 +243,7 @@ int varintDictTest(int argc, char *argv[]) {
 
         for (size_t i = 0; i < count; i++) {
             if (output[i] != values[i]) {
-                ERR("DecodeInto[%zu] = %lu, expected %lu", i, output[i], values[i]);
+                ERR("DecodeInto[%zu] = %" PRIu64 ", expected %" PRIu64 "", i, output[i], values[i]);
             }
         }
     }

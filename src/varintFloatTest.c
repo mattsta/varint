@@ -1,8 +1,13 @@
 #include "varintFloat.h"
+#include <inttypes.h>
 #include "ctest.h"
+#include <inttypes.h>
 #include <string.h>
+#include <inttypes.h>
 #include <stdlib.h>
+#include <inttypes.h>
 #include <math.h>
+#include <inttypes.h>
 
 int varintFloatTest(int argc, char *argv[]) {
     (void)argc;

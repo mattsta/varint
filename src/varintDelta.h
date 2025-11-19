@@ -27,8 +27,9 @@ static inline uint64_t varintDeltaZigZag(int64_t n) {
      * Arithmetic right shift fills with sign bit (sign extension)
      * For n >= 0: n >> 63 = 0, so result = n << 1
      * For n < 0:  n >> 63 = -1 (all 1s), so result = (n << 1) ^ -1 = ~(n << 1)
-     * Cast to unsigned before any shifts to avoid implementation-defined behavior */
-    return ((uint64_t)n << 1) ^ ((uint64_t)n >> 63);
+     * Note: Right shift of negative signed value is implementation-defined in C,
+     * but we rely on arithmetic right shift (sign extension) which is universal */
+    return ((uint64_t)n << 1) ^ (uint64_t)(n >> 63);
 }
 
 /* ZigZag decoding: Restores signed integer from unsigned ZigZag value */

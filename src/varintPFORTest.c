@@ -1,7 +1,11 @@
 #include "varintPFOR.h"
+#include <inttypes.h>
 #include "ctest.h"
+#include <inttypes.h>
 #include <string.h>
+#include <inttypes.h>
 #include <stdlib.h>
+#include <inttypes.h>
 
 int varintPFORTest(int argc, char *argv[]) {
     (void)argc;
@@ -42,7 +46,7 @@ int varintPFORTest(int argc, char *argv[]) {
 
         for (size_t i = 0; i < count; i++) {
             if (decoded[i] != values[i]) {
-                ERR("Decoded[%zu] = %lu, expected %lu", i, decoded[i], values[i]);
+                ERR("Decoded[%zu] = %" PRIu64 ", expected %" PRIu64 "", i, decoded[i], values[i]);
                 break;
             }
         }
@@ -104,7 +108,7 @@ int varintPFORTest(int argc, char *argv[]) {
 
         for (int i = 0; i < 1000; i++) {
             if (decoded[i] != values[i]) {
-                ERR("99th percentile: value[%d] = %lu, expected %lu",
+                ERR("99th percentile: value[%d] = %" PRIu64 ", expected %" PRIu64 "",
                     i, decoded[i], values[i]);
                 break;
             }
@@ -123,7 +127,7 @@ int varintPFORTest(int argc, char *argv[]) {
         for (size_t i = 0; i < count; i++) {
             uint64_t val = varintPFORGetAt(buffer, (uint32_t)i, &meta);
             if (val != values[i]) {
-                ERR("GetAt(%zu) = %lu, expected %lu", i, val, values[i]);
+                ERR("GetAt(%zu) = %" PRIu64 ", expected %" PRIu64 "", i, val, values[i]);
             }
         }
     }
@@ -182,7 +186,7 @@ int varintPFORTest(int argc, char *argv[]) {
         varintPFORDecode(buffer, decoded, &meta);
 
         if (decoded[0] != value[0]) {
-            ERR("Single value = %lu, expected %lu", decoded[0], value[0]);
+            ERR("Single value = %" PRIu64 ", expected %" PRIu64 "", decoded[0], value[0]);
         }
     }
 
@@ -197,7 +201,7 @@ int varintPFORTest(int argc, char *argv[]) {
         varintPFORReadMeta(buffer, &meta_read);
 
         if (meta_read.min != meta_encode.min) {
-            ERR("Read min %lu != encoded min %lu",
+            ERR("Read min %" PRIu64 " != encoded min %" PRIu64 "",
                 meta_read.min, meta_encode.min);
         }
 

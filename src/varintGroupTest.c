@@ -1,7 +1,11 @@
 #include "varintGroup.h"
+#include <inttypes.h>
 #include "ctest.h"
+#include <inttypes.h>
 #include <string.h>
+#include <inttypes.h>
 #include <stdlib.h>
+#include <inttypes.h>
 
 int varintGroupTest(int argc, char *argv[]) {
     (void)argc;
@@ -49,7 +53,7 @@ int varintGroupTest(int argc, char *argv[]) {
 
         for (int i = 0; i < fieldCount; i++) {
             if (decoded[i] != values[i]) {
-                ERR("Decoded[%d] = %lu, expected %lu", i, decoded[i], values[i]);
+                ERR("Decoded[%d] = %" PRIu64 ", expected %" PRIu64 "", i, decoded[i], values[i]);
             }
         }
     }
@@ -68,7 +72,7 @@ int varintGroupTest(int argc, char *argv[]) {
             ERR("Decoded count = %d, expected 1", count);
         }
         if (decoded[0] != value[0]) {
-            ERR("Decoded value = %lu, expected %lu", decoded[0], value[0]);
+            ERR("Decoded value = %" PRIu64 ", expected %" PRIu64 "", decoded[0], value[0]);
         }
     }
 
@@ -86,7 +90,7 @@ int varintGroupTest(int argc, char *argv[]) {
                 ERR("Failed to get field %d", i);
             }
             if (val != values[i]) {
-                ERR("GetField(%d) = %lu, expected %lu", i, val, values[i]);
+                ERR("GetField(%d) = %" PRIu64 ", expected %" PRIu64 "", i, val, values[i]);
             }
         }
     }
@@ -104,7 +108,7 @@ int varintGroupTest(int argc, char *argv[]) {
 
         for (int i = 0; i < 4; i++) {
             if (decoded[i] != values[i]) {
-                ERR("Mixed value[%d] = %lu, expected %lu", i, decoded[i], values[i]);
+                ERR("Mixed value[%d] = %" PRIu64 ", expected %" PRIu64 "", i, decoded[i], values[i]);
             }
         }
     }
@@ -125,7 +129,7 @@ int varintGroupTest(int argc, char *argv[]) {
 
         for (int i = 0; i < 8; i++) {
             if (decoded[i] != 0) {
-                ERR("Zero value[%d] = %lu, expected 0", i, decoded[i]);
+                ERR("Zero value[%d] = %" PRIu64 ", expected 0", i, decoded[i]);
             }
         }
     }
@@ -194,7 +198,7 @@ int varintGroupTest(int argc, char *argv[]) {
 
         for (int i = 0; i < 8; i++) {
             if (decoded[i] != values[i]) {
-                ERR("Round-trip failed: decoded[%d] = %lu, expected %lu",
+                ERR("Round-trip failed: decoded[%d] = %" PRIu64 ", expected %" PRIu64 "",
                     i, decoded[i], values[i]);
             }
         }

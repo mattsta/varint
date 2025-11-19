@@ -14,13 +14,14 @@
 #include <assert.h>
 #include <string.h>
 #include <stdlib.h>
+#include <inttypes.h>
 
 /* Example 1: Basic delta encoding with sorted array */
 void example_basic() {
     printf("\n=== Example 1: Basic Delta Encoding ===\n");
 
     /* Sorted array of document IDs */
-    int64_t docIds[] = {100, 102, 105, 103, 110, 115, 120};
+    int64_t docIds[] = {100, 102, 103, 105, 110, 115, 120};
     size_t count = sizeof(docIds) / sizeof(docIds[0]);
 
     /* Allocate output buffer */
@@ -32,14 +33,14 @@ void example_basic() {
 
     printf("Original values: ");
     for (size_t i = 0; i < count; i++) {
-        printf("%ld ", docIds[i]);
+        printf("%" PRId64 " ", docIds[i]);
     }
     printf("\n");
 
     /* Show deltas */
-    printf("Deltas: base=%ld, ", docIds[0]);
+    printf("Deltas: base=%" PRId64 ", ", docIds[0]);
     for (size_t i = 1; i < count; i++) {
-        printf("%+ld ", docIds[i] - docIds[i-1]);
+        printf("%+" PRId64 " ", docIds[i] - docIds[i-1]);
     }
     printf("\n");
 
@@ -59,7 +60,7 @@ void example_basic() {
 
     printf("Decoded values: ");
     for (size_t i = 0; i < count; i++) {
-        printf("%ld ", decoded[i]);
+        printf("%" PRId64 " ", decoded[i]);
     }
     printf("\n✓ Round-trip successful\n");
 
@@ -92,7 +93,7 @@ void example_time_series() {
     size_t encodedSize = varintDeltaEncode(encoded, timestamps, count);
 
     printf("Timestamps: %zu values\n", count);
-    printf("First: %ld, Last: %ld\n", timestamps[0], timestamps[count-1]);
+    printf("First: %" PRId64 ", Last: %" PRId64 "\n", timestamps[0], timestamps[count-1]);
     printf("Delta: +60 seconds each\n");
 
     size_t uncompressedSize = count * sizeof(int64_t);
@@ -133,7 +134,7 @@ void example_zigzag() {
         uint64_t zigzag = varintDeltaZigZag(signed_val);
         int64_t decoded = varintDeltaZigZagDecode(zigzag);
 
-        printf("%9ld | %9lu | ", signed_val, zigzag);
+        printf("%9" PRId64 " | %9" PRIu64 " | ", signed_val, zigzag);
 
         /* Print binary pattern of ZigZag value (low 16 bits) */
         for (int b = 15; b >= 0; b--) {
@@ -142,6 +143,10 @@ void example_zigzag() {
         }
         printf("\n");
 
+        if (decoded != signed_val) {
+            printf("ERROR: ZigZag decode failed! signed=%" PRId64 ", zigzag=%" PRIu64 ", decoded=%" PRId64 "\n",
+                   signed_val, zigzag, decoded);
+        }
         assert(decoded == signed_val);
     }
 
@@ -158,13 +163,13 @@ void example_mixed_deltas() {
 
     printf("Stock prices (cents): ");
     for (size_t i = 0; i < count; i++) {
-        printf("%ld ", prices[i]);
+        printf("%" PRId64 " ", prices[i]);
     }
     printf("\n");
 
     printf("Deltas: ");
     for (size_t i = 1; i < count; i++) {
-        printf("%+ld ", prices[i] - prices[i-1]);
+        printf("%+" PRId64 " ", prices[i] - prices[i-1]);
     }
     printf("\n");
 
@@ -246,7 +251,7 @@ void example_unsigned() {
 
     printf("User IDs: ");
     for (size_t i = 0; i < count; i++) {
-        printf("%lu ", userIds[i]);
+        printf("%" PRIu64 " ", userIds[i]);
     }
     printf("\n");
 

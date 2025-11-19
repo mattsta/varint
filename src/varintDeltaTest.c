@@ -1,7 +1,10 @@
 #include "varintDelta.h"
 #include "ctest.h"
-#include <string.h>
+#include <assert.h>
+#include <inttypes.h>
+#include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 int varintDeltaTest(int argc, char *argv[]) {
     (void)argc;
@@ -12,30 +15,30 @@ int varintDeltaTest(int argc, char *argv[]) {
     TEST("ZigZag encoding/decoding") {
         /* Test ZigZag mapping: 0→0, -1→1, 1→2, -2→3, 2→4 */
         if (varintDeltaZigZag(0) != 0) {
-            ERR("ZigZag(0) = %lu, expected 0", varintDeltaZigZag(0));
+            ERR("ZigZag(0) = %" PRIu64 ", expected 0", varintDeltaZigZag(0));
         }
         if (varintDeltaZigZag(-1) != 1) {
-            ERR("ZigZag(-1) = %lu, expected 1", varintDeltaZigZag(-1));
+            ERR("ZigZag(-1) = %" PRIu64 ", expected 1", varintDeltaZigZag(-1));
         }
         if (varintDeltaZigZag(1) != 2) {
-            ERR("ZigZag(1) = %lu, expected 2", varintDeltaZigZag(1));
+            ERR("ZigZag(1) = %" PRIu64 ", expected 2", varintDeltaZigZag(1));
         }
         if (varintDeltaZigZag(-2) != 3) {
-            ERR("ZigZag(-2) = %lu, expected 3", varintDeltaZigZag(-2));
+            ERR("ZigZag(-2) = %" PRIu64 ", expected 3", varintDeltaZigZag(-2));
         }
         if (varintDeltaZigZag(2) != 4) {
-            ERR("ZigZag(2) = %lu, expected 4", varintDeltaZigZag(2));
+            ERR("ZigZag(2) = %" PRIu64 ", expected 4", varintDeltaZigZag(2));
         }
 
         /* Test decode */
         if (varintDeltaZigZagDecode(0) != 0) {
-            ERR("ZigZagDecode(0) = %ld, expected 0", varintDeltaZigZagDecode(0));
+            ERR("ZigZagDecode(0) = %" PRId64 ", expected 0", varintDeltaZigZagDecode(0));
         }
         if (varintDeltaZigZagDecode(1) != -1) {
-            ERR("ZigZagDecode(1) = %ld, expected -1", varintDeltaZigZagDecode(1));
+            ERR("ZigZagDecode(1) = %" PRId64 ", expected -1", varintDeltaZigZagDecode(1));
         }
         if (varintDeltaZigZagDecode(2) != 1) {
-            ERR("ZigZagDecode(2) = %ld, expected 1", varintDeltaZigZagDecode(2));
+            ERR("ZigZagDecode(2) = %" PRId64 ", expected 1", varintDeltaZigZagDecode(2));
         }
     }
 
@@ -56,7 +59,7 @@ int varintDeltaTest(int argc, char *argv[]) {
             ERR("Decoded size %zu != encoded size %zu", decoded_size, encoded);
         }
         if (decoded != delta) {
-            ERR("Decoded value %ld != original %ld", decoded, delta);
+            ERR("Decoded value %" PRId64 " != original %" PRId64, decoded, delta);
         }
     }
 
@@ -70,7 +73,7 @@ int varintDeltaTest(int argc, char *argv[]) {
         varintDeltaGet(buffer, &decoded);
 
         if (decoded != delta) {
-            ERR("Decoded negative delta %ld != original %ld", decoded, delta);
+            ERR("Decoded negative delta %" PRId64 " != original %" PRId64, decoded, delta);
         }
     }
 
@@ -94,7 +97,7 @@ int varintDeltaTest(int argc, char *argv[]) {
 
         for (size_t i = 0; i < count; i++) {
             if (decoded[i] != values[i]) {
-                ERR("Decoded[%zu] = %ld, expected %ld", i, decoded[i], values[i]);
+                ERR("Decoded[%zu] = %" PRId64 ", expected %" PRId64, i, decoded[i], values[i]);
             }
         }
     }
@@ -111,7 +114,7 @@ int varintDeltaTest(int argc, char *argv[]) {
 
         for (size_t i = 0; i < count; i++) {
             if (decoded[i] != values[i]) {
-                ERR("Decoded[%zu] = %ld, expected %ld", i, decoded[i], values[i]);
+                ERR("Decoded[%zu] = %" PRId64 ", expected %" PRId64, i, decoded[i], values[i]);
             }
         }
     }
@@ -156,7 +159,7 @@ int varintDeltaTest(int argc, char *argv[]) {
 
         for (size_t i = 0; i < count; i++) {
             if (decoded[i] != values[i]) {
-                ERR("Large value[%zu] = %ld, expected %ld", i, decoded[i], values[i]);
+                ERR("Large value[%zu] = %" PRId64 ", expected %" PRId64, i, decoded[i], values[i]);
             }
         }
     }
@@ -171,7 +174,7 @@ int varintDeltaTest(int argc, char *argv[]) {
         varintDeltaDecode(buffer, 1, decoded);
 
         if (decoded[0] != value[0]) {
-            ERR("Single value %ld != expected %ld", decoded[0], value[0]);
+            ERR("Single value %" PRId64 " != expected %" PRId64, decoded[0], value[0]);
         }
     }
 
@@ -187,7 +190,7 @@ int varintDeltaTest(int argc, char *argv[]) {
 
         for (size_t i = 0; i < count; i++) {
             if (decoded[i] != 0) {
-                ERR("Zero value[%zu] = %ld, expected 0", i, decoded[i]);
+                ERR("Zero value[%zu] = %" PRId64 ", expected 0", i, decoded[i]);
             }
         }
     }

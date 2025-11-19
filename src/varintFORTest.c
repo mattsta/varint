@@ -1,7 +1,11 @@
 #include "varintFOR.h"
+#include <inttypes.h>
 #include "ctest.h"
+#include <inttypes.h>
 #include <string.h>
+#include <inttypes.h>
 #include <stdlib.h>
+#include <inttypes.h>
 
 int varintFORTest(int argc, char *argv[]) {
     (void)argc;
@@ -49,7 +53,7 @@ int varintFORTest(int argc, char *argv[]) {
 
         for (size_t i = 0; i < count; i++) {
             if (decoded[i] != values[i]) {
-                ERR("Decoded[%zu] = %lu, expected %lu", i, decoded[i], values[i]);
+                ERR("Decoded[%zu] = %" PRIu64 ", expected %" PRIu64 "", i, decoded[i], values[i]);
             }
         }
     }
@@ -62,13 +66,13 @@ int varintFORTest(int argc, char *argv[]) {
         varintFORAnalyze(values, count, &meta);
 
         if (meta.minValue != 1000) {
-            ERR("Min value = %lu, expected 1000", meta.minValue);
+            ERR("Min value = %" PRIu64 ", expected 1000", meta.minValue);
         }
         if (meta.maxValue != 1030) {
-            ERR("Max value = %lu, expected 1030", meta.maxValue);
+            ERR("Max value = %" PRIu64 ", expected 1030", meta.maxValue);
         }
         if (meta.range != 30) {
-            ERR("Range = %lu, expected 30", meta.range);
+            ERR("Range = %" PRIu64 ", expected 30", meta.range);
         }
         if (meta.count != 4) {
             ERR("Count = %zu, expected 4", meta.count);
@@ -101,7 +105,7 @@ int varintFORTest(int argc, char *argv[]) {
 
         for (int i = 0; i < 100; i++) {
             if (decoded[i] != values[i]) {
-                ERR("Value[%d] mismatch: %lu != %lu", i, decoded[i], values[i]);
+                ERR("Value[%d] mismatch: %" PRIu64 " != %" PRIu64 "", i, decoded[i], values[i]);
                 break;
             }
         }
@@ -119,7 +123,7 @@ int varintFORTest(int argc, char *argv[]) {
         for (size_t i = 0; i < count; i++) {
             uint64_t val = varintFORGetAt(buffer, i);
             if (val != values[i]) {
-                ERR("GetAt(%zu) = %lu, expected %lu", i, val, values[i]);
+                ERR("GetAt(%zu) = %" PRIu64 ", expected %" PRIu64 "", i, val, values[i]);
             }
         }
     }
@@ -138,7 +142,7 @@ int varintFORTest(int argc, char *argv[]) {
             ERR("Decoded count = %zu, expected 1", count);
         }
         if (decoded[0] != value[0]) {
-            ERR("Decoded value = %lu, expected %lu", decoded[0], value[0]);
+            ERR("Decoded value = %" PRIu64 ", expected %" PRIu64 "", decoded[0], value[0]);
         }
     }
 
@@ -156,7 +160,7 @@ int varintFORTest(int argc, char *argv[]) {
 
         for (size_t i = 0; i < count; i++) {
             if (decoded[i] != values[i]) {
-                ERR("Large value[%zu] = %lu, expected %lu", i, decoded[i], values[i]);
+                ERR("Large value[%zu] = %" PRIu64 ", expected %" PRIu64 "", i, decoded[i], values[i]);
             }
         }
     }
@@ -179,7 +183,7 @@ int varintFORTest(int argc, char *argv[]) {
 
         for (int i = 0; i < 10; i++) {
             if (decoded[i] != 777) {
-                ERR("Identical value[%d] = %lu, expected 777", i, decoded[i]);
+                ERR("Identical value[%d] = %" PRIu64 ", expected 777", i, decoded[i]);
             }
         }
     }

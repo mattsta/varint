@@ -1,8 +1,13 @@
 #include "varintAdaptive.h"
+#include <inttypes.h>
 #include "ctest.h"
+#include <inttypes.h>
 #include <string.h>
+#include <inttypes.h>
 #include <stdlib.h>
+#include <inttypes.h>
 #include <math.h>
+#include <inttypes.h>
 
 int varintAdaptiveTest(int argc, char *argv[]) {
     (void)argc;
@@ -37,7 +42,7 @@ int varintAdaptiveTest(int argc, char *argv[]) {
 
         for (size_t i = 0; i < 100; i++) {
             if (decoded[i] != values[i]) {
-                ERR("Timestamp[%zu] = %lu, expected %lu", i, decoded[i], values[i]);
+                ERR("Timestamp[%zu] = %" PRIu64 ", expected %" PRIu64 "", i, decoded[i], values[i]);
                 break;
             }
         }
@@ -158,7 +163,7 @@ int varintAdaptiveTest(int argc, char *argv[]) {
 
             for (int i = 0; i < 50; i++) {
                 if (decoded[i] != patterns[p].values[i]) {
-                    ERR("Pattern '%s' value[%d] mismatch: %lu != %lu",
+                    ERR("Pattern '%s' value[%d] mismatch: %" PRIu64 " != %" PRIu64 "",
                         patterns[p].name, i, decoded[i], patterns[p].values[i]);
                     break;
                 }
@@ -181,7 +186,7 @@ int varintAdaptiveTest(int argc, char *argv[]) {
         varintAdaptiveDecode(buffer, decoded, 1, NULL);
 
         if (decoded[0] != value[0]) {
-            ERR("Decoded value = %lu, expected %lu", decoded[0], value[0]);
+            ERR("Decoded value = %" PRIu64 ", expected %" PRIu64 "", decoded[0], value[0]);
         }
     }
 
@@ -208,7 +213,7 @@ int varintAdaptiveTest(int argc, char *argv[]) {
 
         for (size_t i = 0; i < 100; i++) {
             if (decoded[i] != 777) {
-                ERR("Identical value[%zu] = %lu, expected 777", i, decoded[i]);
+                ERR("Identical value[%zu] = %" PRIu64 ", expected 777", i, decoded[i]);
                 break;
             }
         }
@@ -221,15 +226,15 @@ int varintAdaptiveTest(int argc, char *argv[]) {
         varintAdaptiveAnalyze(values, 6, &stats);
 
         if (stats.minValue != 10) {
-            ERR("Stats min = %lu, expected 10", stats.minValue);
+            ERR("Stats min = %" PRIu64 ", expected 10", stats.minValue);
         }
 
         if (stats.maxValue != 30) {
-            ERR("Stats max = %lu, expected 30", stats.maxValue);
+            ERR("Stats max = %" PRIu64 ", expected 30", stats.maxValue);
         }
 
         if (stats.range != 20) {
-            ERR("Stats range = %lu, expected 20", stats.range);
+            ERR("Stats range = %" PRIu64 ", expected 20", stats.range);
         }
 
         if (stats.uniqueCount != 3) {
@@ -299,7 +304,7 @@ int varintAdaptiveTest(int argc, char *argv[]) {
 
         for (int i = 0; i < 1000; i++) {
             if (decoded[i] != values[i]) {
-                ERR("Large dataset[%d] = %lu, expected %lu",
+                ERR("Large dataset[%d] = %" PRIu64 ", expected %" PRIu64 "",
                     i, decoded[i], values[i]);
                 break;
             }
