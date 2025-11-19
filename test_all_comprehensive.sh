@@ -82,11 +82,11 @@ echo "INTEGRATION EXAMPLES"
 echo "=========================================="
 
 test_example "examples/integration/game_engine.c" "" ""
-test_example "examples/integration/network_protocol.c" "" ""
-test_example "examples/integration/sensor_network.c" "" ""
-test_example "examples/integration/column_store.c" "" ""
+test_example "examples/integration/network_protocol.c" "src/varintChained.c src/varintExternal.c" ""
+test_example "examples/integration/sensor_network.c" "src/varintExternal.c" ""
+test_example "examples/integration/column_store.c" "src/varintDimension.c src/varintExternal.c" "-mf16c -mavx2"
 test_example "examples/integration/ml_features.c" "src/varintDimension.c src/varintExternal.c" "-mf16c -mavx2"
-test_example "examples/integration/database_system.c" "" ""
+test_example "examples/integration/database_system.c" "src/varintTagged.c src/varintExternal.c" ""
 
 # ADVANCED EXAMPLES
 echo ""
@@ -96,7 +96,7 @@ echo "=========================================="
 
 # Trie examples need special handling (server runs in background)
 echo "Testing: trie_server (background process)"
-if gcc $CFLAGS examples/advanced/trie_server.c -o /tmp/trie_server_test 2>&1; then
+if gcc $CFLAGS examples/advanced/trie_server.c src/varintTagged.c -o /tmp/trie_server_test 2>&1; then
     /tmp/trie_server_test > /tmp/trie_server_output.txt 2>&1 &
     TRIE_SERVER_PID=$!
     sleep 1
@@ -119,7 +119,7 @@ fi
 
 # Test trie client (connects to server)
 if [ -n "$TRIE_SERVER_PID" ]; then
-    test_example "examples/advanced/trie_client.c" "" ""
+    test_example "examples/advanced/trie_client.c" "src/varintTagged.c" ""
 
     # Kill server
     kill $TRIE_SERVER_PID 2>/dev/null || true
@@ -127,19 +127,19 @@ if [ -n "$TRIE_SERVER_PID" ]; then
 fi
 
 # Other advanced examples
-test_example "examples/advanced/inverted_index.c" "" ""
-test_example "examples/advanced/blockchain_ledger.c" "" ""
-test_example "examples/advanced/bytecode_vm.c" "" ""
-test_example "examples/advanced/dns_server.c" "" ""
-test_example "examples/advanced/financial_orderbook.c" "" ""
-test_example "examples/advanced/game_replay_system.c" "" ""
-test_example "examples/advanced/geospatial_routing.c" "" ""
-test_example "examples/advanced/log_aggregation.c" "" ""
+test_example "examples/advanced/inverted_index.c" "src/varintChained.c src/varintExternal.c src/varintTagged.c" ""
+test_example "examples/advanced/blockchain_ledger.c" "src/varintChained.c src/varintExternal.c src/varintTagged.c" ""
+test_example "examples/advanced/bytecode_vm.c" "src/varintChained.c src/varintExternal.c src/varintTagged.c" ""
+test_example "examples/advanced/dns_server.c" "src/varintChained.c src/varintExternal.c" ""
+test_example "examples/advanced/financial_orderbook.c" "src/varintExternal.c src/varintTagged.c" ""
+test_example "examples/advanced/game_replay_system.c" "src/varintExternal.c" ""
+test_example "examples/advanced/geospatial_routing.c" "src/varintExternal.c src/varintTagged.c" ""
+test_example "examples/advanced/log_aggregation.c" "src/varintChained.c src/varintExternal.c" ""
 
 # Trie pattern matcher and interactive need stdin
 echo ""
 echo "Testing: trie_pattern_matcher (with test input)"
-if gcc $CFLAGS examples/advanced/trie_pattern_matcher.c -o /tmp/trie_pattern_matcher_test 2>&1; then
+if gcc $CFLAGS examples/advanced/trie_pattern_matcher.c src/varintChained.c src/varintExternal.c -o /tmp/trie_pattern_matcher_test 2>&1; then
     echo -e "test\npattern\nend" | timeout 2 /tmp/trie_pattern_matcher_test > /tmp/trie_pattern_matcher_output.txt 2>&1 && {
         echo -e "${GREEN}✓ PASSED${NC}"
         PASSED=$((PASSED + 1))
@@ -157,7 +157,7 @@ fi
 
 echo ""
 echo "Testing: trie_interactive (with test input)"
-if gcc $CFLAGS examples/advanced/trie_interactive.c -o /tmp/trie_interactive_test 2>&1; then
+if gcc $CFLAGS examples/advanced/trie_interactive.c src/varintTagged.c -o /tmp/trie_interactive_test 2>&1; then
     echo -e "insert test\ninsert hello\nsearch test\nquit" | timeout 2 /tmp/trie_interactive_test > /tmp/trie_interactive_output.txt 2>&1 && {
         echo -e "${GREEN}✓ PASSED${NC}"
         PASSED=$((PASSED + 1))
@@ -179,9 +179,9 @@ echo "=========================================="
 echo "REFERENCE EXAMPLES"
 echo "=========================================="
 
-test_example "examples/reference/kv_store.c" "" ""
-test_example "examples/reference/graph_database.c" "" ""
-test_example "examples/reference/timeseries_db.c" "" ""
+test_example "examples/reference/kv_store.c" "src/varintTagged.c" ""
+test_example "examples/reference/graph_database.c" "src/varintDimension.c src/varintExternal.c" "-mf16c -mavx2"
+test_example "examples/reference/timeseries_db.c" "src/varintExternal.c src/varintChained.c" ""
 
 # SUMMARY
 echo ""
