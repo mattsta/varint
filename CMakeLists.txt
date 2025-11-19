@@ -30,4 +30,23 @@ add_custom_target(check-warnings
     COMMENT "Checking for compiler warnings with GCC and Clang"
 )
 
+# Custom target for pre-upload validation: runs cppcheck + all tests
+add_custom_target(check
+    COMMAND cppcheck --enable=warning,style,performance,portability
+            --error-exitcode=1 --inline-suppr --std=c11
+            --suppress=missingIncludeSystem --suppress=unusedFunction
+            --suppress=unmatchedSuppression --suppress=constVariablePointer
+            --suppress=constVariable --suppress=constParameter
+            --suppress=constParameterPointer
+            -I ${CMAKE_SOURCE_DIR}/src/ ${CMAKE_SOURCE_DIR}/src/*.c
+    COMMAND ${CMAKE_COMMAND} --build ${CMAKE_BINARY_DIR} --target test
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+    COMMENT "Running pre-upload validation: cppcheck + all tests"
+    DEPENDS
+        varintPackedTest varintDimensionTest
+        varintDeltaTest varintFORTest varintPFORTest
+        varintGroupTest varintDictTest varintAdaptiveTest
+        varintFloatTest varintBitmapTest
+)
+
 # vi:ai et sw=4 ts=4:

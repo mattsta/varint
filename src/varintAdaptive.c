@@ -57,7 +57,7 @@ size_t varintAdaptiveCountUnique(const uint64_t *values, size_t count) {
     if (count > 10000) {
         /* Sample-based estimation: check every 10th element */
         size_t sampleSize = count / 10;
-        if (sampleSize < 100) sampleSize = count < 100 ? count : 100;
+        if (sampleSize < 100) sampleSize = 100; /* Ensure minimum sample size */
 
         uint64_t *sample = malloc(sampleSize * sizeof(uint64_t));
         if (!sample) return count; /* Conservative estimate */

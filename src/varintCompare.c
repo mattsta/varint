@@ -85,7 +85,10 @@ int32_t main(int argc, char **argv) {
         for (i = 0; i < maxLoop; i++) {
             GIVE_XZ;
 
+            /* Baseline overhead check - intentional self-comparison */
+            // cppcheck-suppress duplicateExpression
             assert(x == x);
+            // cppcheck-suppress duplicateExpression
             assert(z[0] == z[0]);
             ACCOUNT_LOOP;
         }
@@ -327,10 +330,12 @@ int32_t main(int argc, char **argv) {
 
             varintSplitFullNoZeroPut_(z, len, i);
 
+            /* Document encoding boundaries (loop max < 4210750) */
             if (i <= 64) {
                 assert(len == 1);
             } else if (i <= 16447) {
                 assert(len == 2);
+            // cppcheck-suppress knownConditionTrueFalse
             } else if (i <= 4210750) {
                 assert(len == 3);
             }
@@ -794,10 +799,12 @@ int32_t main(int argc, char **argv) {
 
             varintSplitFullNoZeroReversedPutForward_(z, len, i);
 
+            /* Document encoding boundaries (loop max < 4210750) */
             if (i <= 64) {
                 assert(len == 1);
             } else if (i <= 16447) {
                 assert(len == 2);
+            // cppcheck-suppress knownConditionTrueFalse
             } else if (i <= 4210750) {
                 assert(len == 3);
             }
@@ -833,7 +840,7 @@ static int32_t hexToInt(char c) {
 }
 
 int32_t main(int32_t argc, char **argv) {
-    int32_t i, j, n;
+    int32_t i, j;
     uint64_t x;
     char out[20];
     if (argc <= 1) {
@@ -859,7 +866,7 @@ int32_t main(int32_t argc, char **argv) {
                 z++;
             }
         }
-        n = varintTaggedPut64(out, x);
+        int32_t n = varintTaggedPut64(out, x);
         printf("%llu = ", (long long unsigned)x);
         for (j = 0; j < n; j++)
             printf("%02x", out[j] & 0xff);

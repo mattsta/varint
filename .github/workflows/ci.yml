@@ -209,11 +209,23 @@ jobs:
           cd build
           cmake --build . --parallel $(nproc 2>/dev/null || sysctl -n hw.ncpu)
 
+      - name: Run CTest unit tests
+        run: |
+          cd build
+          make test
+          echo "✅ All unit tests passed via CTest"
+
+      - name: Run comprehensive test suite
+        run: |
+          cd build
+          make test-comprehensive
+          echo "✅ All comprehensive tests passed"
+
       - name: Verify build artifacts
         run: |
           echo "=== Build artifacts ==="
           find build -type f -executable -o -name "*.a" -o -name "*.so" | head -20
-          echo "✅ Build completed successfully"
+          echo "✅ Build completed successfully with all tests passing"
 
   # Job 5: Sanitizer Matrix Testing
   sanitizer-matrix:
@@ -296,27 +308,38 @@ jobs:
           echo "Architecture: ${{ matrix.arch }}"
           echo "Compiler checks completed"
 
-  # Job 7: Static Analysis (Future enhancement)
+  # Job 7: Static Analysis with cppcheck
   static-analysis:
-    name: Static Analysis
+    name: Static Analysis (cppcheck)
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Run cppcheck (if available)
-        continue-on-error: true
+      - name: Install cppcheck
         run: |
           sudo apt-get update
-          sudo apt-get install -y cppcheck || true
-          if command -v cppcheck &> /dev/null; then
-            cppcheck --enable=all --inconclusive --std=c11 \
-                     --suppress=missingIncludeSystem \
-                     src/ 2>&1 | tee cppcheck_output.log || true
-          else
-            echo "cppcheck not available, skipping"
-          fi
+          sudo apt-get install -y cppcheck
+          cppcheck --version
+
+      - name: Run cppcheck on src/
+        run: |
+          cppcheck --enable=warning,style,performance,portability \
+                   --error-exitcode=1 \
+                   --inline-suppr \
+                   --std=c11 \
+                   --suppress=missingIncludeSystem \
+                   --suppress=unusedFunction \
+                   --suppress=unmatchedSuppression \
+                   --suppress=constVariablePointer \
+                   --suppress=constVariable \
+                   --suppress=constParameter \
+                   --suppress=constParameterPointer \
+                   -I src/ \
+                   src/*.c 2>&1 | tee cppcheck_output.log
+
+          echo "✅ cppcheck found no critical issues"
 
       - name: Upload static analysis results
         if: always()
@@ -325,7 +348,6 @@ jobs:
           name: static-analysis
           path: cppcheck_output.log
           retention-days: 30
-          if-no-files-found: ignore
 
   # Job 8: Summary Report
   summary:

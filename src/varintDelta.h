@@ -23,13 +23,12 @@ __BEGIN_DECLS
  * Mapping: 0→0, -1→1, 1→2, -2→3, 2→4, -3→5, ...
  * This ensures small magnitude values (positive or negative) use fewer bytes */
 static inline uint64_t varintDeltaZigZag(int64_t n) {
-    /* Left shift by 1, then XOR with arithmetic right shift
-     * Arithmetic right shift fills with sign bit (sign extension)
-     * For n >= 0: n >> 63 = 0, so result = n << 1
-     * For n < 0:  n >> 63 = -1 (all 1s), so result = (n << 1) ^ -1 = ~(n << 1)
-     * Note: Right shift of negative signed value is implementation-defined in C,
-     * but we rely on arithmetic right shift (sign extension) which is universal */
-    return ((uint64_t)n << 1) ^ (uint64_t)(n >> 63);
+    /* Portable ZigZag: (n << 1) XOR with sign mask
+     * For n >= 0: mask = 0, result = n << 1
+     * For n < 0:  mask = -1 (all bits set), result = (n << 1) ^ -1 = ~(n << 1)
+     * This avoids implementation-defined signed right shift behavior */
+    uint64_t sign_mask = (uint64_t)(n < 0 ? -1 : 0);
+    return ((uint64_t)n << 1) ^ sign_mask;
 }
 
 /* ZigZag decoding: Restores signed integer from unsigned ZigZag value */

@@ -30,13 +30,16 @@ int varintDeltaTest(int argc, char *argv[]) {
             ERR("ZigZag(2) = %" PRIu64 ", expected 4", varintDeltaZigZag(2));
         }
 
-        /* Test decode */
+        /* Test decode - these assertions verify known values work correctly */
+        // cppcheck-suppress knownConditionTrueFalse
         if (varintDeltaZigZagDecode(0) != 0) {
             ERR("ZigZagDecode(0) = %" PRId64 ", expected 0", varintDeltaZigZagDecode(0));
         }
+        // cppcheck-suppress knownConditionTrueFalse
         if (varintDeltaZigZagDecode(1) != -1) {
             ERR("ZigZagDecode(1) = %" PRId64 ", expected -1", varintDeltaZigZagDecode(1));
         }
+        // cppcheck-suppress knownConditionTrueFalse
         if (varintDeltaZigZagDecode(2) != 1) {
             ERR("ZigZagDecode(2) = %" PRId64 ", expected 1", varintDeltaZigZagDecode(2));
         }
