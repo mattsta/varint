@@ -1,0 +1,59 @@
+=================================
+Checking with: clang
+=================================
+
+Checking src/varintAdaptive.c                     ... ✓
+Checking src/varintAdaptiveTest.c                 ... ✓
+Checking src/varintBitmap.c                       ... ✓
+Checking src/varintBitmapTest.c                   ... ✓
+Checking src/varintChained.c                      ... ✓
+Checking src/varintChainedSimple.c                ... ✓
+Checking src/varintCompare.c                      ... ✗
+  Errors:
+    In file included from src/varintCompare.c:66:
+    src/perf.h:25:32: error: a function declaration without a prototype is deprecated in all versions of C [-Werror,-Wstrict-prototypes]
+       25 | static inline uint64_t _perfTSC() {
+          |                                ^
+          |                                 void
+
+Checking src/varintDelta.c                        ... ✓
+Checking src/varintDeltaTest.c                    ... ✓
+Checking src/varintDict.c                         ... ✓
+Checking src/varintDictTest.c                     ... ✓
+Checking src/varintDimension.c                    ... ✗
+  Errors:
+    src/varintDimension.c:198:27: error: '__builtin_ia32_vcvtps2ph' needs target feature f16c
+      198 |     __m128i half_vector = _mm_cvtps_ph(float_vector, 0);
+          |                           ^
+    /usr/lib/llvm-18/lib/clang/18/include/f16cintrin.h:96:13: note: expanded from macro '_mm_cvtps_ph'
+       96 |   ((__m128i)__builtin_ia32_vcvtps2ph((__v4sf)(__m128)(a), (imm)))
+
+Checking src/varintDimensionTest.c                ... ✓
+Checking src/varintExternal.c                     ... ✓
+Checking src/varintExternalBigEndian.c            ... ✓
+Checking src/varintFOR.c                          ... ✓
+Checking src/varintFORTest.c                      ... ✓
+Checking src/varintFloat.c                        ... ✓
+Checking src/varintFloatTest.c                    ... ✓
+Checking src/varintGroup.c                        ... ✓
+Checking src/varintGroupTest.c                    ... ✓
+Checking src/varintPFOR.c                         ... ✓
+Checking src/varintPFORTest.c                     ... ✓
+Checking src/varintPackedTest.c                   ... ✗
+  Errors:
+    In file included from src/varintPackedTest.c:8:
+    src/varintPacked.h:216:65: error: implicit conversion loses integer precision: 'uint64_t' (aka 'unsigned long') to 'uint32_t' (aka 'unsigned int') [-Werror,-Wshorten-64-to-32]
+      216 |         out[0] = (out[0] & ~((uint64_t)VALUE_MASK << startBit)) |
+          |                ~ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^
+      217 |                  ((uint64_t)MICRO_PROMOTION_TYPE_CAST(val) << startBit);
+
+Checking src/varintTagged.c                       ... ✓
+
+=================================
+Results: 22/25 files passed
+=================================
+
+Failed files:
+  - src/varintCompare.c
+  - src/varintDimension.c
+  - src/varintPackedTest.c
