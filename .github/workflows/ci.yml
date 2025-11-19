@@ -14,7 +14,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-22.04, ubuntu-20.04, macos-13, macos-12]
+        os: [ubuntu-latest, macos-latest]
 
     steps:
       - name: Checkout code
@@ -71,7 +71,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-22.04, macos-13]
+        os: [ubuntu-latest, macos-latest]
         sanitizer: [none, asan, ubsan, both]
 
     steps:
@@ -111,7 +111,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-22.04, macos-13]
+        os: [ubuntu-latest, macos-latest]
 
     steps:
       - name: Checkout code
@@ -166,7 +166,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-22.04, macos-13]
+        os: [ubuntu-latest, macos-latest]
         compiler: [gcc, clang]
 
     steps:
@@ -222,11 +222,11 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-22.04]
+        os: [ubuntu-latest]
         sanitizer: [address, undefined, memory, thread]
         exclude:
           # MemorySanitizer requires special instrumented libraries
-          - os: ubuntu-22.04
+          - os: ubuntu-latest
             sanitizer: memory
 
     steps:
@@ -270,7 +270,7 @@ jobs:
   # Job 6: Cross-Architecture Testing (if applicable)
   cross-arch:
     name: Cross-Arch (${{ matrix.arch }})
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
@@ -299,7 +299,7 @@ jobs:
   # Job 7: Static Analysis (Future enhancement)
   static-analysis:
     name: Static Analysis
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-latest
 
     steps:
       - name: Checkout code
@@ -330,7 +330,7 @@ jobs:
   # Job 8: Summary Report
   summary:
     name: CI Summary
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-latest
     needs: [compiler-warnings, unit-tests, examples-comprehensive, build-verification]
     if: always()
 

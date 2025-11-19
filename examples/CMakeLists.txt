@@ -1,6 +1,6 @@
 # Examples CMakeLists.txt
 
-cmake_minimum_required(VERSION 3.0)
+cmake_minimum_required(VERSION 3.10...3.28)
 
 # Include parent source directory
 include_directories(../src)

@@ -46,6 +46,11 @@
 #include <string.h>
 #include <time.h>
 
+// Define __has_feature for compilers that don't support it (GCC)
+#ifndef __has_feature
+#define __has_feature(x) 0
+#endif
+
 // ============================================================================
 // WILDCARD TYPES
 // ============================================================================

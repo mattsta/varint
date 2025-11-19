@@ -9,6 +9,10 @@
  * The unrolled loop version is about 20% faster than a direct loop. */
 /* Little endian is simple because our storage format is little endian as well.
  * We can copy to/from storage and system just by copying bytes in order. */
+/* Suppress false positive -Warray-bounds warnings from aggressive optimization.
+ * The switch statement ensures we only access valid array indices. */
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Warray-bounds"
 static void
 varintExternalCopyToEncodingLittleEndian_(uint8_t *restrict dst,
                                           const uint8_t *restrict src,
@@ -82,6 +86,7 @@ varintExternalCopyToEncodingLittleEndian_(uint8_t *restrict dst,
         __builtin_unreachable();
     }
 }
+#pragma GCC diagnostic pop
 
 /* automatically determine 'encoding' then copy relevant bytes into 'dst' */
 static varintWidth
