@@ -25,6 +25,14 @@ typedef struct varintDict {
     varintWidth indexWidth;  /* Width needed for indices */
 } varintDict;
 
+/* Compile-time size guarantees to prevent regressions */
+_Static_assert(sizeof(varintDict) == 24,
+    "varintDict size changed! Expected 24 bytes (8-byte pointer + 3×4-byte + 4 padding). "
+    "83.3% efficient - padding required for 8-byte alignment of pointer.");
+_Static_assert(sizeof(varintDict) <= 64,
+    "varintDict exceeds single cache line (64 bytes)! "
+    "Keep dictionary struct cache-friendly.");
+
 /* ====================================================================
  * Dictionary Management
  * ==================================================================== */

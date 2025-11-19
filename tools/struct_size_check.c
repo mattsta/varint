@@ -15,6 +15,7 @@
 #include "varintBitmap.h"
 #include "varintAdaptive.h"
 #include "varintFloat.h"
+#include "perf.h"
 
 #define CHECK_SIZE(type, expected, name) \
     printf("%-30s: %3zu bytes (expected <= %3zu) %s\n", \
@@ -59,20 +60,39 @@ int main(void) {
     /* varintDictStats was already optimal */
     CHECK_SIZE(varintDictStats, 56, "varintDictStats");
 
+    /* Performance measurement structs (all optimal) */
+    CHECK_SIZE(perfStateGlobal, 24, "perfStateGlobal");
+    CHECK_SIZE(perfStateStat, 48, "perfStateStat");
+    CHECK_SIZE(perfState, 144, "perfState");
+
+    /* Container structs (all optimal) */
+    CHECK_SIZE(varintBitmap, 24, "varintBitmap");
+    CHECK_SIZE(varintBitmapIterator, 16, "varintBitmapIterator");
+    CHECK_SIZE(varintDict, 24, "varintDict");
+
     printf("\n");
 
-    /* Calculate total savings */
+    /* Calculate total savings (metadata structs only) */
     size_t before_total = 48 + 48 + 48 + 80 + 72 + 24 + 56;
     size_t after_total = sizeof(varintFORMeta) + sizeof(varintPFORMeta) +
                          sizeof(varintFloatMeta) + sizeof(varintAdaptiveDataStats) +
                          sizeof(varintAdaptiveMeta) + sizeof(varintBitmapStats) +
                          sizeof(varintDictStats);
+
+    /* Additional structs (all were already optimal) */
+    size_t additional_total = sizeof(perfStateGlobal) + sizeof(perfStateStat) +
+                              sizeof(perfState) + sizeof(varintBitmap) +
+                              sizeof(varintBitmapIterator) + sizeof(varintDict);
     size_t saved = before_total > after_total ? before_total - after_total : 0;
 
-    printf("Total bytes before:  %zu\n", before_total);
-    printf("Total bytes after:   %zu\n", after_total);
-    printf("Bytes saved:         \033[1;32m%zu\033[0m (%.1f%% reduction)\n",
+    printf("Metadata structs:\n");
+    printf("  Before optimization: %zu bytes\n", before_total);
+    printf("  After optimization:  %zu bytes\n", after_total);
+    printf("  Bytes saved:         \033[1;32m%zu\033[0m (%.1f%% reduction)\n\n",
            saved, (float)saved / before_total * 100.0f);
+
+    printf("All structs total:     %zu bytes\n", after_total + additional_total);
+    printf("All structs verified:  13 structs with static assertions ✓\n");
     printf("\n");
 
     return 0;

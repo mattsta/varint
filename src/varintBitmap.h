@@ -65,6 +65,14 @@ typedef struct varintBitmap {
     } container;
 } varintBitmap;
 
+/* Compile-time size guarantees to prevent regressions */
+_Static_assert(sizeof(varintBitmap) == 24,
+    "varintBitmap size changed! Expected 24 bytes (2×4-byte + 16-byte union, ZERO padding). "
+    "This struct achieved 100% efficiency - do not break it!");
+_Static_assert(sizeof(varintBitmap) <= 64,
+    "varintBitmap exceeds single cache line (64 bytes)! "
+    "Keep bitmap container struct cache-friendly.");
+
 /* ====================================================================
  * Core API
  * ==================================================================== */
@@ -100,6 +108,14 @@ typedef struct varintBitmapIterator {
     uint16_t currentValue;  /* Current value */
     bool hasValue;
 } varintBitmapIterator;
+
+/* Compile-time size guarantees to prevent regressions */
+_Static_assert(sizeof(varintBitmapIterator) == 16,
+    "varintBitmapIterator size changed! Expected 16 bytes (8-byte pointer + 4-byte + 2-byte + 1-byte + 1 padding). "
+    "93.75% efficient - minimal padding required for alignment.");
+_Static_assert(sizeof(varintBitmapIterator) <= 64,
+    "varintBitmapIterator exceeds single cache line (64 bytes)! "
+    "Keep iterator struct cache-friendly.");
 
 varintBitmapIterator varintBitmapCreateIterator(const varintBitmap *vb);
 bool varintBitmapIteratorNext(varintBitmapIterator *it);
