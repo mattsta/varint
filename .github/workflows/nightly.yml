@@ -50,7 +50,7 @@ jobs:
 
       - name: Upload nightly test results
         if: always()
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: nightly-${{ matrix.sanitizer }}-results
           path: |
@@ -104,7 +104,7 @@ jobs:
 
       - name: Upload compiler matrix results
         if: always()
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: compiler-matrix-gcc${{ matrix.gcc }}-clang${{ matrix.clang }}
           path: |
@@ -145,7 +145,7 @@ jobs:
 
       - name: Upload performance results
         if: always()
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: performance-benchmarks
           path: perf_results.log
@@ -184,7 +184,7 @@ jobs:
 
       - name: Upload valgrind results
         if: always()
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: valgrind-analysis
           path: valgrind_output.log

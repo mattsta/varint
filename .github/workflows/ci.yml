@@ -58,7 +58,7 @@ jobs:
 
       - name: Upload compiler check results
         if: always()
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: compiler-results-${{ matrix.os }}
           path: compiler_check_results/
@@ -153,7 +153,7 @@ jobs:
 
       - name: Upload test output
         if: always()
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: comprehensive-test-output-${{ matrix.os }}
           path: comprehensive_test_output.log
@@ -261,7 +261,7 @@ jobs:
 
       - name: Upload sanitizer results
         if: always()
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: sanitizer-${{ matrix.sanitizer }}-${{ matrix.os }}
           path: sanitizer_output.log
@@ -320,7 +320,7 @@ jobs:
 
       - name: Upload static analysis results
         if: always()
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: static-analysis
           path: cppcheck_output.log
