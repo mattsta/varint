@@ -1,4 +1,6 @@
 build
+build_tests
+compiler_check_results
 
 # Compiled examples (no extension)
 examples/standalone/example_*
