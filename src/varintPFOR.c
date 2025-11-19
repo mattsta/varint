@@ -66,6 +66,11 @@ varintWidth varintPFORComputeThreshold(const uint64_t *values, uint32_t count,
 
     /* Create sorted copy for percentile calculation */
     uint64_t *sorted = malloc(count * sizeof(uint64_t));
+    if (!sorted) {
+        /* Out of memory - return conservative estimate */
+        memset(meta, 0, sizeof(*meta));
+        return VARINT_WIDTH_8B;
+    }
     memcpy(sorted, values, count * sizeof(uint64_t));
     qsort(sorted, count, sizeof(uint64_t), compare_uint64);
 
@@ -155,20 +160,23 @@ size_t varintPFOREncode(uint8_t *dst, const uint64_t *values, uint32_t count,
 
     if (meta->exceptionCount > 0) {
         exceptions = malloc(meta->exceptionCount * sizeof(Exception));
+        if (!exceptions) {
+            /* Out of memory - fall back to encoding without exception tracking
+             * This will still produce valid output, just not optimal */
+            meta->exceptionCount = 0;
+        }
     }
 
     /* Write values (first pass: mark exceptions) */
     for (uint32_t i = 0; i < count; i++) {
         uint64_t value = values[i];
 
-        if (value > meta->thresholdValue) {
+        if (value > meta->thresholdValue && exceptions) {
             /* Above threshold: store exception marker */
             varintExternalPutFixedWidth(dst, meta->exceptionMarker, meta->width);
-            if (exceptions) {
-                exceptions[exceptionIdx].index = i;
-                exceptions[exceptionIdx].value = value;
-                exceptionIdx++;
-            }
+            exceptions[exceptionIdx].index = i;
+            exceptions[exceptionIdx].value = value;
+            exceptionIdx++;
         } else {
             /* Normal value: store offset from min */
             uint64_t offset = value - meta->min;

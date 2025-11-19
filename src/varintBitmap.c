@@ -70,11 +70,13 @@ static bool bitmapClear_(uint8_t *bits, uint16_t value) {
 }
 
 /* Convert array to bitmap container */
-static void arrayToBitmap_(varintBitmap *vb) {
+static bool arrayToBitmap_(varintBitmap *vb) {
     assert(vb->type == VARINT_BITMAP_ARRAY);
 
     uint8_t *bits = calloc(VARINT_BITMAP_BITMAP_SIZE, 1);
-    assert(bits != NULL);
+    if (!bits) {
+        return false;  /* Out of memory */
+    }
 
     /* Set bits for all values in array */
     for (uint32_t i = 0; i < vb->cardinality; i++) {
@@ -87,14 +89,17 @@ static void arrayToBitmap_(varintBitmap *vb) {
     /* Update to bitmap */
     vb->type = VARINT_BITMAP_BITMAP;
     vb->container.bitmap.bits = bits;
+    return true;
 }
 
 /* Convert bitmap to array container */
-static void bitmapToArray_(varintBitmap *vb) {
+static bool bitmapToArray_(varintBitmap *vb) {
     assert(vb->type == VARINT_BITMAP_BITMAP);
 
     uint16_t *values = malloc(vb->cardinality * sizeof(uint16_t));
-    assert(values != NULL);
+    if (!values) {
+        return false;  /* Out of memory */
+    }
 
     /* Extract all set bits */
     uint32_t pos = 0;
@@ -113,14 +118,15 @@ static void bitmapToArray_(varintBitmap *vb) {
     vb->type = VARINT_BITMAP_ARRAY;
     vb->container.array.values = values;
     vb->container.array.capacity = vb->cardinality;
+    return true;
 }
 
 /* Ensure array has space for one more element */
-static void arrayEnsureCapacity_(varintBitmap *vb, uint32_t needed) {
+static bool arrayEnsureCapacity_(varintBitmap *vb, uint32_t needed) {
     assert(vb->type == VARINT_BITMAP_ARRAY);
 
     if (vb->container.array.capacity >= needed) {
-        return;
+        return true;
     }
 
     uint32_t newCapacity = vb->container.array.capacity * 2;
@@ -128,12 +134,16 @@ static void arrayEnsureCapacity_(varintBitmap *vb, uint32_t needed) {
         newCapacity = needed;
     }
 
-    vb->container.array.values = realloc(
+    uint16_t *newValues = realloc(
         vb->container.array.values,
         newCapacity * sizeof(uint16_t)
     );
-    assert(vb->container.array.values != NULL);
+    if (!newValues) {
+        return false;  /* Out of memory - original array still valid */
+    }
+    vb->container.array.values = newValues;
     vb->container.array.capacity = newCapacity;
+    return true;
 }
 
 /* ====================================================================
@@ -142,7 +152,9 @@ static void arrayEnsureCapacity_(varintBitmap *vb, uint32_t needed) {
 
 varintBitmap *varintBitmapCreate(void) {
     varintBitmap *vb = calloc(1, sizeof(varintBitmap));
-    assert(vb != NULL);
+    if (!vb) {
+        return NULL;  /* Out of memory */
+    }
 
     /* Start with array container */
     vb->type = VARINT_BITMAP_ARRAY;
@@ -150,7 +162,10 @@ varintBitmap *varintBitmapCreate(void) {
     vb->container.array.values = malloc(
         VARINT_BITMAP_DEFAULT_ARRAY_CAPACITY * sizeof(uint16_t)
     );
-    assert(vb->container.array.values != NULL);
+    if (!vb->container.array.values) {
+        free(vb);
+        return NULL;  /* Out of memory */
+    }
     vb->container.array.capacity = VARINT_BITMAP_DEFAULT_ARRAY_CAPACITY;
 
     return vb;
@@ -178,7 +193,9 @@ void varintBitmapFree(varintBitmap *vb) {
 
 varintBitmap *varintBitmapClone(const varintBitmap *vb) {
     varintBitmap *clone = malloc(sizeof(varintBitmap));
-    assert(clone != NULL);
+    if (!clone) {
+        return NULL;  /* Out of memory */
+    }
 
     clone->type = vb->type;
     clone->cardinality = vb->cardinality;
@@ -189,14 +206,20 @@ varintBitmap *varintBitmapClone(const varintBitmap *vb) {
         clone->container.array.values = malloc(
             vb->container.array.capacity * sizeof(uint16_t)
         );
-        assert(clone->container.array.values != NULL);
+        if (!clone->container.array.values) {
+            free(clone);
+            return NULL;  /* Out of memory */
+        }
         memcpy(clone->container.array.values, vb->container.array.values,
                vb->cardinality * sizeof(uint16_t));
         break;
 
     case VARINT_BITMAP_BITMAP:
         clone->container.bitmap.bits = malloc(VARINT_BITMAP_BITMAP_SIZE);
-        assert(clone->container.bitmap.bits != NULL);
+        if (!clone->container.bitmap.bits) {
+            free(clone);
+            return NULL;  /* Out of memory */
+        }
         memcpy(clone->container.bitmap.bits, vb->container.bitmap.bits,
                VARINT_BITMAP_BITMAP_SIZE);
         break;
@@ -207,7 +230,10 @@ varintBitmap *varintBitmapClone(const varintBitmap *vb) {
         clone->container.runs.runs = malloc(
             vb->container.runs.capacity * 2 * sizeof(uint16_t)
         );
-        assert(clone->container.runs.runs != NULL);
+        if (!clone->container.runs.runs) {
+            free(clone);
+            return NULL;  /* Out of memory */
+        }
         memcpy(clone->container.runs.runs, vb->container.runs.runs,
                vb->container.runs.numRuns * 2 * sizeof(uint16_t));
         break;
@@ -228,7 +254,9 @@ bool varintBitmapAdd(varintBitmap *vb, uint16_t value) {
 
         /* Check if we should convert to bitmap */
         if (vb->cardinality >= VARINT_BITMAP_ARRAY_MAX) {
-            arrayToBitmap_(vb);
+            if (!arrayToBitmap_(vb)) {
+                return false;  /* Out of memory */
+            }
             bitmapSet_(vb->container.bitmap.bits, value);
             vb->cardinality++;
             return true;
@@ -236,7 +264,9 @@ bool varintBitmapAdd(varintBitmap *vb, uint16_t value) {
 
         /* Insert into sorted array */
         int32_t insertPos = -(idx + 1);
-        arrayEnsureCapacity_(vb, vb->cardinality + 1);
+        if (!arrayEnsureCapacity_(vb, vb->cardinality + 1)) {
+            return false;  /* Out of memory */
+        }
 
         /* Shift elements right */
         memmove(&vb->container.array.values[insertPos + 1],
@@ -261,7 +291,9 @@ bool varintBitmapAdd(varintBitmap *vb, uint16_t value) {
         if (vb->cardinality >= VARINT_BITMAP_ARRAY_MAX) {
             /* Convert runs to bitmap */
             uint8_t *bits = calloc(VARINT_BITMAP_BITMAP_SIZE, 1);
-            assert(bits != NULL);
+            if (!bits) {
+                return false;  /* Out of memory */
+            }
 
             for (uint32_t i = 0; i < vb->container.runs.numRuns; i++) {
                 uint16_t start = vb->container.runs.runs[i * 2];
@@ -281,7 +313,9 @@ bool varintBitmapAdd(varintBitmap *vb, uint16_t value) {
             uint16_t *values = malloc(
                 (vb->cardinality + 1) * sizeof(uint16_t)
             );
-            assert(values != NULL);
+            if (!values) {
+                return false;  /* Out of memory */
+            }
 
             uint32_t pos = 0;
             for (uint32_t i = 0; i < vb->container.runs.numRuns; i++) {
@@ -328,7 +362,10 @@ bool varintBitmapRemove(varintBitmap *vb, uint16_t value) {
 
             /* Convert to array if too sparse */
             if (vb->cardinality < VARINT_BITMAP_ARRAY_MAX) {
-                bitmapToArray_(vb);
+                if (!bitmapToArray_(vb)) {
+                    /* Failed to convert, but value was removed from bitmap */
+                    return true;  /* Still report success */
+                }
             }
 
             return true;
@@ -340,7 +377,9 @@ bool varintBitmapRemove(varintBitmap *vb, uint16_t value) {
         /* For simplicity, convert first */
         if (vb->cardinality >= VARINT_BITMAP_ARRAY_MAX) {
             uint8_t *bits = calloc(VARINT_BITMAP_BITMAP_SIZE, 1);
-            assert(bits != NULL);
+            if (!bits) {
+                return false;  /* Out of memory */
+            }
 
             for (uint32_t i = 0; i < vb->container.runs.numRuns; i++) {
                 uint16_t start = vb->container.runs.runs[i * 2];
@@ -355,7 +394,9 @@ bool varintBitmapRemove(varintBitmap *vb, uint16_t value) {
             vb->container.bitmap.bits = bits;
         } else {
             uint16_t *values = malloc(vb->cardinality * sizeof(uint16_t));
-            assert(values != NULL);
+            if (!values) {
+                return false;  /* Out of memory */
+            }
 
             uint32_t pos = 0;
             for (uint32_t i = 0; i < vb->container.runs.numRuns; i++) {
@@ -552,7 +593,9 @@ varintBitmap *varintBitmapDecode(const uint8_t *buffer, size_t len) {
     (void)len;  /* Unused, but kept for API consistency */
 
     varintBitmap *vb = malloc(sizeof(varintBitmap));
-    assert(vb != NULL);
+    if (!vb) {
+        return NULL;  /* Out of memory */
+    }
 
     /* Read type */
     vb->type = (varintBitmapContainerType)*buffer++;
@@ -567,14 +610,20 @@ varintBitmap *varintBitmapDecode(const uint8_t *buffer, size_t len) {
         vb->container.array.values = malloc(
             vb->cardinality * sizeof(uint16_t)
         );
-        assert(vb->container.array.values != NULL);
+        if (!vb->container.array.values) {
+            free(vb);
+            return NULL;  /* Out of memory */
+        }
         memcpy(vb->container.array.values, buffer,
                vb->cardinality * sizeof(uint16_t));
         break;
 
     case VARINT_BITMAP_BITMAP:
         vb->container.bitmap.bits = malloc(VARINT_BITMAP_BITMAP_SIZE);
-        assert(vb->container.bitmap.bits != NULL);
+        if (!vb->container.bitmap.bits) {
+            free(vb);
+            return NULL;  /* Out of memory */
+        }
         memcpy(vb->container.bitmap.bits, buffer, VARINT_BITMAP_BITMAP_SIZE);
         break;
 
@@ -585,7 +634,10 @@ varintBitmap *varintBitmapDecode(const uint8_t *buffer, size_t len) {
         vb->container.runs.runs = malloc(
             vb->container.runs.numRuns * 2 * sizeof(uint16_t)
         );
-        assert(vb->container.runs.runs != NULL);
+        if (!vb->container.runs.runs) {
+            free(vb);
+            return NULL;  /* Out of memory */
+        }
         memcpy(vb->container.runs.runs, buffer,
                vb->container.runs.numRuns * 2 * sizeof(uint16_t));
         break;
@@ -736,7 +788,14 @@ void varintBitmapAddRange(varintBitmap *vb, uint16_t min, uint16_t max) {
         vb->container.runs.numRuns = 1;
         vb->container.runs.capacity = 1;
         vb->container.runs.runs = malloc(2 * sizeof(uint16_t));
-        assert(vb->container.runs.runs != NULL);
+        if (!vb->container.runs.runs) {
+            /* Out of memory - reset to empty array container */
+            vb->type = VARINT_BITMAP_ARRAY;
+            vb->cardinality = 0;
+            vb->container.array.values = NULL;
+            vb->container.array.capacity = 0;
+            return;
+        }
         vb->container.runs.runs[0] = min;
         vb->container.runs.runs[1] = (uint16_t)rangeSize;
         vb->cardinality = rangeSize;

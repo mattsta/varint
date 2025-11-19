@@ -32,6 +32,20 @@
 #include "varintDict.h"
 #include <stdlib.h>
 #include <string.h>
+#include <stdint.h>
+
+/* Maximum dictionary size to prevent DoS via excessive memory allocation */
+#define VARINT_DICT_MAX_SIZE 1048576  /* 1M entries = 8MB for dict values */
+
+/* Check for overflow in size_t multiplication */
+static inline bool size_mul_overflow(size_t a, size_t b, size_t *result) {
+    if (a == 0 || b == 0) {
+        *result = 0;
+        return false;
+    }
+    *result = a * b;
+    return (*result / a) != b;
+}
 
 /* Internal comparison function for qsort */
 static int compareUint64(const void *a, const void *b) {
@@ -234,10 +248,21 @@ uint64_t *varintDictDecode(const uint8_t *buffer, size_t bufferLen,
         return NULL;
     }
     ptr += w;
+
+    /* Validate dictionary size to prevent DoS and integer overflow */
+    if (dictSize64 > VARINT_DICT_MAX_SIZE) {
+        return NULL;  /* Dictionary too large */
+    }
     uint32_t dictSize = (uint32_t)dictSize64;
 
+    /* Check for overflow in size calculation */
+    size_t allocSize;
+    if (size_mul_overflow(dictSize, sizeof(uint64_t), &allocSize)) {
+        return NULL;  /* Integer overflow in allocation size */
+    }
+
     /* Read dictionary entries */
-    uint64_t *dictValues = (uint64_t *)malloc(dictSize * sizeof(uint64_t));
+    uint64_t *dictValues = (uint64_t *)malloc(allocSize);
     if (!dictValues) {
         return NULL;
     }
@@ -317,10 +342,21 @@ size_t varintDictDecodeInto(const uint8_t *buffer, size_t bufferLen,
         return 0;
     }
     ptr += w;
+
+    /* Validate dictionary size to prevent DoS and integer overflow */
+    if (dictSize64 > VARINT_DICT_MAX_SIZE) {
+        return 0;  /* Dictionary too large */
+    }
     uint32_t dictSize = (uint32_t)dictSize64;
 
+    /* Check for overflow in size calculation */
+    size_t allocSize;
+    if (size_mul_overflow(dictSize, sizeof(uint64_t), &allocSize)) {
+        return 0;  /* Integer overflow in allocation size */
+    }
+
     /* Read dictionary entries */
-    uint64_t *dictValues = (uint64_t *)malloc(dictSize * sizeof(uint64_t));
+    uint64_t *dictValues = (uint64_t *)malloc(allocSize);
     if (!dictValues) {
         return 0;
     }
