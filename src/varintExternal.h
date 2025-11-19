@@ -139,10 +139,10 @@ varintWidth varintExternalAddGrow(uint8_t *p, varintWidth encoding,
             (result) = (vimp_src_)[0];                                         \
             break;                                                             \
         case VARINT_WIDTH_16B:                                                 \
-            (result) = vimp_src_[1] << 8 | vimp_src_[0];                       \
+            (result) = ((uint64_t)vimp_src_[1] << 8) | (uint64_t)vimp_src_[0]; \
             break;                                                             \
         case VARINT_WIDTH_24B:                                                 \
-            (result) = vimp_src_[2] << 16 | vimp_src_[1] << 8 | vimp_src_[0];  \
+            (result) = ((uint64_t)vimp_src_[2] << 16) | ((uint64_t)vimp_src_[1] << 8) | (uint64_t)vimp_src_[0]; \
             break;                                                             \
         default:                                                               \
             (result) = varintExternalGet((src), (width));                      \
@@ -154,10 +154,10 @@ varintWidth varintExternalAddGrow(uint8_t *p, varintWidth encoding,
         const uint8_t *restrict vimp_src_ = (uint8_t *)(src);                  \
         switch (width) {                                                       \
         case VARINT_WIDTH_24B:                                                 \
-            (result) = vimp_src_[2] << 16 | vimp_src_[1] << 8 | vimp_src_[0];  \
+            (result) = ((uint64_t)vimp_src_[2] << 16) | ((uint64_t)vimp_src_[1] << 8) | (uint64_t)vimp_src_[0]; \
             break;                                                             \
         case VARINT_WIDTH_16B:                                                 \
-            (result) = vimp_src_[1] << 8 | vimp_src_[0];                       \
+            (result) = ((uint64_t)vimp_src_[1] << 8) | (uint64_t)vimp_src_[0]; \
             break;                                                             \
         default:                                                               \
             (result) = varintExternalGet(vimp_src_, (width));                  \

@@ -16,8 +16,8 @@ static inline uint64_t _perfTimeUs(void) {
     struct timeval tv;
     gettimeofday(&tv, NULL);
 
-    uint64_t us = (uint64_t)tv.tv_sec * 1e6;
-    us += tv.tv_usec;
+    uint64_t us = (uint64_t)tv.tv_sec * 1000000UL;
+    us += (uint64_t)tv.tv_usec;
 
     return us;
 }

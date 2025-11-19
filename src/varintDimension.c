@@ -101,7 +101,7 @@ static inline size_t getEntryByteOffset(const void *_src, const size_t row,
     const uint8_t *src = (const uint8_t *)_src;
 
     const uint8_t dataStartOffset =
-        VARINT_DIMENSION_PAIR_BYTE_LENGTH(dimension);
+        (uint8_t)VARINT_DIMENSION_PAIR_BYTE_LENGTH(dimension);
     size_t entryOffset;
     if (row) {
         size_t rows;
@@ -133,7 +133,7 @@ uint64_t varintDimensionPairEntryGetUnsigned(
             VARINT_DIMENSION_PAIR_WIDTH_ROW_COUNT(dim);                        \
         const varintWidth widthCols =                                          \
             VARINT_DIMENSION_PAIR_WIDTH_COL_COUNT(dim);                        \
-        const uint8_t metadataSize = widthRows + widthCols;                    \
+        const uint8_t metadataSize = (uint8_t)(widthRows + widthCols);                    \
         size_t _bit_offsetTotal;                                               \
         if (row) {                                                             \
             const size_t cols =                                                \

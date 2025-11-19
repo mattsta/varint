@@ -312,7 +312,7 @@ size_t varintAdaptiveEncodeWith(uint8_t *dst, const uint64_t *values,
 
         case VARINT_ADAPTIVE_PFOR: {
             varintPFORMeta pforMeta;
-            encodedSize = varintPFOREncode(dst + offset, values, count,
+            encodedSize = varintPFOREncode(dst + offset, values, (uint32_t)count,
                                           VARINT_PFOR_THRESHOLD_95, &pforMeta);
 
             if (meta) {

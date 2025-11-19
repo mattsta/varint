@@ -344,7 +344,7 @@ size_t varintFloatEncode(uint8_t *output,
     free(mantissas);
     free(special_flags);
 
-    return p - output;
+    return (size_t)(p - output);
 }
 
 /* Decode floating point array */
@@ -385,7 +385,7 @@ size_t varintFloatDecode(const uint8_t *input, size_t count, double *output) {
             if (!special_flags[i]) {
                 varintWidth width = (varintWidth)(*p++);
                 uint64_t zigzag = varintExternalGet(p, width);
-                exponents[i] = varintDeltaZigZagDecode(zigzag);
+                exponents[i] = (int16_t)varintDeltaZigZagDecode(zigzag);
                 p += width;
             }
         }
@@ -402,7 +402,7 @@ size_t varintFloatDecode(const uint8_t *input, size_t count, double *output) {
         if (normal_exp_count > 0) {
             varintWidth width = (varintWidth)(*p++);
             uint64_t zigzag = varintExternalGet(p, width);
-            int16_t base_exp = varintDeltaZigZagDecode(zigzag);
+            int16_t base_exp = (int16_t)varintDeltaZigZagDecode(zigzag);
             p += width;
 
             /* Read exponent deltas */
@@ -425,7 +425,7 @@ size_t varintFloatDecode(const uint8_t *input, size_t count, double *output) {
             /* Read first exponent */
             varintWidth width = (varintWidth)(*p++);
             uint64_t zigzag = varintExternalGet(p, width);
-            exponents[first_normal] = varintDeltaZigZagDecode(zigzag);
+            exponents[first_normal] = (int16_t)varintDeltaZigZagDecode(zigzag);
             p += width;
 
             /* Read exponent deltas */
@@ -435,7 +435,7 @@ size_t varintFloatDecode(const uint8_t *input, size_t count, double *output) {
                     varintWidth dwidth = (varintWidth)(*p++);
                     uint64_t delta_zigzag = varintExternalGet(p, dwidth);
                     p += dwidth;  // IMPORTANT: advance pointer after reading value
-                    int16_t delta = varintDeltaZigZagDecode(delta_zigzag);
+                    int16_t delta = (int16_t)varintDeltaZigZagDecode(delta_zigzag);
                     exponents[i] = prev_exp + delta;
                     prev_exp = exponents[i];
                 }
@@ -500,7 +500,7 @@ size_t varintFloatDecode(const uint8_t *input, size_t count, double *output) {
     free(mantissas);
     free(special_flags);
 
-    return p - input;
+    return (size_t)(p - input);
 }
 
 /* Encode with automatic precision selection */

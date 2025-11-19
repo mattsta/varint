@@ -14,7 +14,7 @@ static int32_t binarySearch_(const uint16_t *array, uint32_t length, uint16_t va
     }
 
     int32_t low = 0;
-    int32_t high = length - 1;
+    int32_t high = (int32_t)(length - 1);
 
     while (low <= high) {
         int32_t mid = (low + high) / 2;
@@ -37,7 +37,7 @@ __attribute__((unused))
 static uint32_t bitmapCardinality_(const uint8_t *bits) {
     uint32_t count = 0;
     for (uint32_t i = 0; i < VARINT_BITMAP_BITMAP_SIZE; i++) {
-        count += __builtin_popcount(bits[i]);
+        count += (uint32_t)__builtin_popcount(bits[i]);
     }
     return count;
 }
@@ -53,7 +53,7 @@ static inline bool bitmapContains_(const uint8_t *bits, uint16_t value) {
 static bool bitmapSet_(uint8_t *bits, uint16_t value) {
     uint32_t byteIdx = value / 8;
     uint8_t bitIdx = value % 8;
-    uint8_t mask = 1 << bitIdx;
+    uint8_t mask = (uint8_t)(1U << bitIdx);
     bool wasSet = (bits[byteIdx] & mask) != 0;
     bits[byteIdx] |= mask;
     return !wasSet;
@@ -63,7 +63,7 @@ static bool bitmapSet_(uint8_t *bits, uint16_t value) {
 static bool bitmapClear_(uint8_t *bits, uint16_t value) {
     uint32_t byteIdx = value / 8;
     uint8_t bitIdx = value % 8;
-    uint8_t mask = 1 << bitIdx;
+    uint8_t mask = (uint8_t)(1U << bitIdx);
     bool wasSet = (bits[byteIdx] & mask) != 0;
     bits[byteIdx] &= ~mask;
     return wasSet;
@@ -241,7 +241,7 @@ bool varintBitmapAdd(varintBitmap *vb, uint16_t value) {
         /* Shift elements right */
         memmove(&vb->container.array.values[insertPos + 1],
                 &vb->container.array.values[insertPos],
-                (vb->cardinality - insertPos) * sizeof(uint16_t));
+                (vb->cardinality - (uint32_t)insertPos) * sizeof(uint16_t));
 
         vb->container.array.values[insertPos] = value;
         vb->cardinality++;
@@ -316,7 +316,7 @@ bool varintBitmapRemove(varintBitmap *vb, uint16_t value) {
         /* Shift elements left */
         memmove(&vb->container.array.values[idx],
                 &vb->container.array.values[idx + 1],
-                (vb->cardinality - idx - 1) * sizeof(uint16_t));
+                (vb->cardinality - (uint32_t)idx - 1) * sizeof(uint16_t));
 
         vb->cardinality--;
         return true;
@@ -545,7 +545,7 @@ size_t varintBitmapEncode(const varintBitmap *vb, uint8_t *buffer) {
         break;
     }
 
-    return buffer - start;
+    return (size_t)(buffer - start);
 }
 
 varintBitmap *varintBitmapDecode(const uint8_t *buffer, size_t len) {
@@ -631,7 +631,7 @@ bool varintBitmapIteratorNext(varintBitmapIterator *it) {
     case VARINT_BITMAP_RUNS: {
         /* Iterate through runs */
         uint32_t runIdx = it->position / 65536;
-        uint16_t offsetInRun = it->position % 65536;
+        uint16_t offsetInRun = (uint16_t)(it->position % 65536U);
 
         if (runIdx >= it->vb->container.runs.numRuns) {
             break;

@@ -46,7 +46,7 @@ static int compareUint64(const void *a, const void *b) {
 static int32_t binarySearch(const uint64_t *values, uint32_t size,
                             uint64_t target) {
     int32_t left = 0;
-    int32_t right = size - 1;
+    int32_t right = (int32_t)(size - 1);
 
     while (left <= right) {
         int32_t mid = left + (right - left) / 2;

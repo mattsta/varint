@@ -92,7 +92,7 @@ size_t varintFOREncode(uint8_t *dst, const uint64_t *values, size_t count,
         ptr += meta->offsetWidth;
     }
 
-    return ptr - dst;
+    return (size_t)(ptr - dst);
 }
 
 /* Read metadata from encoded FOR data */

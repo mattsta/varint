@@ -35,7 +35,7 @@ static inline uint64_t varintDeltaZigZag(int64_t n) {
 static inline int64_t varintDeltaZigZagDecode(uint64_t zigzag) {
     /* If LSB is 0: positive number, just right shift
      * If LSB is 1: negative number, right shift and negate */
-    return (int64_t)((zigzag >> 1) ^ (-(int64_t)(zigzag & 1)));
+    return (int64_t)((zigzag >> 1) ^ (uint64_t)(-(int64_t)(zigzag & 1)));
 }
 
 /* Encode a single delta value into buffer

@@ -89,7 +89,7 @@ putVarint64(uint8_t *p, uint64_t v) {
         p[i] = buf[j];
     }
 
-    return n;
+    return (varintWidth)n;
 }
 
 varintWidth varintChainedPutVarint(uint8_t *p, uint64_t v) {
@@ -336,7 +336,7 @@ varintWidth varintChainedGetVarint32(const uint8_t *p, uint32_t *v) {
         uint8_t n;
 
         p -= 2;
-        n = varintChainedGetVarint(p, &v64);
+        n = (uint8_t)varintChainedGetVarint(p, &v64);
         assert(n > 3 && n <= 9);
         if ((v64 & SQLITE_MAX_U32) != v64) {
             *v = 0xffffffff;

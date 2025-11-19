@@ -146,12 +146,12 @@ varintWidth varintTaggedGet(const uint8_t *__restrict z, int32_t n,
         memcpy(pResult, &result, sizeof(result));
         return 3;
     case 250:
-        result = (z[1] << 16) | (z[2] << 8) | z[3];
+        result = ((uint64_t)z[1] << 16) | ((uint64_t)z[2] << 8) | (uint64_t)z[3];
         memcpy(pResult, &result, sizeof(result));
         return 4;
     default: {
         uint64_t x =
-            (((uint64_t)z[1]) << 24) | (z[2] << 16) | (z[3] << 8) | z[4];
+            (((uint64_t)z[1]) << 24) | ((uint64_t)z[2] << 16) | ((uint64_t)z[3] << 8) | (uint64_t)z[4];
         switch (z[0]) {
         case 251:
             memcpy(pResult, &x, sizeof(x));
@@ -161,16 +161,16 @@ varintWidth varintTaggedGet(const uint8_t *__restrict z, int32_t n,
             memcpy(pResult, &result, sizeof(result));
             return 6;
         case 253:
-            result = (x << 16) | (z[5] << 8) | z[6];
+            result = (x << 16) | ((uint64_t)z[5] << 8) | (uint64_t)z[6];
             memcpy(pResult, &result, sizeof(result));
             return 7;
         case 254:
-            result = (x << 24) | (z[5] << 16) | (z[6] << 8) | z[7];
+            result = (x << 24) | ((uint64_t)z[5] << 16) | ((uint64_t)z[6] << 8) | (uint64_t)z[7];
             memcpy(pResult, &result, sizeof(result));
             return 8;
         case 255:
             result = (x << 32) | (0xffffffff & ((((uint64_t)z[5]) << 24) |
-                                           (z[6] << 16) | (z[7] << 8) | z[8]));
+                                           ((uint64_t)z[6] << 16) | ((uint64_t)z[7] << 8) | (uint64_t)z[8]));
             memcpy(pResult, &result, sizeof(result));
             return 9;
         default:
@@ -430,7 +430,7 @@ static varintWidth varintTaggedAdd(uint8_t *p, int64_t add, bool force) {
 
     VARINT_ADD_OR_ABORT_OVERFLOW_(updatingVal, add, newVal);
 
-    varintWidth newEncoding = varintTaggedLen(newVal);
+    varintWidth newEncoding = varintTaggedLen((uint64_t)newVal);
 
     /* If new encoding is larger than current encoding, we don't
      * want to overwrite memory beyond our current varint.
@@ -439,7 +439,7 @@ static varintWidth varintTaggedAdd(uint8_t *p, int64_t add, bool force) {
         return newEncoding;
     }
 
-    varintTaggedPut64(p, newVal);
+    varintTaggedPut64(p, (uint64_t)newVal);
     return newEncoding;
 }
 
