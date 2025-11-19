@@ -6,6 +6,9 @@
 RESULTS_DIR="compiler_check_results"
 mkdir -p "$RESULTS_DIR"
 
+# Get script directory for relative paths
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
 echo "========================================"
 echo "Varint Library Compiler Warning Check"
 echo "========================================"
@@ -13,17 +16,17 @@ echo ""
 echo "Testing with GCC and Clang strict warnings..."
 echo ""
 
-# Run GCC check - SHOW ALL OUTPUT INLINE
+# Run GCC check - SHOW ALL OUTPUT INLINE (using relative path)
 echo "=== Running GCC Check ==="
 echo ""
-/home/user/varint/check_warnings.sh gcc 2>&1 | tee "$RESULTS_DIR/gcc_results.txt"
+"${SCRIPT_DIR}/check_warnings.sh" gcc 2>&1 | tee "$RESULTS_DIR/gcc_results.txt"
 GCC_EXIT=$?
 echo ""
 
-# Run Clang check - SHOW ALL OUTPUT INLINE
+# Run Clang check - SHOW ALL OUTPUT INLINE (using relative path)
 echo "=== Running Clang Check ==="
 echo ""
-/home/user/varint/check_warnings.sh clang 2>&1 | tee "$RESULTS_DIR/clang_results.txt"
+"${SCRIPT_DIR}/check_warnings.sh" clang 2>&1 | tee "$RESULTS_DIR/clang_results.txt"
 CLANG_EXIT=$?
 echo ""
 

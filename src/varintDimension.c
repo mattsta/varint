@@ -178,7 +178,7 @@ void varintDimensionPairEntrySetFloat(void *_dst, const size_t row,
     const size_t entryOffset =
         getEntryByteOffset(dst, row, col, sizeof(float), dimension);
 
-    *(float *)(dst + entryOffset) = entryValue;
+    memcpy(dst + entryOffset, &entryValue, sizeof(float));
 }
 
 #include <x86intrin.h>
@@ -226,7 +226,7 @@ void varintDimensionPairEntrySetDouble(void *_dst, const size_t row,
     const size_t entryOffset =
         getEntryByteOffset(dst, row, col, sizeof(double), dimension);
 
-    *(double *)(dst + entryOffset) = entryValue;
+    memcpy(dst + entryOffset, &entryValue, sizeof(double));
 }
 
 void varintDimensionPairEntrySetBit(const void *_dst, const size_t row,
@@ -447,8 +447,8 @@ int varintDimensionTest(int argc, char *argv[]) {
                 uint8_t result = varintDimensionPairEntryGetUnsigned(
                     totalMatrix, row, col, VARINT_WIDTH_8B, mat);
                 if (result != val) {
-                    ERR("Didn't get %d at (%d, %d); got: %d!", val, row, col,
-                        result);
+                    ERR("Didn't get %u at (%u, %u); got: %u!", (unsigned)val, (unsigned)row, (unsigned)col,
+                        (unsigned)result);
                 }
             }
         }
@@ -474,8 +474,8 @@ int varintDimensionTest(int argc, char *argv[]) {
                 int8_t result = varintDimensionPairEntryGetUnsigned(
                     totalMatrix, row, col, VARINT_WIDTH_8B, mat);
                 if (result != val) {
-                    ERR("Didn't get %d at (%d, %d); got: %d!", val, row, col,
-                        result);
+                    ERR("Didn't get %u at (%u, %u); got: %u!", (unsigned)val, (unsigned)row, (unsigned)col,
+                        (unsigned)result);
                 }
             }
         }
@@ -502,8 +502,8 @@ int varintDimensionTest(int argc, char *argv[]) {
                 uint32_t result = varintDimensionPairEntryGetUnsigned(
                     totalMatrix, row, col, VARINT_WIDTH_24B, mat);
                 if (result != val) {
-                    ERR("Didn't get %d at (%d, %d); got: %d!", val, row, col,
-                        result);
+                    ERR("Didn't get %u at (%u, %u); got: %u!", (unsigned)val, (unsigned)row, (unsigned)col,
+                        (unsigned)result);
                 }
             }
         }
@@ -538,8 +538,8 @@ int varintDimensionTest(int argc, char *argv[]) {
                  */
                 varintRestoreSigned24to32_(result);
                 if (result != originalVal) {
-                    ERR("Didn't get %d at (%d, %d); got: %d!", val, row, col,
-                        result);
+                    ERR("Didn't get %u at (%u, %u); got: %u!", (unsigned)val, (unsigned)row, (unsigned)col,
+                        (unsigned)result);
                 }
             }
         }
