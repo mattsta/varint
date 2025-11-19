@@ -99,7 +99,7 @@ int32_t main(int argc, char **argv) {
         for (i = 0; i < maxLoop; i++) {
             GIVE_XZ;
 
-            int n1 = varintTaggedPut64(z, x);
+            int n1 = (int)varintTaggedPut64(z, x);
             uint64_t y = 0;
             varintTaggedGet(z, n1, &y);
             assert(x == y);
@@ -146,10 +146,10 @@ int32_t main(int argc, char **argv) {
         for (i = 0; i < maxLoop; i++) {
             GIVE_XZ;
 
-            int32_t n1 = varintChainedPutVarint(z, x);
+            int32_t n1 = (int32_t)varintChainedPutVarint(z, x);
             assert(n1 >= 1 && n1 <= 9);
             uint64_t y = 0;
-            int32_t n2 = varintChainedGetVarint(z, &y);
+            int32_t n2 = (int32_t)varintChainedGetVarint(z, &y);
             assert(n1 == n2);
             assert(x == y);
 
@@ -181,10 +181,10 @@ int32_t main(int argc, char **argv) {
         for (i = 0; i < maxLoop; i++) {
             GIVE_XZ;
 
-            int32_t n1 = varintChainedSimpleEncode64(z, x);
+            int32_t n1 = (int32_t)varintChainedSimpleEncode64(z, x);
             assert(n1 >= 1 && n1 <= 9);
             uint64_t y = 0;
-            int32_t n2 = varintChainedSimpleDecode64(z, &y);
+            int32_t n2 = (int32_t)varintChainedSimpleDecode64(z, &y);
             assert(n1 == n2);
             assert(x == y);
 
@@ -200,10 +200,10 @@ int32_t main(int argc, char **argv) {
         for (i = 0; i < maxLoop; i++) {
             GIVE_SMALL_XZ
 
-            int32_t n1 = varintChainedSimpleEncode32(z, (uint32_t)x);
+            int32_t n1 = (int32_t)varintChainedSimpleEncode32(z, (uint32_t)x);
             assert(n1 >= 1 && n1 <= 5);
             uint32_t y = 0;
-            int32_t n2 = varintChainedSimpleDecode32(z, &y);
+            int32_t n2 = (int32_t)varintChainedSimpleDecode32(z, &y);
             assert(n1 == n2);
             assert(x == (uint64_t)y);
 

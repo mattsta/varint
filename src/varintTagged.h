@@ -61,7 +61,7 @@ varintWidth varintTaggedAddGrow(uint8_t *z, int64_t add);
         uint32_t _vimp_y;                                                      \
         switch (encoding) {                                                    \
         case VARINT_WIDTH_8B:                                                  \
-            (dst)[0] = (val);                                                  \
+            (dst)[0] = (uint8_t)(val);                                         \
             break;                                                             \
         case VARINT_WIDTH_16B:                                                 \
             _vimp_y = (uint32_t)((val)-240);                                   \

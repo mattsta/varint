@@ -22,7 +22,7 @@ static inline uint64_t _perfTimeUs(void) {
     return us;
 }
 
-static inline uint64_t _perfTSC() {
+static inline uint64_t _perfTSC(void) {
     uint32_t lo = 0;
     uint32_t hi = 0;
 

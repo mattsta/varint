@@ -182,6 +182,7 @@ void varintDimensionPairEntrySetFloat(void *_dst, const size_t row,
 }
 
 #include <x86intrin.h>
+#ifdef __F16C__
 void varintDimensionPairEntrySetFloatHalfIntrinsic(
     void *_dst, const size_t row, const size_t col, const float entryValue,
     const varintDimensionPair dimension) {
@@ -208,13 +209,13 @@ float varintDimensionPairEntryGetFloatHalfIntrinsic(
     const size_t entryOffset =
         getEntryByteOffset(dst, row, col, sizeof(float), dimension);
 
-    float holder[128 / sizeof(uint16_t)] = {0};
     uint16_t half_holder[128 / sizeof(uint16_t)] = {0};
     half_holder[0] = *(uint16_t *)(dst + entryOffset);
 
-    __m128 vector = _mm_cvtph_ps(_mm_load_si128((__m128i *)(holder)));
+    __m128 vector = _mm_cvtph_ps(_mm_load_si128((__m128i *)(half_holder)));
     return vector[0];
 }
+#endif /* __F16C__ */
 
 void varintDimensionPairEntrySetDouble(void *_dst, const size_t row,
                                        const size_t col,
