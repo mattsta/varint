@@ -13,3 +13,5 @@ test_bitmap
 test_delta
 test_float
 test_for
+tools/struct_audit
+tools/struct_size_check

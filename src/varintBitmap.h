@@ -108,11 +108,12 @@ bool varintBitmapIteratorNext(varintBitmapIterator *it);
 void varintBitmapAddMany(varintBitmap *vb, const uint16_t *values, uint32_t count);
 uint32_t varintBitmapToArray(const varintBitmap *vb, uint16_t *output);
 
-/* Statistics */
+/* Statistics
+ * Fields ordered by size (8-byte → 4-byte) to eliminate padding */
 typedef struct varintBitmapStats {
+    size_t sizeBytes;
     varintBitmapContainerType type;
     uint32_t cardinality;
-    size_t sizeBytes;
     uint32_t containerCapacity;  /* For array/runs */
 } varintBitmapStats;
 

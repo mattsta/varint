@@ -24,15 +24,16 @@ __BEGIN_DECLS
 #define VARINT_PFOR_THRESHOLD_95  95  /* 95th percentile - balanced (default) */
 #define VARINT_PFOR_THRESHOLD_99  99  /* 99th percentile - fewer exceptions */
 
-/* PFOR metadata structure for encoding/decoding state */
+/* PFOR metadata structure for encoding/decoding state
+ * Fields ordered by size (8-byte → 4-byte) to eliminate padding */
 typedef struct varintPFORMeta {
     uint64_t min;              /* Minimum value in frame */
+    uint64_t exceptionMarker;  /* Marker value for exceptions (all 1s) */
+    uint64_t thresholdValue;   /* Actual threshold value from percentile */
     varintWidth width;         /* Width in bytes for regular values */
     uint32_t count;            /* Total number of values */
     uint32_t exceptionCount;   /* Number of exception values */
-    uint64_t exceptionMarker;  /* Marker value for exceptions (all 1s) */
     uint32_t threshold;        /* Percentile threshold (90, 95, 99) */
-    uint64_t thresholdValue;   /* Actual threshold value from percentile */
 } varintPFORMeta;
 
 /* Compute optimal threshold and metadata for encoding.

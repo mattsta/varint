@@ -21,14 +21,15 @@ __BEGIN_DECLS
  *   Cons: Requires computing min/max first, entire array must fit in memory
  *         Less efficient if values have large range relative to count */
 
-/* FOR encoding metadata structure */
+/* FOR encoding metadata structure
+ * Fields ordered by size (8-byte → 4-byte) to eliminate padding */
 typedef struct varintFORMeta {
     uint64_t minValue;       /* Minimum value in the dataset */
     uint64_t maxValue;       /* Maximum value in the dataset */
     uint64_t range;          /* maxValue - minValue */
-    varintWidth offsetWidth; /* Bytes per offset (1-8) */
     size_t count;            /* Number of values encoded */
     size_t encodedSize;      /* Total encoded size in bytes */
+    varintWidth offsetWidth; /* Bytes per offset (1-8) */
 } varintFORMeta;
 
 /* Compute optimal offset width for a range of values */

@@ -100,16 +100,17 @@ typedef enum varintFloatEncodingMode {
     VARINT_FLOAT_MODE_DELTA_EXPONENT = 2,
 } varintFloatEncodingMode;
 
-/* Float compression metadata structure */
+/* Float compression metadata structure
+ * Fields ordered by size (8-byte → 4-byte → 1-byte) to eliminate padding */
 typedef struct varintFloatMeta {
-    varintFloatPrecision precision;     /* Precision mode used */
-    varintFloatEncodingMode mode;       /* Encoding mode used */
-    uint8_t exponentBits;               /* Bits per exponent */
-    uint8_t mantissaBits;               /* Bits per mantissa */
     size_t count;                       /* Number of values */
     size_t encodedSize;                 /* Total encoded size in bytes */
     size_t specialCount;                /* Number of special values (NaN/Inf/zero) */
     double maxRelativeError;            /* Maximum relative error for this precision */
+    varintFloatPrecision precision;     /* Precision mode used */
+    varintFloatEncodingMode mode;       /* Encoding mode used */
+    uint8_t exponentBits;               /* Bits per exponent */
+    uint8_t mantissaBits;               /* Bits per mantissa */
 } varintFloatMeta;
 
 /* Encode array of doubles with specified precision

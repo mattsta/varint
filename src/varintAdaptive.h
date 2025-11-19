@@ -48,26 +48,27 @@ typedef enum varintAdaptiveEncodingType {
     VARINT_ADAPTIVE_GROUP = 6,   /* Grouped encoding (future) */
 } varintAdaptiveEncodingType;
 
-/* Data characteristics computed during analysis */
+/* Data characteristics computed during analysis
+ * Fields ordered by size (8-byte → 4-byte → 1-byte) to eliminate padding */
 typedef struct varintAdaptiveDataStats {
     size_t count;               /* Number of values */
     uint64_t minValue;          /* Minimum value */
     uint64_t maxValue;          /* Maximum value */
     uint64_t range;             /* maxValue - minValue */
     size_t uniqueCount;         /* Number of unique values */
-    float uniqueRatio;          /* uniqueCount / count */
-    bool isSorted;              /* True if array is sorted */
-    bool isReverseSorted;       /* True if reverse sorted */
     uint64_t avgDelta;          /* Average absolute delta between consecutive values */
     uint64_t maxDelta;          /* Maximum absolute delta */
     size_t outlierCount;        /* Count of values beyond 95th percentile */
+    float uniqueRatio;          /* uniqueCount / count */
     float outlierRatio;         /* outlierCount / count */
+    bool isSorted;              /* True if array is sorted */
+    bool isReverseSorted;       /* True if reverse sorted */
     bool fitsInBitmapRange;     /* True if all values < 65536 */
 } varintAdaptiveDataStats;
 
-/* Metadata for selected encoding */
+/* Metadata for selected encoding
+ * Fields ordered by size (8-byte/union → 4-byte) to eliminate padding */
 typedef struct varintAdaptiveMeta {
-    varintAdaptiveEncodingType encodingType;
     size_t originalCount;       /* Number of values encoded */
     size_t encodedSize;         /* Total bytes including header */
 
@@ -77,6 +78,8 @@ typedef struct varintAdaptiveMeta {
         varintPFORMeta pforMeta;
         /* Dict and Delta don't need extra metadata (embedded in encoding) */
     } encodingMeta;
+
+    varintAdaptiveEncodingType encodingType;
 } varintAdaptiveMeta;
 
 /* ====================================================================
