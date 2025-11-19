@@ -213,12 +213,12 @@ PACKED_STATIC void PACKED_ARRAY_SET(void *_dst, const PACKED_LEN_TYPE offset,
          * Storing the same 4095 in position 0 backed by a 64 bit slot is:
          * [0000000000000000000000000000000000000000000000000000111111111111]
          */
-        out[0] = (out[0] & ~(VALUE_MASK << startBit)) |
-                 (MICRO_PROMOTION_TYPE_CAST(val) << startBit);
+        out[0] = (out[0] & ~((uint64_t)VALUE_MASK << startBit)) |
+                 ((uint64_t)MICRO_PROMOTION_TYPE_CAST(val) << startBit);
     } else {
 #endif
         /* target position is split across two slots */
-        MICRO_PROMOTION_TYPE low, high;
+        uint64_t low, high;
 
         /* Because our packed arrays store values from RIGHT to LEFT,
          * setting across slots may seem backwards, but it works.
@@ -251,11 +251,11 @@ PACKED_STATIC void PACKED_ARRAY_SET(void *_dst, const PACKED_LEN_TYPE offset,
          * be expected.  If you're debugging a raw byte array of packed
          * integers, remember to not read the bit values in the bytes
          * as if they should just be concatenated together. */
-        low = (uint32_t)MICRO_PROMOTION_TYPE_CAST(val) << startBit;
-        high = (uint32_t)MICRO_PROMOTION_TYPE_CAST(val) >> bitsAvailable;
+        low = (uint64_t)MICRO_PROMOTION_TYPE_CAST(val) << startBit;
+        high = (uint64_t)MICRO_PROMOTION_TYPE_CAST(val) >> bitsAvailable;
 
-        out[0] = (out[0] & ~((uint32_t)VALUE_MASK << startBit)) | low;
-        out[1] = (out[1] & ~((uint32_t)VALUE_MASK >> bitsAvailable)) | high;
+        out[0] = (out[0] & ~((uint64_t)VALUE_MASK << startBit)) | low;
+        out[1] = (out[1] & ~((uint64_t)VALUE_MASK >> bitsAvailable)) | high;
 #if SLOT_CAN_HOLD_ENTIRE_VALUE
     }
 #endif
@@ -287,19 +287,19 @@ PACKED_STATIC void PACKED_ARRAY_SET_HALF(void *_dst,
         }
 
         const VALUE_TYPE val = current / 2;
-        out[0] = (out[0] & ~(VALUE_MASK << startBit)) |
-                 (MICRO_PROMOTION_TYPE_CAST(val) << startBit);
+        out[0] = (out[0] & ~((uint64_t)VALUE_MASK << startBit)) |
+                 ((uint64_t)MICRO_PROMOTION_TYPE_CAST(val) << startBit);
     } else {
 #endif
         /* target position is split across two slots */
-        MICRO_PROMOTION_TYPE low, high;
+        uint64_t low, high;
 
         /* GET */
         low = MICRO_PROMOTION_TYPE_CAST(out[0]) >> startBit;
         high = MICRO_PROMOTION_TYPE_CAST(out[1]) << bitsAvailable;
 
         const VALUE_TYPE current =
-            low | (high & ((VALUE_MASK >> bitsAvailable) << bitsAvailable));
+            low | (high & (((uint64_t)VALUE_MASK >> bitsAvailable) << bitsAvailable));
 
         if (!current) {
             /* No sense trying to divide and set nothing */
@@ -309,11 +309,11 @@ PACKED_STATIC void PACKED_ARRAY_SET_HALF(void *_dst,
         const VALUE_TYPE val = current / 2;
 
         /* SET */
-        low = (uint32_t)MICRO_PROMOTION_TYPE_CAST(val) << startBit;
-        high = (uint32_t)MICRO_PROMOTION_TYPE_CAST(val) >> bitsAvailable;
+        low = (uint64_t)MICRO_PROMOTION_TYPE_CAST(val) << startBit;
+        high = (uint64_t)MICRO_PROMOTION_TYPE_CAST(val) >> bitsAvailable;
 
-        out[0] = (out[0] & ~((uint32_t)VALUE_MASK << startBit)) | low;
-        out[1] = (out[1] & ~((uint32_t)VALUE_MASK >> bitsAvailable)) | high;
+        out[0] = (out[0] & ~((uint64_t)VALUE_MASK << startBit)) | low;
+        out[1] = (out[1] & ~((uint64_t)VALUE_MASK >> bitsAvailable)) | high;
 #if SLOT_CAN_HOLD_ENTIRE_VALUE
     }
 #endif
@@ -341,28 +341,28 @@ PACKED_STATIC void PACKED_ARRAY_SET_INCR(void *_dst,
             (MICRO_PROMOTION_TYPE_CAST(out[0]) >> startBit) & VALUE_MASK;
         VALUE_TYPE val = current + incrBy;
         val = val >= (1 << BITS_PER_VALUE) ? current - incrBy : val;
-        out[0] = (out[0] & ~(VALUE_MASK << startBit)) |
-                 (MICRO_PROMOTION_TYPE_CAST(val) << startBit);
+        out[0] = (out[0] & ~((uint64_t)VALUE_MASK << startBit)) |
+                 ((uint64_t)MICRO_PROMOTION_TYPE_CAST(val) << startBit);
     } else {
 #endif
         /* target position is split across two slots */
-        MICRO_PROMOTION_TYPE low, high;
+        uint64_t low, high;
 
         /* GET */
         low = MICRO_PROMOTION_TYPE_CAST(out[0]) >> startBit;
         high = MICRO_PROMOTION_TYPE_CAST(out[1]) << bitsAvailable;
 
         const VALUE_TYPE current =
-            low | (high & ((VALUE_MASK >> bitsAvailable) << bitsAvailable));
+            low | (high & (((uint64_t)VALUE_MASK >> bitsAvailable) << bitsAvailable));
         VALUE_TYPE val = current + incrBy;
         val = val >= (1 << BITS_PER_VALUE) ? current - incrBy : val;
 
         /* SET */
-        low = (uint32_t)MICRO_PROMOTION_TYPE_CAST(val) << startBit;
-        high = (uint32_t)MICRO_PROMOTION_TYPE_CAST(val) >> bitsAvailable;
+        low = (uint64_t)MICRO_PROMOTION_TYPE_CAST(val) << startBit;
+        high = (uint64_t)MICRO_PROMOTION_TYPE_CAST(val) >> bitsAvailable;
 
-        out[0] = (out[0] & ~((uint32_t)VALUE_MASK << startBit)) | low;
-        out[1] = (out[1] & ~((uint32_t)VALUE_MASK >> bitsAvailable)) | high;
+        out[0] = (out[0] & ~((uint64_t)VALUE_MASK << startBit)) | low;
+        out[1] = (out[1] & ~((uint64_t)VALUE_MASK >> bitsAvailable)) | high;
 #if SLOT_CAN_HOLD_ENTIRE_VALUE
     }
 #endif
@@ -392,7 +392,7 @@ PACKED_STATIC VALUE_TYPE PACKED_ARRAY_GET(const void *src_,
     } else {
 #endif
         /* stored value is split across two slots */
-        MICRO_PROMOTION_TYPE low, high;
+        uint64_t low, high;
 
         /* Restore from two slots by moving in[0] bits down and
          * in[1] bits up */

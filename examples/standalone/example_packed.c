@@ -22,7 +22,8 @@
 #include "varintPacked.h"
 
 // Helper macro for calculating bytes needed
-#define BYTES_FOR_COUNT(count) (((count) * 12 + 7) / 8)
+/* varintPacked12 uses uint32_t slots by default, so we need to account for 32-bit alignment */
+#define BYTES_FOR_COUNT(count) ((((count) * 12 + 31) / 32) * 4)
 
 // Example 1: Basic set/get operations
 void example_basic() {
@@ -161,7 +162,8 @@ void example_member() {
 
     printf("Membership tests:\n");
     for (size_t i = 0; i < 5; i++) {
-        bool isMember = varintPacked12Member(set, count, testValues[i]);
+        int64_t memberIndex = varintPacked12Member(set, count, testValues[i]);
+        bool isMember = (memberIndex >= 0);  // Index 0 is valid, so check >= 0
         printf("  %u: %s ", testValues[i], isMember ? "member" : "not member");
 
         bool expectedMember = (strcmp(expected[i], "member") == 0);

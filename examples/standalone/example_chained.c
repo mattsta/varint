@@ -99,11 +99,12 @@ void example_continuation_bits() {
     }
 }
 
-// Example 3: Protocol Buffers compatibility
-void example_protobuf_compat() {
-    printf("\n=== Example 3: Protocol Buffers Compatibility ===\n");
+// Example 3: SQLite3 varint format validation
+void example_sqlite3_format() {
+    printf("\n=== Example 3: SQLite3 Varint Format Validation ===\n");
 
-    // These test vectors are from Protocol Buffers specification
+    // These test vectors use SQLite3 varint format (big-endian continuation chain)
+    // NOTE: This is DIFFERENT from Protocol Buffers (which uses little-endian)
     struct {
         uint64_t value;
         uint8_t expected[9];
@@ -111,9 +112,9 @@ void example_protobuf_compat() {
     } tests[] = {
         {1, {0x01}, 1},
         {127, {0x7f}, 1},
-        {128, {0x80, 0x01}, 2},
-        {300, {0xac, 0x02}, 2},
-        {16384, {0x80, 0x80, 0x01}, 3},
+        {128, {0x81, 0x00}, 2},           // SQLite3: 0x81 0x00 (NOT Protocol Buffers: 0x80 0x01)
+        {300, {0x82, 0x2c}, 2},           // SQLite3: 0x82 0x2c (NOT Protocol Buffers: 0xac 0x02)
+        {16384, {0x81, 0x80, 0x00}, 3},   // SQLite3: 0x81 0x80 0x00 (NOT Protocol Buffers: 0x80 0x80 0x01)
     };
 
     for (size_t i = 0; i < sizeof(tests)/sizeof(tests[0]); i++) {
@@ -134,7 +135,7 @@ void example_protobuf_compat() {
         assert(width == tests[i].expectedLen);
         assert(memcmp(buffer, tests[i].expected, width) == 0);
 
-        printf("  ✓ Matches Protocol Buffers format\n");
+        printf("  ✓ Matches SQLite3 varint format\n");
     }
 }
 
@@ -220,8 +221,8 @@ void example_nine_bytes() {
         printf("  Value 0x%016lx -> %d bytes\n", largeValues[i], width);
 
         if (width == 9) {
-            printf("    9th byte: 0x%02x (all 8 bits used)\n", buffer[8]);
-            assert((buffer[8] & 0x80) != 0 || (buffer[8] & 0x7f) != 0);
+            printf("    9th byte: 0x%02x (all 8 bits used, can be 0x00)\n", buffer[8]);
+            // No assertion needed - 9th byte can be any value including 0x00
         }
 
         uint64_t decoded;
@@ -283,7 +284,8 @@ void example_format_comparison() {
     printf(" (data)\n\n");
 
     printf("Data bits extracted: ");
-    uint64_t extracted = ((buffer[0] & 0x7f)) | ((uint64_t)(buffer[1] & 0x7f) << 7);
+    /* SQLite3 varint uses big-endian: first byte has high bits, second byte has low bits */
+    uint64_t extracted = ((uint64_t)(buffer[0] & 0x7f) << 7) | (buffer[1] & 0x7f);
     for (int i = 13; i >= 0; i--) {
         printf("%d", (extracted >> i) & 1);
         if (i == 7) printf(" ");
@@ -302,7 +304,7 @@ int main() {
 
     example_basic();
     example_continuation_bits();
-    example_protobuf_compat();
+    example_sqlite3_format();
     example_stream_decoding();
     example_length_detection();
     example_nine_bytes();
