@@ -1,6 +1,11 @@
 varint: variable length integer storage
 =======================================
 
+![CI Status](https://github.com/mattsta/varint/actions/workflows/ci.yml/badge.svg)
+![Release](https://github.com/mattsta/varint/actions/workflows/release.yml/badge.svg)
+![Nightly](https://github.com/mattsta/varint/actions/workflows/nightly.yml/badge.svg)
+[![License](https://img.shields.io/badge/license-MIT%2FPublic%20Domain-blue.svg)](LICENSE)
+
 Background
 ----------
 Numbers in computers have limited native sizes: one byte, two bytes, four bytes, and eight bytes. The lack of three, five, six, and seven byte quantities can waste a lot of storage space if most of your data is small but you still need the ability to grow to large quantities on-demand. That's where varints come in.
