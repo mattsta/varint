@@ -51,8 +51,8 @@ size_t varintPFOREncode(uint8_t *dst, const uint64_t *values, uint32_t count,
 /* Decode PFOR-encoded data into values array.
  * values must have space for meta->count elements.
  * Returns number of values decoded. */
-uint32_t varintPFORDecode(const uint8_t *src, uint64_t *values,
-                          varintPFORMeta *meta);
+size_t varintPFORDecode(const uint8_t *src, uint64_t *values,
+                        varintPFORMeta *meta);
 
 /* Random access: get value at specific index.
  * More efficient than full decode for single values.

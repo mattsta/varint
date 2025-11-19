@@ -73,7 +73,7 @@ typedef struct varintAdaptiveMeta {
 
     /* Encoding-specific metadata (only one used based on encodingType) */
     union {
-        varintFORMetadata forMeta;
+        varintFORMeta forMeta;
         varintPFORMeta pforMeta;
         /* Dict and Delta don't need extra metadata (embedded in encoding) */
     } encodingMeta;

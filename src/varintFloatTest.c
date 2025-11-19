@@ -16,10 +16,9 @@ int varintFloatTest(int argc, char *argv[]) {
         size_t count = 6;
         uint8_t buffer[512];
 
-        size_t encoded = varintFloatEncode(values, count,
+        size_t encoded = varintFloatEncode(buffer, values, count,
                                           VARINT_FLOAT_PRECISION_FULL,
-                                          VARINT_FLOAT_MODE_INDEPENDENT,
-                                          buffer);
+                                          VARINT_FLOAT_MODE_INDEPENDENT);
 
         if (encoded == 0) {
             ERRR("Failed to encode FULL precision array");
@@ -43,10 +42,9 @@ int varintFloatTest(int argc, char *argv[]) {
         size_t count = 3;
         uint8_t buffer[256];
 
-        size_t encoded = varintFloatEncode(values, count,
+        size_t encoded = varintFloatEncode(buffer, values, count,
                                           VARINT_FLOAT_PRECISION_HIGH,
-                                          VARINT_FLOAT_MODE_INDEPENDENT,
-                                          buffer);
+                                          VARINT_FLOAT_MODE_INDEPENDENT);
 
         double decoded[3];
         varintFloatDecode(buffer, count, decoded);
@@ -67,10 +65,9 @@ int varintFloatTest(int argc, char *argv[]) {
         size_t count = 4;
         uint8_t buffer[256];
 
-        size_t encoded = varintFloatEncode(values, count,
+        size_t encoded = varintFloatEncode(buffer, values, count,
                                           VARINT_FLOAT_PRECISION_MEDIUM,
-                                          VARINT_FLOAT_MODE_INDEPENDENT,
-                                          buffer);
+                                          VARINT_FLOAT_MODE_INDEPENDENT);
 
         double decoded[4];
         varintFloatDecode(buffer, count, decoded);
@@ -91,10 +88,9 @@ int varintFloatTest(int argc, char *argv[]) {
         size_t count = 5;
         uint8_t buffer[256];
 
-        size_t encoded = varintFloatEncode(values, count,
+        size_t encoded = varintFloatEncode(buffer, values, count,
                                           VARINT_FLOAT_PRECISION_LOW,
-                                          VARINT_FLOAT_MODE_INDEPENDENT,
-                                          buffer);
+                                          VARINT_FLOAT_MODE_INDEPENDENT);
 
         double decoded[5];
         varintFloatDecode(buffer, count, decoded);
@@ -122,10 +118,9 @@ int varintFloatTest(int argc, char *argv[]) {
         size_t count = 5;
         uint8_t buffer[512];
 
-        size_t encoded = varintFloatEncode(values, count,
+        size_t encoded = varintFloatEncode(buffer, values, count,
                                           VARINT_FLOAT_PRECISION_FULL,
-                                          VARINT_FLOAT_MODE_INDEPENDENT,
-                                          buffer);
+                                          VARINT_FLOAT_MODE_INDEPENDENT);
 
         if (encoded == 0) {
             ERRR("Failed to encode special values");
@@ -170,15 +165,13 @@ int varintFloatTest(int argc, char *argv[]) {
         uint8_t buffer1[512];
         uint8_t buffer2[512];
 
-        size_t size_independent = varintFloatEncode(values, 10,
+        size_t size_independent = varintFloatEncode(buffer1, values, 10,
                                                     VARINT_FLOAT_PRECISION_HIGH,
-                                                    VARINT_FLOAT_MODE_INDEPENDENT,
-                                                    buffer1);
+                                                    VARINT_FLOAT_MODE_INDEPENDENT);
 
-        size_t size_common = varintFloatEncode(values, 10,
+        size_t size_common = varintFloatEncode(buffer2, values, 10,
                                               VARINT_FLOAT_PRECISION_HIGH,
-                                              VARINT_FLOAT_MODE_COMMON_EXPONENT,
-                                              buffer2);
+                                              VARINT_FLOAT_MODE_COMMON_EXPONENT);
 
         /* COMMON_EXPONENT should be more efficient */
         if (size_common >= size_independent) {
@@ -208,10 +201,9 @@ int varintFloatTest(int argc, char *argv[]) {
         }
 
         uint8_t buffer[512];
-        size_t encoded = varintFloatEncode(values, 20,
+        size_t encoded = varintFloatEncode(buffer, values, 20,
                                           VARINT_FLOAT_PRECISION_HIGH,
-                                          VARINT_FLOAT_MODE_DELTA_EXPONENT,
-                                          buffer);
+                                          VARINT_FLOAT_MODE_DELTA_EXPONENT);
 
         if (encoded == 0) {
             ERRR("Failed to encode DELTA_EXPONENT array");
@@ -247,8 +239,8 @@ int varintFloatTest(int argc, char *argv[]) {
         };
 
         for (int i = 0; i < 4; i++) {
-            varintFloatEncode(&value, 1, tests[i].prec,
-                             VARINT_FLOAT_MODE_INDEPENDENT, buffer);
+            varintFloatEncode(buffer, &value, 1, tests[i].prec,
+                             VARINT_FLOAT_MODE_INDEPENDENT);
             double decoded;
             varintFloatDecode(buffer, 1, &decoded);
 
@@ -278,9 +270,9 @@ int varintFloatTest(int argc, char *argv[]) {
         uint8_t buffer[256];
         varintFloatPrecision selected;
 
-        size_t encoded = varintFloatEncodeAuto(values, 5, relativeError,
+        size_t encoded = varintFloatEncodeAuto(buffer, values, 5, relativeError,
                                               VARINT_FLOAT_MODE_INDEPENDENT,
-                                              &selected, buffer);
+                                              &selected);
 
         if (encoded == 0) {
             ERRR("Failed to encode with auto precision");
@@ -316,15 +308,13 @@ int varintFloatTest(int argc, char *argv[]) {
         uint8_t *buffer = malloc(varintFloatMaxEncodedSize(1000, VARINT_FLOAT_PRECISION_FULL));
 
         /* Compare different precision modes */
-        size_t size_full = varintFloatEncode(values, 1000,
+        size_t size_full = varintFloatEncode(buffer, values, 1000,
                                             VARINT_FLOAT_PRECISION_FULL,
-                                            VARINT_FLOAT_MODE_INDEPENDENT,
-                                            buffer);
+                                            VARINT_FLOAT_MODE_INDEPENDENT);
 
-        size_t size_medium = varintFloatEncode(values, 1000,
+        size_t size_medium = varintFloatEncode(buffer, values, 1000,
                                               VARINT_FLOAT_PRECISION_MEDIUM,
-                                              VARINT_FLOAT_MODE_COMMON_EXPONENT,
-                                              buffer);
+                                              VARINT_FLOAT_MODE_COMMON_EXPONENT);
 
         /* MEDIUM + COMMON_EXPONENT should be much smaller than FULL */
         if (size_medium >= size_full) {
@@ -346,10 +336,9 @@ int varintFloatTest(int argc, char *argv[]) {
         double value = 3.14159265358979;
         uint8_t buffer[64];
 
-        size_t encoded = varintFloatEncode(&value, 1,
+        size_t encoded = varintFloatEncode(buffer, &value, 1,
                                           VARINT_FLOAT_PRECISION_FULL,
-                                          VARINT_FLOAT_MODE_INDEPENDENT,
-                                          buffer);
+                                          VARINT_FLOAT_MODE_INDEPENDENT);
         if (encoded == 0) {
             ERRR("Failed to encode single value");
         }

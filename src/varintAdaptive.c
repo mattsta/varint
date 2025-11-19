@@ -295,13 +295,13 @@ size_t varintAdaptiveEncodeWith(uint8_t *dst, const uint64_t *values,
                 signedValues[i] = (int64_t)values[i];
             }
 
-            encodedSize = varintDeltaEncodeUnsigned(values, count, dst + offset);
+            encodedSize = varintDeltaEncodeUnsigned(dst + offset, values, count);
             free(signedValues);
             break;
         }
 
         case VARINT_ADAPTIVE_FOR: {
-            varintFORMetadata forMeta;
+            varintFORMeta forMeta;
             encodedSize = varintFOREncode(dst + offset, values, count, &forMeta);
 
             if (meta) {
@@ -337,7 +337,7 @@ size_t varintAdaptiveEncodeWith(uint8_t *dst, const uint64_t *values,
                 }
             }
 
-            encodedSize = varintBitmapSerialize(vb, dst + offset);
+            encodedSize = varintBitmapEncode(vb, dst + offset);
             varintBitmapFree(vb);
             break;
         }
@@ -423,7 +423,7 @@ size_t varintAdaptiveDecode(const uint8_t *src, uint64_t *values,
 
         case VARINT_ADAPTIVE_BITMAP: {
             /* Bitmap encoding is self-describing, pass large buffer size */
-            varintBitmap *vb = varintBitmapDeserialize(data, 1024 * 1024);
+            varintBitmap *vb = varintBitmapDecode(data, 1024 * 1024);
             if (vb) {
                 /* Extract values from bitmap */
                 uint16_t *shortValues = malloc(maxCount * sizeof(uint16_t));

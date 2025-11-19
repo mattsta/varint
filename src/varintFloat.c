@@ -176,10 +176,10 @@ static void unpackBits(const uint8_t *input, size_t count, uint8_t bits_per_valu
 }
 
 /* Encode floating point array */
-size_t varintFloatEncode(const double *values, size_t count,
+size_t varintFloatEncode(uint8_t *output,
+                         const double *values, size_t count,
                          varintFloatPrecision precision,
-                         varintFloatEncodingMode mode,
-                         uint8_t *output) {
+                         varintFloatEncodingMode mode) {
     if (count == 0) {
         return 0;
     }
@@ -494,11 +494,11 @@ size_t varintFloatDecode(const uint8_t *input, size_t count, double *output) {
 }
 
 /* Encode with automatic precision selection */
-size_t varintFloatEncodeAuto(const double *values, size_t count,
+size_t varintFloatEncodeAuto(uint8_t *output,
+                             const double *values, size_t count,
                              double max_relative_error,
                              varintFloatEncodingMode mode,
-                             varintFloatPrecision *selected_precision,
-                             uint8_t *output) {
+                             varintFloatPrecision *selected_precision) {
     /* Select precision based on maximum allowable relative error
      * Thresholds based on mantissa bit counts with safety margins:
      * FULL:   52-bit → 2^-52 ≈ 2e-16 (lossless)
@@ -521,5 +521,5 @@ size_t varintFloatEncodeAuto(const double *values, size_t count,
         *selected_precision = precision;
     }
 
-    return varintFloatEncode(values, count, precision, mode, output);
+    return varintFloatEncode(output, values, count, precision, mode);
 }

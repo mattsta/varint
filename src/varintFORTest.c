@@ -33,7 +33,7 @@ int varintFORTest(int argc, char *argv[]) {
         uint64_t values[] = {100, 105, 110, 115, 120};
         size_t count = 5;
         uint8_t buffer[256];
-        varintFORMetadata meta;
+        varintFORMeta meta;
 
         size_t encoded = varintFOREncode(buffer, values, count, &meta);
         if (encoded == 0) {
@@ -57,7 +57,7 @@ int varintFORTest(int argc, char *argv[]) {
     TEST("FOR metadata analysis") {
         uint64_t values[] = {1000, 1010, 1020, 1030};
         size_t count = 4;
-        varintFORMetadata meta;
+        varintFORMeta meta;
 
         varintFORAnalyze(values, count, &meta);
 
@@ -84,7 +84,7 @@ int varintFORTest(int argc, char *argv[]) {
         }
 
         uint8_t buffer[1024];
-        varintFORMetadata meta;
+        varintFORMeta meta;
         size_t encoded = varintFOREncode(buffer, values, 100, &meta);
 
         /* Should use 1 byte per offset (range < 256) */
@@ -110,7 +110,7 @@ int varintFORTest(int argc, char *argv[]) {
         uint64_t values[] = {500, 510, 520, 530, 540};
         size_t count = 5;
         uint8_t buffer[256];
-        varintFORMetadata meta;
+        varintFORMeta meta;
 
         varintFOREncode(buffer, values, count, &meta);
 
@@ -126,7 +126,7 @@ int varintFORTest(int argc, char *argv[]) {
     TEST("Single value array") {
         uint64_t value[] = {12345};
         uint8_t buffer[64];
-        varintFORMetadata meta;
+        varintFORMeta meta;
 
         size_t encoded = varintFOREncode(buffer, value, 1, &meta);
         uint64_t decoded[1];
@@ -144,7 +144,7 @@ int varintFORTest(int argc, char *argv[]) {
         uint64_t values[] = {0, 100000000, 200000000};
         size_t count = 3;
         uint8_t buffer[256];
-        varintFORMetadata meta;
+        varintFORMeta meta;
 
         size_t encoded = varintFOREncode(buffer, values, count, &meta);
         uint64_t decoded[3];
@@ -164,7 +164,7 @@ int varintFORTest(int argc, char *argv[]) {
         }
 
         uint8_t buffer[256];
-        varintFORMetadata meta;
+        varintFORMeta meta;
         size_t encoded = varintFOREncode(buffer, values, 10, &meta);
 
         /* Should be very efficient (all offsets = 0) */

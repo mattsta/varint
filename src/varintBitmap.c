@@ -510,7 +510,7 @@ size_t varintBitmapSizeBytes(const varintBitmap *vb) {
     return size;
 }
 
-size_t varintBitmapSerialize(const varintBitmap *vb, uint8_t *buffer) {
+size_t varintBitmapEncode(const varintBitmap *vb, uint8_t *buffer) {
     uint8_t *start = buffer;
 
     /* Write type */
@@ -548,7 +548,7 @@ size_t varintBitmapSerialize(const varintBitmap *vb, uint8_t *buffer) {
     return buffer - start;
 }
 
-varintBitmap *varintBitmapDeserialize(const uint8_t *buffer, size_t len) {
+varintBitmap *varintBitmapDecode(const uint8_t *buffer, size_t len) {
     (void)len;  /* Unused, but kept for API consistency */
 
     varintBitmap *vb = malloc(sizeof(varintBitmap));

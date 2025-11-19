@@ -23,7 +23,7 @@ void example_basic() {
     size_t count = sizeof(values) / sizeof(values[0]);
 
     // Analyze values
-    varintFORMetadata meta;
+    varintFORMeta meta;
     varintFORAnalyze(values, count, &meta);
 
     printf("Values: ");
@@ -80,7 +80,7 @@ void example_timestamps() {
     };
     size_t count = sizeof(timestamps) / sizeof(timestamps[0]);
 
-    varintFORMetadata meta;
+    varintFORMeta meta;
     varintFORAnalyze(timestamps, count, &meta);
 
     printf("Timestamps in 24-hour window:\n");
@@ -119,7 +119,7 @@ void example_sequential_ids() {
         ids[i] = 100000 + i;
     }
 
-    varintFORMetadata meta;
+    varintFORMeta meta;
     varintFORAnalyze(ids, 100, &meta);
 
     printf("100 sequential IDs (100000-100099):\n");
@@ -159,7 +159,7 @@ void example_prices() {
     };
     size_t count = sizeof(prices) / sizeof(prices[0]);
 
-    varintFORMetadata meta;
+    varintFORMeta meta;
     varintFORAnalyze(prices, count, &meta);
 
     printf("Price range: $%.2f - $%.2f\n",
@@ -200,7 +200,7 @@ void example_random_access() {
                          5050, 5060, 5070, 5080, 5090};
     size_t count = sizeof(values) / sizeof(values[0]);
 
-    varintFORMetadata meta;
+    varintFORMeta meta;
     varintFORAnalyze(values, count, &meta);
 
     uint8_t *encoded = malloc(meta.encodedSize);
@@ -244,7 +244,7 @@ void example_edge_cases() {
     // Test 1: Single value
     printf("Test 1: Single value\n");
     uint64_t single[] = {42};
-    varintFORMetadata meta1;
+    varintFORMeta meta1;
     varintFORAnalyze(single, 1, &meta1);
     uint8_t *enc1 = malloc(meta1.encodedSize);
     varintFOREncode(enc1, single, 1, &meta1);
@@ -257,7 +257,7 @@ void example_edge_cases() {
     printf("Test 2: All same values\n");
     uint64_t same[10];
     for (int i = 0; i < 10; i++) same[i] = 1000;
-    varintFORMetadata meta2;
+    varintFORMeta meta2;
     varintFORAnalyze(same, 10, &meta2);
     assert(meta2.range == 0);
     assert(meta2.offsetWidth == 1);  // Even 0 range uses 1 byte
@@ -267,7 +267,7 @@ void example_edge_cases() {
     // Test 3: Maximum range (requires 8 bytes)
     printf("Test 3: Large range\n");
     uint64_t large[] = {0, UINT64_MAX};
-    varintFORMetadata meta3;
+    varintFORMeta meta3;
     varintFORAnalyze(large, 2, &meta3);
     assert(meta3.offsetWidth == 8);
     printf("  Range 0 to MAX: width=%d ✓\n", meta3.offsetWidth);
@@ -289,7 +289,7 @@ void example_edge_cases() {
 
     for (size_t i = 0; i < sizeof(tests)/sizeof(tests[0]); i++) {
         uint64_t vals[] = {tests[i].min, tests[i].max};
-        varintFORMetadata meta;
+        varintFORMeta meta;
         varintFORAnalyze(vals, 2, &meta);
         assert(meta.offsetWidth == tests[i].expectedWidth);
         printf("  Range %lu: %d bytes ✓\n",
@@ -345,7 +345,7 @@ void example_performance() {
     printf("-------------------------------|-------|-------|----------|----------|------------\n");
 
     for (int d = 0; d < 4; d++) {
-        varintFORMetadata meta;
+        varintFORMeta meta;
         varintFORAnalyze(datasets[d].values, datasets[d].count, &meta);
 
         size_t u64Size = datasets[d].count * 8;

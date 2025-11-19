@@ -49,16 +49,16 @@ varintWidth varintDeltaPut(uint8_t *p, int64_t delta);
 varintWidth varintDeltaGet(const uint8_t *p, int64_t *pDelta);
 
 /* Encode array of absolute values as base + deltas
+ * output: buffer to write encoded data (caller must allocate sufficient space)
  * values: array of absolute values (sorted or sequential recommended)
  * count: number of values in array
- * output: buffer to write encoded data (caller must allocate sufficient space)
  * Returns: total bytes written
  *
  * Format: [base_width][base_value][delta1_width][delta1][delta2_width][delta2]...
  *
  * Maximum output size: 1 + 8 + (count-1) * 9 bytes
  * (1 byte base width, 8 bytes base value, up to 9 bytes per delta) */
-size_t varintDeltaEncode(const int64_t *values, size_t count, uint8_t *output);
+size_t varintDeltaEncode(uint8_t *output, const int64_t *values, size_t count);
 
 /* Decode delta-encoded array back to absolute values
  * input: delta-encoded buffer
@@ -79,11 +79,18 @@ static inline size_t varintDeltaMaxEncodedSize(size_t count) {
 }
 
 /* Encode array of unsigned absolute values as base + deltas
- * Similar to varintDeltaEncode but for unsigned values
- * Deltas are still ZigZag encoded to handle value decreases */
-size_t varintDeltaEncodeUnsigned(const uint64_t *values, size_t count, uint8_t *output);
+ * output: buffer to write encoded data
+ * values: array of unsigned absolute values (sorted or sequential recommended)
+ * count: number of values in array
+ * Returns: total bytes written
+ * Note: Deltas are still ZigZag encoded to handle value decreases */
+size_t varintDeltaEncodeUnsigned(uint8_t *output, const uint64_t *values, size_t count);
 
-/* Decode delta-encoded array back to unsigned absolute values */
+/* Decode delta-encoded array back to unsigned absolute values
+ * input: delta-encoded buffer
+ * count: number of values to decode
+ * output: buffer to write absolute values
+ * Returns: total bytes read from input */
 size_t varintDeltaDecodeUnsigned(const uint8_t *input, size_t count, uint64_t *output);
 
 __END_DECLS

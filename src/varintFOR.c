@@ -11,7 +11,7 @@ varintWidth varintFORComputeWidth(uint64_t range) {
 
 /* Analyze array to find min, max, range, and optimal width */
 void varintFORAnalyze(const uint64_t *values, size_t count,
-                      varintFORMetadata *meta) {
+                      varintFORMeta *meta) {
     assert(count > 0);
     assert(values != NULL);
     assert(meta != NULL);
@@ -43,7 +43,7 @@ void varintFORAnalyze(const uint64_t *values, size_t count,
 }
 
 /* Calculate encoded size: min_value + offset_width + count + (count * offset_width) */
-size_t varintFORSize(const varintFORMetadata *meta) {
+size_t varintFORSize(const varintFORMeta *meta) {
     /* Use tagged varints for self-describing header */
     varintWidth minWidth = varintTaggedLen(meta->minValue);
     varintWidth countWidth = varintTaggedLen(meta->count);
@@ -54,13 +54,13 @@ size_t varintFORSize(const varintFORMetadata *meta) {
 
 /* Encode array using Frame-of-Reference */
 size_t varintFOREncode(uint8_t *dst, const uint64_t *values, size_t count,
-                       varintFORMetadata *meta) {
+                       varintFORMeta *meta) {
     assert(dst != NULL);
     assert(values != NULL);
     assert(count > 0);
 
     /* Local metadata storage - must be at function scope */
-    varintFORMetadata localMeta;
+    varintFORMeta localMeta;
 
     /* Analyze if not already done */
     if (meta == NULL || meta->count != count) {
@@ -96,7 +96,7 @@ size_t varintFOREncode(uint8_t *dst, const uint64_t *values, size_t count,
 }
 
 /* Read metadata from encoded FOR data */
-void varintFORReadMetadata(const uint8_t *src, varintFORMetadata *meta) {
+void varintFORReadMetadata(const uint8_t *src, varintFORMeta *meta) {
     assert(src != NULL);
     assert(meta != NULL);
 
@@ -131,7 +131,7 @@ size_t varintFORDecode(const uint8_t *src, uint64_t *values, size_t maxCount) {
     assert(src != NULL);
     assert(values != NULL);
 
-    varintFORMetadata meta;
+    varintFORMeta meta;
     varintFORReadMetadata(src, &meta);
 
     if (meta.count > maxCount) {
@@ -160,7 +160,7 @@ size_t varintFORDecode(const uint8_t *src, uint64_t *values, size_t maxCount) {
 uint64_t varintFORGetAt(const uint8_t *src, size_t index) {
     assert(src != NULL);
 
-    varintFORMetadata meta;
+    varintFORMeta meta;
     varintFORReadMetadata(src, &meta);
 
     assert(index < meta.count);

@@ -100,20 +100,32 @@ typedef enum varintFloatEncodingMode {
     VARINT_FLOAT_MODE_DELTA_EXPONENT = 2,
 } varintFloatEncodingMode;
 
+/* Float compression metadata structure */
+typedef struct varintFloatMeta {
+    varintFloatPrecision precision;     /* Precision mode used */
+    varintFloatEncodingMode mode;       /* Encoding mode used */
+    uint8_t exponentBits;               /* Bits per exponent */
+    uint8_t mantissaBits;               /* Bits per mantissa */
+    size_t count;                       /* Number of values */
+    size_t encodedSize;                 /* Total encoded size in bytes */
+    size_t specialCount;                /* Number of special values (NaN/Inf/zero) */
+    double maxRelativeError;            /* Maximum relative error for this precision */
+} varintFloatMeta;
+
 /* Encode array of doubles with specified precision
+ * output: buffer to write encoded data (caller must allocate)
  * values: array of double values to encode
  * count: number of values in array
  * precision: precision mode (FULL/HIGH/MEDIUM/LOW)
  * mode: encoding mode (INDEPENDENT/COMMON_EXPONENT/DELTA_EXPONENT)
- * output: buffer to write encoded data (caller must allocate)
  * Returns: total bytes written
  *
  * Format: [precision:1][exp_bits:1][mant_bits:1][mode:1][data...]
  * Maximum output size: varintFloatMaxEncodedSize(count, precision) */
-size_t varintFloatEncode(const double *values, size_t count,
+size_t varintFloatEncode(uint8_t *output,
+                         const double *values, size_t count,
                          varintFloatPrecision precision,
-                         varintFloatEncodingMode mode,
-                         uint8_t *output);
+                         varintFloatEncodingMode mode);
 
 /* Decode floating point array
  * input: encoded buffer
@@ -126,13 +138,18 @@ size_t varintFloatDecode(const uint8_t *input, size_t count, double *output);
 
 /* Encode with automatic precision selection based on data range
  * Analyzes the data and selects optimal precision mode
+ * output: buffer to write encoded data (caller must allocate)
+ * values: array of double values to encode
+ * count: number of values in array
  * max_relative_error: maximum acceptable relative error (e.g., 1e-6)
- * Returns precision mode selected in *selected_precision */
-size_t varintFloatEncodeAuto(const double *values, size_t count,
+ * mode: encoding mode (INDEPENDENT/COMMON_EXPONENT/DELTA_EXPONENT)
+ * selected_precision: output parameter for selected precision mode
+ * Returns: total bytes written */
+size_t varintFloatEncodeAuto(uint8_t *output,
+                             const double *values, size_t count,
                              double max_relative_error,
                              varintFloatEncodingMode mode,
-                             varintFloatPrecision *selected_precision,
-                             uint8_t *output);
+                             varintFloatPrecision *selected_precision);
 
 /* Calculate maximum output size needed for encoding
  * Useful for pre-allocating output buffer */
@@ -192,5 +209,16 @@ double varintFloatCompose(uint64_t sign, int16_t exponent, uint64_t mantissa);
 static inline bool varintFloatIsSpecial(double value) {
     return !isfinite(value) || value == 0.0 || fabs(value) < 2.2250738585072014e-308;
 }
+
+/* Extract metadata from encoded buffer
+ * Reads the header information without decoding the entire array */
+void varintFloatReadMeta(const uint8_t *input, varintFloatMeta *meta);
+
+/* Analyze data and fill metadata structure
+ * Useful for estimating compression ratio before encoding */
+void varintFloatAnalyze(const double *values, size_t count,
+                        varintFloatPrecision precision,
+                        varintFloatEncodingMode mode,
+                        varintFloatMeta *meta);
 
 __END_DECLS

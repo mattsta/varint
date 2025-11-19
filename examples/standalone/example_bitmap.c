@@ -258,12 +258,12 @@ void example_serialization() {
     /* Serialize */
     size_t bufferSize = varintBitmapSizeBytes(original) + 100;
     uint8_t *buffer = malloc(bufferSize);
-    size_t serializedSize = varintBitmapSerialize(original, buffer);
+    size_t serializedSize = varintBitmapEncode(original, buffer);
 
     printf("Serialized to %zu bytes\n", serializedSize);
 
     /* Deserialize */
-    varintBitmap *deserialized = varintBitmapDeserialize(buffer, serializedSize);
+    varintBitmap *deserialized = varintBitmapDecode(buffer, serializedSize);
 
     printf("Deserialized cardinality: %u\n",
            varintBitmapCardinality(deserialized));
@@ -539,10 +539,10 @@ void test_round_trip() {
         /* Serialize */
         size_t bufferSize = varintBitmapSizeBytes(vb) + 100;
         uint8_t *buffer = malloc(bufferSize);
-        size_t size = varintBitmapSerialize(vb, buffer);
+        size_t size = varintBitmapEncode(vb, buffer);
 
         /* Deserialize */
-        varintBitmap *restored = varintBitmapDeserialize(buffer, size);
+        varintBitmap *restored = varintBitmapDecode(buffer, size);
 
         /* Verify */
         assert(varintBitmapCardinality(restored) ==

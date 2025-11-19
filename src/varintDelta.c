@@ -38,7 +38,7 @@ varintWidth varintDeltaGet(const uint8_t *p, int64_t *pDelta) {
 }
 
 /* Encode array of absolute values as base + deltas */
-size_t varintDeltaEncode(const int64_t *values, size_t count, uint8_t *output) {
+size_t varintDeltaEncode(uint8_t *output, const int64_t *values, size_t count) {
     if (count == 0) {
         return 0;
     }
@@ -103,7 +103,7 @@ size_t varintDeltaDecode(const uint8_t *input, size_t count, int64_t *output) {
 }
 
 /* Encode array of unsigned absolute values as base + deltas */
-size_t varintDeltaEncodeUnsigned(const uint64_t *values, size_t count, uint8_t *output) {
+size_t varintDeltaEncodeUnsigned(uint8_t *output, const uint64_t *values, size_t count) {
     if (count == 0) {
         return 0;
     }

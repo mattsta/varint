@@ -213,8 +213,8 @@ size_t varintPFORReadMeta(const uint8_t *src, varintPFORMeta *meta) {
 }
 
 /* Decode PFOR-encoded data into values array */
-uint32_t varintPFORDecode(const uint8_t *src, uint64_t *values,
-                          varintPFORMeta *meta) {
+size_t varintPFORDecode(const uint8_t *src, uint64_t *values,
+                        varintPFORMeta *meta) {
     /* Read metadata if not already provided */
     if (meta->width == 0) {
         src += varintPFORReadMeta(src, meta);
@@ -257,7 +257,7 @@ uint32_t varintPFORDecode(const uint8_t *src, uint64_t *values,
         }
     }
 
-    return meta->count;
+    return (size_t)meta->count;
 }
 
 /* Random access: get value at specific index */

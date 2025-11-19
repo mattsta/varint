@@ -28,7 +28,7 @@ void example_basic() {
     uint8_t *encoded = malloc(maxSize);
 
     /* Encode as base + deltas */
-    size_t encodedSize = varintDeltaEncode(docIds, count, encoded);
+    size_t encodedSize = varintDeltaEncode(encoded, docIds, count);
 
     printf("Original values: ");
     for (size_t i = 0; i < count; i++) {
@@ -89,7 +89,7 @@ void example_time_series() {
     /* Encode */
     size_t maxSize = varintDeltaMaxEncodedSize(count);
     uint8_t *encoded = malloc(maxSize);
-    size_t encodedSize = varintDeltaEncode(timestamps, count, encoded);
+    size_t encodedSize = varintDeltaEncode(encoded, timestamps, count);
 
     printf("Timestamps: %zu values\n", count);
     printf("First: %ld, Last: %ld\n", timestamps[0], timestamps[count-1]);
@@ -171,7 +171,7 @@ void example_mixed_deltas() {
     /* Encode */
     size_t maxSize = varintDeltaMaxEncodedSize(count);
     uint8_t *encoded = malloc(maxSize);
-    size_t encodedSize = varintDeltaEncode(prices, count, encoded);
+    size_t encodedSize = varintDeltaEncode(encoded, prices, count);
 
     printf("Encoded: %zu bytes (vs %zu uncompressed)\n",
            encodedSize, count * sizeof(int64_t));
@@ -204,7 +204,7 @@ void example_sorted_compression() {
     /* Encode */
     size_t maxSize = varintDeltaMaxEncodedSize(count);
     uint8_t *encoded = malloc(maxSize);
-    size_t encodedSize = varintDeltaEncode(sorted, count, encoded);
+    size_t encodedSize = varintDeltaEncode(encoded, sorted, count);
 
     size_t uncompressedSize = count * sizeof(int64_t);
 
@@ -253,7 +253,7 @@ void example_unsigned() {
     /* Encode */
     size_t maxSize = varintDeltaMaxEncodedSize(count);
     uint8_t *encoded = malloc(maxSize);
-    size_t encodedSize = varintDeltaEncodeUnsigned(userIds, count, encoded);
+    size_t encodedSize = varintDeltaEncodeUnsigned(encoded, userIds, count);
 
     printf("Encoded: %zu bytes (vs %zu uncompressed)\n",
            encodedSize, count * sizeof(uint64_t));
@@ -322,7 +322,7 @@ void example_space_analysis() {
     for (int t = 0; t < 4; t++) {
         size_t maxSize = varintDeltaMaxEncodedSize(tests[t].count);
         uint8_t *encoded = malloc(maxSize);
-        size_t encodedSize = varintDeltaEncode(tests[t].values, tests[t].count, encoded);
+        size_t encodedSize = varintDeltaEncode(encoded, tests[t].values, tests[t].count);
         size_t uncompressed = tests[t].count * sizeof(int64_t);
 
         printf("%-24s | %5zu | %12zu | %5zu | %11.2f | %6.1f%%\n",
@@ -360,7 +360,7 @@ void example_edge_cases() {
     for (size_t t = 0; t < sizeof(tests)/sizeof(tests[0]); t++) {
         size_t maxSize = varintDeltaMaxEncodedSize(tests[t].count);
         uint8_t *encoded = malloc(maxSize);
-        size_t encodedSize = varintDeltaEncode(tests[t].values, tests[t].count, encoded);
+        size_t encodedSize = varintDeltaEncode(encoded, tests[t].values, tests[t].count);
 
         int64_t *decoded = malloc(tests[t].count * sizeof(int64_t));
         varintDeltaDecode(encoded, tests[t].count, decoded);

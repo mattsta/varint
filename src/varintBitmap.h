@@ -89,9 +89,9 @@ varintBitmap *varintBitmapAndNot(const varintBitmap *vb1, const varintBitmap *vb
 uint32_t varintBitmapCardinality(const varintBitmap *vb);
 size_t varintBitmapSizeBytes(const varintBitmap *vb);
 
-/* Serialization */
-size_t varintBitmapSerialize(const varintBitmap *vb, uint8_t *buffer);
-varintBitmap *varintBitmapDeserialize(const uint8_t *buffer, size_t len);
+/* Encoding/Decoding (Serialization) */
+size_t varintBitmapEncode(const varintBitmap *vb, uint8_t *buffer);
+varintBitmap *varintBitmapDecode(const uint8_t *buffer, size_t len);
 
 /* Iteration */
 typedef struct varintBitmapIterator {
