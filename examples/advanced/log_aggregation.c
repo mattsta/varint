@@ -292,7 +292,7 @@ void demonstrateLogAggregation() {
     // 4. Dictionary compression effectiveness
     printf("\n4. Dictionary compression...\n");
 
-    printf("   Unique sources: %zu (vs 10,000 repetitions)\n", 5);
+    printf("   Unique sources: %d (vs 10,000 repetitions)\n", 5);
     printf("   Dictionary size: %zu entries\n", batch.dict.count);
     printf("   \n");
     printf("   Source field:\n");

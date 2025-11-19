@@ -19,7 +19,8 @@
 
 #if (PACK_STORAGE_BITS == 8) || (PACK_STORAGE_BITS == 16) ||                   \
     (PACK_STORAGE_BITS == 32) || (PACK_STORAGE_BITS == 64)
-#warning "Why pack system-level widths?  Native arrays would be faster."
+/* Note: Packing system-level widths (8, 16, 32, 64) is inefficient.
+ * Native arrays would be faster for these standard widths. */
 #endif
 
 /* Faster: use 32 bits to pack 12 bit integers.

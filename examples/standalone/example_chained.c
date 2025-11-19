@@ -263,7 +263,7 @@ void example_format_comparison() {
 
     printf("Value: %lu (binary: ", value);
     for (int i = 13; i >= 0; i--) {
-        printf("%d", (value >> i) & 1);
+        printf("%d", (int)((value >> i) & 1));
         if (i == 7) printf(" ");
     }
     printf(")\n\n");
@@ -287,7 +287,7 @@ void example_format_comparison() {
     /* SQLite3 varint uses big-endian: first byte has high bits, second byte has low bits */
     uint64_t extracted = ((uint64_t)(buffer[0] & 0x7f) << 7) | (buffer[1] & 0x7f);
     for (int i = 13; i >= 0; i--) {
-        printf("%d", (extracted >> i) & 1);
+        printf("%d", (int)((extracted >> i) & 1));
         if (i == 7) printf(" ");
     }
     printf(" = %lu\n", extracted);

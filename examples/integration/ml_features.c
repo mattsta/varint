@@ -385,7 +385,7 @@ void demonstrateMLFeatures() {
     }
 
     printf("   Filled 100 samples (1 non-zero per sample)\n");
-    printf("   Sparsity: %.2f%% (100 / %zu)\n",
+    printf("   Sparsity: %.2f%% (100 / %d)\n",
            100.0 * 100.0 / (100 * 1000), 100 * 1000);
 
     // Space analysis

@@ -39,6 +39,7 @@
 #include "varintBitstream.h"
 #include "varintChained.h"
 #include "varintExternal.h"
+#include "varintTagged.h"
 #include <assert.h>
 #include <stdbool.h>
 #include <stdio.h>
@@ -1169,9 +1170,9 @@ void testWildcardComplexity() {
                 } else if (i % 4 == 1) {
                     snprintf(pattern, 128, "#.*.data%d", i % 40);
                 } else if (i % 4 == 2) {
-                    snprintf(pattern, 128, "msg.#", 0);
+                    snprintf(pattern, 128, "msg.#");
                 } else {
-                    snprintf(pattern, 128, "#", 0);
+                    snprintf(pattern, 128, "#");
                 }
             }
             naiveInsert(&naive, pattern, i);

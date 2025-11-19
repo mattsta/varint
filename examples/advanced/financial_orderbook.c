@@ -103,7 +103,7 @@ OrderType getOrderType(const OrderFlags *flags) {
 // ORDER STRUCTURE
 // ============================================================================
 
-typedef struct {
+typedef struct Order {
     uint64_t orderId;       // Unique order ID (varintTagged - sortable)
     uint64_t timestamp;     // Microseconds since epoch
     char symbol[8];         // Stock symbol (e.g., "AAPL")
