@@ -31,16 +31,16 @@ uint64_t varintExternalBigEndianGet(const void *p, varintWidth encoding);
         uint8_t *__restrict _vimp_dst = (uint8_t *)(dst);                      \
         switch (encoding) {                                                    \
         case VARINT_WIDTH_8B:                                                  \
-            _vimp_dst[0] = (val);                                              \
+            _vimp_dst[0] = (uint8_t)(val);                                     \
             break;                                                             \
         case VARINT_WIDTH_24B:                                                 \
-            _vimp_dst[2] = (val)&0xff;                                         \
-            _vimp_dst[1] = ((val) >> 8) & 0xff;                                \
-            _vimp_dst[0] = ((val) >> 16) & 0xff;                               \
+            _vimp_dst[2] = (uint8_t)((val)&0xff);                              \
+            _vimp_dst[1] = (uint8_t)(((val) >> 8) & 0xff);                     \
+            _vimp_dst[0] = (uint8_t)(((val) >> 16) & 0xff);                    \
             break;                                                             \
         case VARINT_WIDTH_16B:                                                 \
-            _vimp_dst[1] = (val)&0xff;                                         \
-            _vimp_dst[0] = ((val) >> 8) & 0xff;                                \
+            _vimp_dst[1] = (uint8_t)((val)&0xff);                              \
+            _vimp_dst[0] = (uint8_t)(((val) >> 8) & 0xff);                     \
             break;                                                             \
         default:                                                               \
             varintExternalBigEndianPutFixedWidth((dst), (val), (encoding));    \

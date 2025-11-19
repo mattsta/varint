@@ -27,8 +27,8 @@ static uint32_t randInt(void) {
 
 #define GIVE_XZ                                                                \
     uint64_t x = randInt();                                                    \
-    x = (x << 32) + randInt();                                                 \
-    int32_t nbit = randInt() % 65;                                             \
+    x = (x << 32) + (uint64_t)randInt();                                       \
+    int32_t nbit = (int32_t)(randInt() % 65U);                                 \
     if (nbit < 64) {                                                           \
         x &= (((uint64_t)1) << nbit) - 1;                                      \
     }                                                                          \
@@ -39,11 +39,12 @@ static uint32_t randInt(void) {
     x = x % smallBias;
 
 #define SETUP(name, small)                                                     \
-    min = max = 0;                                                             \
+    min = 0;                                                                   \
+    max = 0;                                                                   \
     int _plen = printf("Testing " name "...\n");                               \
     char *_smallname = small;                                                  \
     char _eqs[_plen];                                                          \
-    memset(_eqs, '=', _plen);                                                  \
+    memset(_eqs, '=', (size_t)_plen);                                          \
     printf("%.*s\n", _plen, _eqs);                                             \
     PERF_TIMERS_SETUP;
 
@@ -52,7 +53,7 @@ static uint32_t randInt(void) {
         if (x > max) {                                                         \
             max = x;                                                           \
         } else if ((int64_t)x < min) {                                         \
-            min = x;                                                           \
+            min = (int64_t)x;                                                  \
         }                                                                      \
     } while (0)
 
@@ -60,7 +61,7 @@ static uint32_t randInt(void) {
     PERF_TIMERS_FINISH_PRINT_RESULTS(i, _smallname);                           \
     printf("Largest tested number: %" PRIu64 "\n", max);                       \
     printf("Smallest tested number: %" PRIi64 "\n", min);                      \
-    memset(_eqs, '-', _plen);                                                  \
+    memset(_eqs, '-', (size_t)_plen);                                          \
     printf("%.*s\n\n", _plen, _eqs);
 
 #include "perf.h"
@@ -199,12 +200,12 @@ int32_t main(int argc, char **argv) {
         for (i = 0; i < maxLoop; i++) {
             GIVE_SMALL_XZ
 
-            int32_t n1 = varintChainedSimpleEncode32(z, x);
+            int32_t n1 = varintChainedSimpleEncode32(z, (uint32_t)x);
             assert(n1 >= 1 && n1 <= 5);
             uint32_t y = 0;
             int32_t n2 = varintChainedSimpleDecode32(z, &y);
             assert(n1 == n2);
-            assert(x == y);
+            assert(x == (uint64_t)y);
 
             ACCOUNT_LOOP;
         }

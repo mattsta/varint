@@ -85,7 +85,7 @@ _Static_assert(sizeof(perfState) <= 192,
     "Performance measurement struct spans multiple cache lines by design (global in line 1, stat across lines 2-3).");
 
 /* local perf state */
-static perfState lps = {{{0}}};
+static perfState lps = {0};
 
 #define PERF_TIMERS_SETUP                                                      \
     do {                                                                       \
@@ -142,7 +142,7 @@ enum firstThing { FIRST_SECONDS, FIRST_CYCLES, FIRST_RATE };
 
 #define PERF_TIMERS_STAT_RESULT(totalLoops)                                    \
     do {                                                                       \
-        lps.stat.us.stddev = sqrt(lps.stat.us.runningVariance / (totalLoops)); \
+        lps.stat.us.stddev = sqrt(lps.stat.us.runningVariance / (double)(totalLoops)); \
     } while (0)
 
 /* GCC -pedantic complains about the %'0.2f format specifier, so let's disable
@@ -154,9 +154,9 @@ static void PERF_TIMERS_RESULT_PRINT(const size_t i, const char *units) {
 
     const double totalSeconds =
         (double)(lps.global.us.stop - lps.global.us.start) / 1e6;
-    const double speed = i / totalSeconds;
+    const double speed = (double)i / totalSeconds;
     const double cycles =
-        (double)(lps.global.tsc.stop - lps.global.tsc.start) / i;
+        (double)(lps.global.tsc.stop - lps.global.tsc.start) / (double)i;
 
     char deviations[128] = {0};
 

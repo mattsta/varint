@@ -35,9 +35,9 @@ varintWidth varintChainedVarintAddGrow(uint8_t *z, int64_t add);
 */
 #define varintChained_getVarint32(A, B)                                        \
     (uint8_t)((*(A) < (uint8_t)0x80) ? ((B) = (uint32_t) * (A)),               \
-              1 : varintChainedGetVarint32((A), (uint32_t *)&(B)))
+              1U : varintChainedGetVarint32((A), (uint32_t *)&(B)))
 #define varintChained_putVarint32(A, B)                                        \
     (uint8_t)(((uint32_t)(B) < (uint32_t)0x80) ? (*(A) = (unsigned char)(B)),  \
-              1 : varintChainedPutVarint((A), (B)))
+              1U : varintChainedPutVarint((A), (B)))
 
 __END_DECLS
