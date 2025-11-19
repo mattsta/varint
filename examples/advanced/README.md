@@ -237,6 +237,101 @@ Patterns    Naive (μs)    Trie (μs)    Speedup    Memory Savings
 
 ---
 
+### 11. Bloom Filter (`bloom_filter.c`) **[NEW]**
+**Demonstrates:** Probabilistic set membership testing for LSM trees and caches
+
+**Key Features:**
+- 2.5M+ insertions/sec, 2.6M+ queries/sec
+- MurmurHash-inspired double hashing
+- Optimal m/k parameter calculation
+- False positive rate validation (0.1% - 10%)
+- LSM-tree SSTable filtering demonstration
+- 8x compression vs byte-array storage
+
+**Compression Achieved:**
+- Bit array using varintPacked1 (1-bit elements)
+- Metadata with varintChained encoding
+- 10K elements @ 1% FPR: ~12 KB (vs ~100 KB naive)
+- 100K elements @ 0.1% FPR: ~180 KB (vs ~1.5 MB naive)
+
+**Test Coverage:**
+- Basic operations (insert, query)
+- False positive rate measurement
+- Optimal k selection (1-15 hash functions)
+- Serialization/deserialization roundtrip
+- LSM-tree use case (3 SSTables, disk I/O savings)
+- Performance benchmarks
+
+**Real-World Applications:** RocksDB, LevelDB, Cassandra, BigTable, CDN caches (Akamai, Cloudflare), Bitcoin, Chrome Safe Browsing
+
+---
+
+### 12. Autocomplete Trie (`autocomplete_trie.c`) **[NEW]**
+**Demonstrates:** Frequency-based typeahead/autocomplete engine
+
+**Key Features:**
+- 50K terms: 8.4 μs per insert, 0.5-2 μs per search
+- 383-500K queries/second throughput
+- Fuzzy matching (edit distance ≤ 1)
+- Top-K ranked results by frequency
+- Real-time trending updates
+- 70-85% memory compression vs naive arrays
+- 273x serialization compression ratio
+
+**Compression Achieved:**
+- varintExternal for frequency scores (1-8 bytes adaptive)
+- varintTagged for metadata (timestamps, categories, source IDs)
+- 50K terms: ~700 KB memory (vs ~4 MB naive)
+- Serialization: 18 KB (vs 4.8 MB naive, 99.6% savings)
+
+**Scenarios Demonstrated:**
+- Search engine queries (Google-style)
+- E-commerce product search
+- CLI command completion
+- Fuzzy typo correction
+- Real-time trending (boosting frequencies)
+- Large-scale dataset (50K terms, adaptive to 5K with sanitizers)
+
+**Real-World Applications:** Google Search autocomplete, Amazon product search, IDE code completion, mobile keyboard suggestions, command-line shells
+
+---
+
+### 13. Point Cloud Octree (`pointcloud_octree.c`) **[NEW]**
+**Demonstrates:** 3D spatial data compression with Morton codes and octree indexing
+
+**Key Features:**
+- 1.61x compression (9.94 bytes/point from 16 bytes)
+- Morton code encoding (Z-order curve, spatial locality)
+- Octree spatial indexing (O(log n) queries)
+- Sub-millisecond range and radius queries
+- Meter-level precision (float → int32 quantization)
+- LiDAR and terrain DEM demonstrations
+
+**Compression Achieved:**
+- varintExternal for Morton codes (64-bit → variable width)
+- varintExternal for delta-encoded Morton codes
+- varintDimension for point batch encoding
+- Building (50K points): 488 KB compressed vs 762 KB uncompressed
+- Terrain (100K points): 970 KB compressed vs 1.53 MB uncompressed
+- Dataset adapts to sanitizer mode (5K/10K vs 50K/100K points)
+
+**Spatial Query Performance:**
+- Octree build: ~20 ms for 50K points
+- Range query: < 1 ms
+- Radius search: < 1 ms
+
+**Scenarios Demonstrated:**
+- Building LiDAR scan (50m × 30m × 20m structure)
+- Terrain DEM (100m × 100m elevation map)
+- Morton code bit interleaving
+- Octree recursive subdivision
+- Bounding box range queries
+- Radius-based nearest neighbor search
+
+**Real-World Applications:** Autonomous vehicles (LiDAR processing), 3D photogrammetry, SLAM (robotics), cultural heritage preservation, GIS systems, point cloud rendering
+
+---
+
 ## Performance Summary
 
 | Example | Compression Ratio | Throughput | Latency |
@@ -249,6 +344,9 @@ Patterns    Naive (μs)    Trie (μs)    Speedup    Memory Savings
 | Order Book | 2-3x | 1M orders/sec | < 1 μs |
 | Log System | 100x | 1M logs/sec | ~1 μs |
 | Geospatial | 20-40x | 1M updates/sec | ~5 μs |
+| Bloom Filter **[NEW]** | 8x (storage) | 2.5M inserts/sec | ~400 ns |
+| Autocomplete **[NEW]** | 273x (serial) | 500K queries/sec | 0.5-2 μs |
+| Point Cloud **[NEW]** | 1.61x | 2.5K pts/ms | < 1 ms (query) |
 | Trie Matcher | 2391x (speed) | 56K queries/sec | ~18 μs |
 | Trie Interactive | 101x (storage) | Interactive | N/A |
 

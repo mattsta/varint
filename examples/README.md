@@ -13,7 +13,8 @@ examples/
 │   ├── example_chained.c
 │   ├── example_packed.c
 │   ├── example_dimension.c
-│   └── example_bitstream.c
+│   ├── example_bitstream.c
+│   └── rle_codec.c                    [NEW]
 │
 ├── integration/         # Combination examples
 │   ├── database_system.c
@@ -21,7 +22,10 @@ examples/
 │   ├── column_store.c
 │   ├── game_engine.c
 │   ├── sensor_network.c
-│   └── ml_features.c
+│   ├── ml_features.c
+│   ├── vector_clock.c                 [NEW]
+│   ├── delta_compression.c            [NEW]
+│   └── sparse_matrix_csr.c            [NEW]
 │
 ├── reference/          # Complete reference implementations
 │   ├── kv_store.c
@@ -37,6 +41,9 @@ examples/
     ├── financial_orderbook.c
     ├── log_aggregation.c
     ├── geospatial_routing.c
+    ├── bloom_filter.c                 [NEW]
+    ├── autocomplete_trie.c            [NEW]
+    ├── pointcloud_octree.c            [NEW]
     ├── trie_pattern_matcher.c
     └── trie_interactive.c
 ```
@@ -58,6 +65,7 @@ Each standalone example demonstrates a single varint type with:
 | `example_packed.c` | varintPacked | Fixed-width bit-packed arrays |
 | `example_dimension.c` | varintDimension | Matrix storage |
 | `example_bitstream.c` | varintBitstream | Bit-level operations |
+| `rle_codec.c` **[NEW]** | varintExternal | Run-length encoding (11x-2560x compression) |
 
 ## Integration Examples
 
@@ -99,6 +107,29 @@ Real-world scenarios combining multiple varint types:
 - Variable-width feature IDs
 - Efficient storage for ML datasets
 
+### vector_clock.c **[NEW]**
+**Combines**: varintTagged (actor-counter pairs)
+- Distributed event ordering and causal consistency
+- Sparse clock representation (87.5% compression for 4 nodes)
+- 923x compression for 1000-node systems
+- Conflict detection for concurrent updates
+- Applications: Dynamo, Cassandra, Riak, CouchDB
+
+### delta_compression.c **[NEW]**
+**Combines**: varintExternal (delta encoding) + ZigZag (signed deltas)
+- Facebook Gorilla-style time series compression
+- Delta-of-delta encoding (7.6-7.9x compression)
+- 76-100% of deltas fit in 1 byte
+- Applications: Prometheus, InfluxDB, monitoring systems
+
+### sparse_matrix_csr.c **[NEW]**
+**Combines**: varintExternal (indices) + varintDimension (metadata)
+- Compressed Sparse Row format for scientific computing
+- 77.67x compression (1000×1000 @ 1% density)
+- 16.9% additional savings with varint vs fixed-width
+- Matrix-vector multiply (SpMV), transpose, addition
+- Applications: FEM, graph algorithms, ML, sparse linear algebra
+
 ## Reference Implementations
 
 Complete, production-ready implementations:
@@ -138,6 +169,9 @@ Production-quality real-world systems with comprehensive benchmarks. See [advanc
 - **financial_orderbook.c** - HFT order processing (sub-microsecond)
 - **log_aggregation.c** - Log collection (100:1 compression)
 - **geospatial_routing.c** - GPS coordinate compression (20-40x)
+- **bloom_filter.c** **[NEW]** - Probabilistic set membership (2.5M+ ops/sec, 8x compression)
+- **autocomplete_trie.c** **[NEW]** - Typeahead search (0.5-2 μs queries, 273x serialization ratio)
+- **pointcloud_octree.c** **[NEW]** - 3D spatial data (1.61x compression, sub-ms queries)
 - **trie_pattern_matcher.c** - AMQP routing (2391x faster, 0.7 bytes/pattern)
 - **trie_interactive.c** - Interactive pattern matcher with CRUD and persistence
 
