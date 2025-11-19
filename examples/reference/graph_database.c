@@ -158,8 +158,14 @@ EdgeID graphAddEdge(Graph *graph, NodeID from, NodeID to, uint32_t weight) {
 
     // Grow edge array if needed
     if (graph->edgeCount >= graph->edgeCapacity) {
-        graph->edgeCapacity = graph->edgeCapacity ? graph->edgeCapacity * 2 : 16;
-        graph->edges = realloc(graph->edges, graph->edgeCapacity * sizeof(Edge));
+        size_t newCapacity = graph->edgeCapacity ? graph->edgeCapacity * 2 : 16;
+        Edge *newEdges = realloc(graph->edges, newCapacity * sizeof(Edge));
+        if (!newEdges) {
+            fprintf(stderr, "Error: Failed to reallocate edges\n");
+            return (EdgeID)-1;
+        }
+        graph->edges = newEdges;
+        graph->edgeCapacity = newCapacity;
     }
 
     // Add edge

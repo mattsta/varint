@@ -303,8 +303,14 @@ void replayRecorderAddFrame(ReplayRecorder *recorder, const GameFrame *frame) {
 
     // Ensure capacity
     if (recorder->size + frameSize + 1 > recorder->capacity) {
-        recorder->capacity *= 2;
-        recorder->data = realloc(recorder->data, recorder->capacity);
+        size_t newCapacity = recorder->capacity * 2;
+        uint8_t *newData = realloc(recorder->data, newCapacity);
+        if (!newData) {
+            fprintf(stderr, "Error: Failed to reallocate recorder data\n");
+            return;
+        }
+        recorder->data = newData;
+        recorder->capacity = newCapacity;
     }
 
     // Write frame type (1 byte: 0 = delta, 1 = keyframe)

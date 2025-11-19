@@ -127,11 +127,30 @@ TimeSeries *timeSeriesDBGetOrCreate(TimeSeriesDB *db, const char *metricName) {
 void timeSeriesAppend(TimeSeries *ts, uint64_t timestamp, uint64_t value) {
     // Grow capacity if needed
     if (ts->count >= ts->capacity) {
-        ts->capacity *= 2;
-        ts->deltaTimestamps =
-            realloc(ts->deltaTimestamps, ts->capacity * sizeof(uint16_t));
-        ts->values = realloc(ts->values, ts->capacity * sizeof(uint64_t));
-        ts->valueWidths = realloc(ts->valueWidths, ts->capacity * sizeof(varintWidth));
+        size_t newCapacity = ts->capacity * 2;
+
+        uint16_t *newDeltas = realloc(ts->deltaTimestamps, newCapacity * sizeof(uint16_t));
+        if (!newDeltas) {
+            fprintf(stderr, "Error: Failed to reallocate delta timestamps\n");
+            return;
+        }
+        ts->deltaTimestamps = newDeltas;
+
+        uint64_t *newValues = realloc(ts->values, newCapacity * sizeof(uint64_t));
+        if (!newValues) {
+            fprintf(stderr, "Error: Failed to reallocate values\n");
+            return;
+        }
+        ts->values = newValues;
+
+        varintWidth *newWidths = realloc(ts->valueWidths, newCapacity * sizeof(varintWidth));
+        if (!newWidths) {
+            fprintf(stderr, "Error: Failed to reallocate value widths\n");
+            return;
+        }
+        ts->valueWidths = newWidths;
+
+        ts->capacity = newCapacity;
     }
 
     // Set base timestamp on first insert

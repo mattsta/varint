@@ -80,7 +80,12 @@ void trackFree(GPSTrack *track) {
 }
 
 void trackAddPoint(GPSTrack *track, double lat, double lon, uint16_t elevation) {
-    track->points = realloc(track->points, (track->pointCount + 1) * sizeof(GPSCoordinate));
+    GPSCoordinate *newPoints = realloc(track->points, (track->pointCount + 1) * sizeof(GPSCoordinate));
+    if (!newPoints) {
+        fprintf(stderr, "Error: Failed to reallocate track points\n");
+        return;
+    }
+    track->points = newPoints;
     track->points[track->pointCount].latitude = lat;
     track->points[track->pointCount].longitude = lon;
     track->points[track->pointCount].elevation = elevation;

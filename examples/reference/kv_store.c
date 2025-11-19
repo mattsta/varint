@@ -135,7 +135,13 @@ bool kvStorePut(KVStore *store, uint64_t key, const void *value, size_t valueLen
 
         // Update value
         store->totalValueBytes -= entry->valueLen;
-        entry->value = realloc(entry->value, valueLen);
+        void *newValue = realloc(entry->value, valueLen);
+        if (!newValue) {
+            fprintf(stderr, "Error: Failed to reallocate value\n");
+            store->totalValueBytes += entry->valueLen;  // Restore
+            return false;
+        }
+        entry->value = newValue;
         memcpy(entry->value, value, valueLen);
         entry->valueLen = valueLen;
         store->totalValueBytes += valueLen;
@@ -145,8 +151,14 @@ bool kvStorePut(KVStore *store, uint64_t key, const void *value, size_t valueLen
 
     // Key doesn't exist - insert new entry
     if (store->count >= store->capacity) {
-        store->capacity *= 2;
-        store->entries = realloc(store->entries, store->capacity * sizeof(KVEntry));
+        size_t newCapacity = store->capacity * 2;
+        KVEntry *newEntries = realloc(store->entries, newCapacity * sizeof(KVEntry));
+        if (!newEntries) {
+            fprintf(stderr, "Error: Failed to reallocate entries\n");
+            return false;
+        }
+        store->entries = newEntries;
+        store->capacity = newCapacity;
     }
 
     // Calculate insertion position

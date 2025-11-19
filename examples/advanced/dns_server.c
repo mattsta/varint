@@ -353,8 +353,14 @@ void dnsZoneFree(DNSZone *zone) {
 
 void dnsZoneAddRecord(DNSZone *zone, const DNSRecord *record) {
     if (zone->count >= zone->capacity) {
-        zone->capacity *= 2;
-        zone->records = realloc(zone->records, zone->capacity * sizeof(DNSRecord));
+        size_t newCapacity = zone->capacity * 2;
+        DNSRecord *newRecords = realloc(zone->records, newCapacity * sizeof(DNSRecord));
+        if (!newRecords) {
+            fprintf(stderr, "Error: Failed to reallocate DNS records\n");
+            return;
+        }
+        zone->records = newRecords;
+        zone->capacity = newCapacity;
     }
     zone->records[zone->count++] = *record;
 }

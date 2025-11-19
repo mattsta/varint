@@ -78,8 +78,14 @@ void bytecodeBufferFree(BytecodeBuffer *buffer) {
 
 void bytecodeEmit(BytecodeBuffer *buffer, uint8_t byte) {
     if (buffer->size >= buffer->capacity) {
-        buffer->capacity *= 2;
-        buffer->code = realloc(buffer->code, buffer->capacity);
+        size_t newCapacity = buffer->capacity * 2;
+        uint8_t *newCode = realloc(buffer->code, newCapacity);
+        if (!newCode) {
+            fprintf(stderr, "Error: Failed to reallocate bytecode buffer\n");
+            return;
+        }
+        buffer->code = newCode;
+        buffer->capacity = newCapacity;
     }
     buffer->code[buffer->size++] = byte;
 }
