@@ -548,8 +548,15 @@ void demonstrateBlockchain() {
 
     merkleTreeFree(&merkleTree);
     utxoSetFree(&utxoSet);
-    // Note: blockchainFree not called because transactions are stack-allocated in this demo
-    // In production, use deep copy when adding blocks, or heap-allocate transactions
+
+    // Clean up transactions (inputs/outputs were malloc'd)
+    for (size_t i = 0; i < 5; i++) {
+        free(txs[i].inputs);
+        free(txs[i].outputs);
+    }
+
+    // Clean up blockchain struct (blocks array was malloc'd but never populated)
+    free(chain.blocks);
 
     printf("\n✓ Blockchain ledger demonstration complete\n");
 }

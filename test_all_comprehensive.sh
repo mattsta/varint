@@ -96,6 +96,11 @@ echo "=========================================="
 
 # Trie examples need special handling (server runs in background)
 echo "Testing: trie_server (background process)"
+
+# Kill any existing trie_server processes and free port 9999
+pkill -9 -f trie_server_test 2>/dev/null || true
+sleep 0.5
+
 if gcc $CFLAGS examples/advanced/trie_server.c src/varintTagged.c -o /tmp/trie_server_test 2>&1; then
     /tmp/trie_server_test > /tmp/trie_server_output.txt 2>&1 &
     TRIE_SERVER_PID=$!
@@ -119,7 +124,27 @@ fi
 
 # Test trie client (connects to server)
 if [ -n "$TRIE_SERVER_PID" ]; then
-    test_example "examples/advanced/trie_client.c" "src/varintTagged.c" ""
+    echo "========================================"
+    echo "Testing: trie_client"
+    echo "========================================"
+
+    # Compile client
+    if gcc $CFLAGS examples/advanced/trie_client.c src/varintTagged.c -o /tmp/trie_client_test 2>&1; then
+        # Test with ping command
+        if timeout 2 /tmp/trie_client_test ping 127.0.0.1 9999 > /tmp/trie_client_output.txt 2>&1; then
+            echo -e "${GREEN}✓ PASSED${NC}"
+            PASSED=$((PASSED + 1))
+        else
+            echo -e "${RED}✗ FAILED${NC} (runtime)"
+            cat /tmp/trie_client_output.txt
+            FAILED=$((FAILED + 1))
+            FAILED_TESTS+=("trie_client (runtime)")
+        fi
+    else
+        echo -e "${RED}✗ FAILED${NC} (compilation)"
+        FAILED=$((FAILED + 1))
+        FAILED_TESTS+=("trie_client (compile)")
+    fi
 
     # Kill server
     kill $TRIE_SERVER_PID 2>/dev/null || true
@@ -127,20 +152,21 @@ if [ -n "$TRIE_SERVER_PID" ]; then
 fi
 
 # Other advanced examples
-test_example "examples/advanced/inverted_index.c" "src/varintChained.c src/varintExternal.c src/varintTagged.c" ""
-test_example "examples/advanced/blockchain_ledger.c" "src/varintChained.c src/varintExternal.c src/varintTagged.c" ""
+test_example "examples/advanced/inverted_index.c" "src/varintChained.c src/varintExternal.c src/varintTagged.c" "-lm"
+test_example "examples/advanced/blockchain_ledger.c" "src/varintChained.c src/varintExternal.c src/varintTagged.c" "-lm"
 test_example "examples/advanced/bytecode_vm.c" "src/varintChained.c src/varintExternal.c src/varintTagged.c" ""
 test_example "examples/advanced/dns_server.c" "src/varintChained.c src/varintExternal.c" ""
 test_example "examples/advanced/financial_orderbook.c" "src/varintExternal.c src/varintTagged.c" ""
-test_example "examples/advanced/game_replay_system.c" "src/varintExternal.c" ""
-test_example "examples/advanced/geospatial_routing.c" "src/varintExternal.c src/varintTagged.c" ""
+test_example "examples/advanced/game_replay_system.c" "src/varintExternal.c" "-lm"
+test_example "examples/advanced/geospatial_routing.c" "src/varintExternal.c src/varintTagged.c" "-lm"
 test_example "examples/advanced/log_aggregation.c" "src/varintChained.c src/varintExternal.c" ""
 
 # Trie pattern matcher and interactive need stdin
 echo ""
-echo "Testing: trie_pattern_matcher (with test input)"
-if gcc $CFLAGS examples/advanced/trie_pattern_matcher.c src/varintChained.c src/varintExternal.c -o /tmp/trie_pattern_matcher_test 2>&1; then
-    echo -e "test\npattern\nend" | timeout 2 /tmp/trie_pattern_matcher_test > /tmp/trie_pattern_matcher_output.txt 2>&1 && {
+echo "Testing: trie_pattern_matcher (core functionality tests)"
+if gcc $CFLAGS examples/advanced/trie_pattern_matcher.c src/varintChained.c src/varintExternal.c src/varintTagged.c -o /tmp/trie_pattern_matcher_test 2>&1; then
+    # Core tests only (heavy benchmarks skipped with sanitizers)
+    timeout 10 /tmp/trie_pattern_matcher_test > /tmp/trie_pattern_matcher_output.txt 2>&1 && {
         echo -e "${GREEN}✓ PASSED${NC}"
         PASSED=$((PASSED + 1))
     } || {

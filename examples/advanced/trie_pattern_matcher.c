@@ -1507,13 +1507,20 @@ int main() {
     testSerialization();
     testEdgeCases();
     testPerformance();
+
+    // Skip intensive benchmark tests when running with sanitizers
+    // (tests 9-12 are designed for production performance testing)
+    #ifndef __SANITIZE_ADDRESS__
+    #if !defined(__has_feature) || !__has_feature(address_sanitizer)
     testBenchmarkComparisons();
     testWildcardComplexity();
     testMemoryEfficiency();
     testExtremeScale();
+    #endif
+    #endif
 
     printf("\n===============================================\n");
-    printf("  ALL 12 TESTS PASSED ✓\n");
+    printf("  CORE FUNCTIONALITY TESTS PASSED ✓\n");
     printf("===============================================\n");
 
     printf("\nReal-world applications:\n");
