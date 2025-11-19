@@ -9,3 +9,7 @@ examples/standalone/*_sanitized
 examples/integration/*_sanitized
 examples/advanced/*_sanitized
 examples/reference/*_sanitized
+test_bitmap
+test_delta
+test_float
+test_for
