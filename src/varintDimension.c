@@ -67,7 +67,10 @@ varintDimensionPair varintDimensionPairEncode(void *_dst, size_t row,
     varintDimensionPair dimension = varintDimensionPairDimension(row, col);
     VARINT_DIMENSION_PAIR_DEPAIR(widthRows, widthCols, dimension);
 
-    varintExternalPutFixedWidth(dst, row, widthRows);
+    /* Handle zero-row case (vectors): don't encode row count if width is 0 */
+    if (widthRows) {
+        varintExternalPutFixedWidth(dst, row, widthRows);
+    }
     varintExternalPutFixedWidth(dst + widthRows, col, widthCols);
 
     return dimension;
@@ -139,8 +142,8 @@ uint64_t varintDimensionPairEntryGetUnsigned(
         } else {                                                               \
             _bit_offsetTotal = (col);                                          \
         }                                                                      \
-        (offsetByte) = metadataSize + (_bit_offsetTotal / sizeof(uint8_t));    \
-        (offsetBit) = _bit_offsetTotal % sizeof(uint8_t);                      \
+        (offsetByte) = metadataSize + (_bit_offsetTotal / 8);    \
+        (offsetBit) = _bit_offsetTotal % 8;                      \
     } while (0)
 
 bool varintDimensionPairEntryGetBit(const void *_src, const size_t row,

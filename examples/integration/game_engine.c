@@ -46,7 +46,7 @@ typedef enum {
 } EntityFlagOffset;
 
 typedef struct {
-    uint16_t flags;  // All flags packed into 16 bits
+    uint64_t flags;  // All flags packed (varintBitstream requires uint64_t)
 } EntityFlags;
 
 void entityFlagsSetBit(EntityFlags *flags, EntityFlagOffset offset, bool value) {
@@ -341,14 +341,14 @@ void demonstrateGameEngine() {
     entityFlagsSetBit(powerupFlags, ENTITY_FLAG_VISIBLE, true);
     entityFlagsSetLayer(powerupFlags, 2);
 
-    printf("   Player flags: 0x%04X\n", playerFlags->flags);
+    printf("   Player flags: 0x%04lX\n", (unsigned long)playerFlags->flags);
     printf("   - Alive: %d\n", entityFlagsGetBit(playerFlags, ENTITY_FLAG_ALIVE));
     printf("   - Visible: %d\n", entityFlagsGetBit(playerFlags, ENTITY_FLAG_VISIBLE));
     printf("   - Team: %d\n", entityFlagsGetTeam(playerFlags));
     printf("   - Layer: %d\n", entityFlagsGetLayer(playerFlags));
     printf("   - Health: %d%%\n", entityFlagsGetHealth(playerFlags));
 
-    printf("\n   Enemy flags: 0x%04X\n", enemy1Flags->flags);
+    printf("\n   Enemy flags: 0x%04lX\n", (unsigned long)enemy1Flags->flags);
     printf("   - AI: %d\n", entityFlagsGetBit(enemy1Flags, ENTITY_FLAG_AI));
     printf("   - Team: %d\n", entityFlagsGetTeam(enemy1Flags));
     printf("   - Health: %d%%\n", entityFlagsGetHealth(enemy1Flags));
@@ -382,8 +382,8 @@ void demonstrateGameEngine() {
         EntityFlags flags;
         packetReadEntityState(&packet, &offset, &entityId, &flags);
 
-        printf("   Entity %u: flags=0x%04X, team=%d, health=%d%%\n", entityId,
-               flags.flags, entityFlagsGetTeam(&flags), entityFlagsGetHealth(&flags));
+        printf("   Entity %u: flags=0x%04lX, team=%d, health=%d%%\n", entityId,
+               (unsigned long)flags.flags, entityFlagsGetTeam(&flags), entityFlagsGetHealth(&flags));
     }
 
     // 5. Space efficiency analysis
