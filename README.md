@@ -84,7 +84,13 @@ Code Guide
 ----------
 Varints are defined by how they track their size. Since varints have variable lengths, a varint must know how many bytes it contains.
 
-We have four types of varints: tagged, external, split, and chained. The chained type is the slowest and is not recommended for use in new systems.
+We have **thirteen types of varints** organized into three categories:
+
+**Basic Encodings** (4 types): tagged, external, split, and chained. The chained type is the slowest and is not recommended for use in new systems.
+
+**Advanced Encodings** (6 types): delta, FOR (Frame-of-Reference), group, PFOR (Patched FOR), dictionary, and bitmap. These provide 10-100x compression for specialized use cases like sorted data, clustered values, and repetitive data.
+
+**Specialized Encodings** (3 types): packed (fixed-width bit arrays), dimension (matrix encoding), and bitstream (bit-level operations).
 
 The goal of a varint isn't to store the *most* data in the least space (which is impossible since the value here *includes* metadata information which takes away from user storage space), but to allow you to let users store data without needing to pre-allocate everything as a 64-bit quantity up front.
 
@@ -117,13 +123,32 @@ This is the most common legacy varint format and is used in sqlite3, leveldb, an
 Also includes support for arrays of fixed-bit-length packed integers in `varintPacked.c` as well as reading and writing
 packed bit arrays into matrices in `varintDimension.c`.
 
+### Delta Encoding (varintDelta)
+Delta encoding stores a base value followed by ZigZag-encoded deltas. Ideal for sorted/sequential data like timestamps, IDs, and sensor readings. Achieves 70-90% compression on monotonic sequences. Full details in [varintDelta.h](https://github.com/mattsta/varint/blob/main/src/varintDelta.h).
+
+### Frame-of-Reference (varintFOR)
+FOR encoding stores a minimum value and all others as fixed-width offsets. Extremely efficient for clustered values (timestamps in narrow windows, IDs in contiguous ranges). Achieves 2-7.5x compression with SIMD-friendly layout. Full details in [varintFOR.h](https://github.com/mattsta/varint/blob/main/src/varintFOR.h).
+
+### Group Encoding (varintGroup)
+Group encoding shares metadata across multiple related values using a compact bitmap. Reduces per-field overhead by 30-40% for struct-like data (database rows, network packets, multi-field records). Full details in [varintGroup.h](https://github.com/mattsta/varint/blob/main/src/varintGroup.h).
+
+### Patched Frame-of-Reference (varintPFOR)
+PFOR extends FOR with exception handling for outliers. Optimal for mostly-clustered data with rare spikes (stock prices, network latency). Achieves 57-83% compression while handling outliers efficiently. Full details in [varintPFOR.h](https://github.com/mattsta/varint/blob/main/src/varintPFOR.h).
+
+### Dictionary Encoding (varintDict)
+Dictionary encoding maps repetitive values to compact indices. Achieves 83-87% compression (up to 8x) for highly repetitive data like log sources, status codes, and enum values. Uses binary search for O(log n) lookups. Full details in [varintDict.h](https://github.com/mattsta/varint/blob/main/src/varintDict.h).
+
+### Bitmap Encoding (varintBitmap)
+Hybrid dense/sparse encoding (Roaring-style) with automatic container adaptation. Uses ARRAY for sparse sets, BITMAP for dense regions, and RUNS for contiguous ranges. Supports set operations (AND, OR, XOR). Ideal for inverted indexes and boolean arrays. Full details in [varintBitmap.h](https://github.com/mattsta/varint/blob/main/src/varintBitmap.h).
+
 Comprehensive Examples
 ---------------------
 
-The `examples/` directory contains **35 production-quality examples** demonstrating real-world applications:
+The `examples/` directory contains **41 production-quality examples** demonstrating real-world applications:
 
-### **8 Standalone Examples** - Individual module demonstrations
-- Tagged, External, Split, Chained, Packed, Dimension, Bitstream encodings
+### **14 Standalone Examples** - Individual module demonstrations
+- **Basic encodings**: Tagged, External, Split, Chained, Packed, Dimension, Bitstream
+- **Advanced encodings**: Delta, FOR, Group, PFOR, Dictionary, Bitmap
 - **Run-Length Encoding** (RLE) with varint lengths (11x-2560x compression)
 
 ### **9 Integration Examples** - Combining multiple varint types

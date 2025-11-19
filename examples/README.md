@@ -65,7 +65,13 @@ Each standalone example demonstrates a single varint type with:
 | `example_packed.c` | varintPacked | Fixed-width bit-packed arrays |
 | `example_dimension.c` | varintDimension | Matrix storage |
 | `example_bitstream.c` | varintBitstream | Bit-level operations |
-| `rle_codec.c` **[NEW]** | varintExternal | Run-length encoding (11x-2560x compression) |
+| `rle_codec.c` | varintExternal | Run-length encoding (11x-2560x compression) |
+| `example_delta.c` **[NEW]** | varintDelta | Delta encoding with ZigZag (70-90% compression) |
+| `example_for.c` **[NEW]** | varintFOR | Frame-of-Reference (2-7.5x compression) |
+| `example_group.c` **[NEW]** | varintGroup | Shared metadata encoding (30-40% savings) |
+| `example_pfor.c` **[NEW]** | varintPFOR | Patched FOR with exceptions (57-83% compression) |
+| `example_dict.c` **[NEW]** | varintDict | Dictionary encoding (83-87% compression, 8x) |
+| `example_bitmap.c` **[NEW]** | varintBitmap | Hybrid dense/sparse (Roaring-style) |
 
 ## Integration Examples
 

@@ -75,6 +75,12 @@ test_example "examples/standalone/example_packed.c" "" ""
 test_example "examples/standalone/example_bitstream.c" "" ""
 test_example "examples/standalone/example_dimension.c" "src/varintDimension.c src/varintExternal.c" "-mf16c -mavx2"
 test_example "examples/standalone/rle_codec.c" "src/varintExternal.c" ""
+test_example "examples/standalone/example_delta.c" "src/varintDelta.c src/varintExternal.c" ""
+test_example "examples/standalone/example_for.c" "src/varintFOR.c src/varintExternal.c src/varintTagged.c" ""
+test_example "examples/standalone/example_group.c" "src/varintGroup.c src/varintExternal.c" ""
+test_example "examples/standalone/example_pfor.c" "src/varintPFOR.c src/varintExternal.c src/varintTagged.c" ""
+test_example "examples/standalone/example_dict.c" "src/varintDict.c src/varintExternal.c src/varintTagged.c" ""
+test_example "examples/standalone/example_bitmap.c" "src/varintBitmap.c src/varintExternal.c" ""
 
 # INTEGRATION EXAMPLES (may need multiple source files)
 echo ""
