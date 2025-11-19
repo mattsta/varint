@@ -1,1 +1,11 @@
 build
+
+# Compiled examples (no extension)
+examples/standalone/example_*
+!examples/standalone/example_*.c
+
+# Sanitized test binaries
+examples/standalone/*_sanitized
+examples/integration/*_sanitized
+examples/advanced/*_sanitized
+examples/reference/*_sanitized
