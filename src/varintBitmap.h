@@ -117,6 +117,14 @@ typedef struct varintBitmapStats {
     uint32_t containerCapacity;  /* For array/runs */
 } varintBitmapStats;
 
+/* Compile-time size guarantees to prevent regressions */
+_Static_assert(sizeof(varintBitmapStats) == 24,
+    "varintBitmapStats size changed! Expected 24 bytes (1×8-byte + 3×4-byte + 4 padding). "
+    "83.3% efficient - padding after last 4-byte field is acceptable.");
+_Static_assert(sizeof(varintBitmapStats) <= 64,
+    "varintBitmapStats exceeds single cache line (64 bytes)! "
+    "Keep bitmap statistics cache-friendly.");
+
 void varintBitmapGetStats(const varintBitmap *vb, varintBitmapStats *stats);
 
 /* Container optimization */

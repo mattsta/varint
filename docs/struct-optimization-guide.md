@@ -336,15 +336,50 @@ If you see:
 
 ### 1. Add Static Assertions
 
-Prevent accidental size regressions:
+**All varint metadata structs now have compile-time size guarantees!**
+
+Prevent accidental size regressions with `_Static_assert`:
 
 ```c
-/* In header file after struct definition */
-_Static_assert(sizeof(varintPFORMeta) <= 48,
-               "varintPFORMeta grew beyond 48 bytes - check field ordering");
-
+/* Example from varintPFOR.h - 100% efficient struct */
 _Static_assert(sizeof(varintPFORMeta) == 40,
-               "varintPFORMeta size changed - update if intentional");
+    "varintPFORMeta size changed! Expected 40 bytes (3×8-byte + 4×4-byte, ZERO padding). "
+    "This struct achieved 100% efficiency - do not break it!");
+_Static_assert(sizeof(varintPFORMeta) <= 64,
+    "varintPFORMeta exceeds single cache line (64 bytes)! "
+    "Keep this struct cache-friendly for hot encoding paths.");
+```
+
+**Benefits:**
+- **Compile-time verification** - Catches regressions immediately
+- **Self-documenting** - Error messages explain the expected layout
+- **Cache line awareness** - Second assertion enforces single-cacheline requirement
+
+**Where to add:**
+Place `_Static_assert` statements immediately after the struct definition, before any function declarations.
+
+**All assertions are in place for:**
+- ✅ varintFORMeta (48 bytes)
+- ✅ varintPFORMeta (40 bytes) - 100% efficient
+- ✅ varintFloatMeta (48 bytes)
+- ✅ varintAdaptiveDataStats (80 bytes)
+- ✅ varintAdaptiveMeta (72 bytes)
+- ✅ varintDictStats (56 bytes) - 100% efficient
+- ✅ varintBitmapStats (24 bytes)
+
+**What happens if you break it:**
+```c
+// If you accidentally add a field incorrectly:
+typedef struct varintPFORMeta {
+    uint32_t count;         /* BAD: 4-byte field first causes padding */
+    uint64_t min;
+    // ...
+} varintPFORMeta;
+
+// Compiler error at build time:
+// error: static assertion failed: "varintPFORMeta size changed!
+//        Expected 40 bytes (3×8-byte + 4×4-byte, ZERO padding).
+//        This struct achieved 100% efficiency - do not break it!"
 ```
 
 ### 2. Run Analysis on Every Struct Addition

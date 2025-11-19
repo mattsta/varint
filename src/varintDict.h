@@ -108,6 +108,14 @@ typedef struct varintDictStats {
     float spaceReduction;    /* (1 - totalBytes/originalBytes) * 100 */
 } varintDictStats;
 
+/* Compile-time size guarantees to prevent regressions */
+_Static_assert(sizeof(varintDictStats) == 56,
+    "varintDictStats size changed! Expected 56 bytes (6×8-byte + 2×4-byte, ZERO padding). "
+    "This struct achieved 100% efficiency - do not break it!");
+_Static_assert(sizeof(varintDictStats) <= 64,
+    "varintDictStats exceeds single cache line (64 bytes)! "
+    "Keep statistics struct cache-friendly.");
+
 int varintDictGetStats(const uint64_t *values, size_t count,
                        varintDictStats *stats);
 

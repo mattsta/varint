@@ -32,6 +32,14 @@ typedef struct varintFORMeta {
     varintWidth offsetWidth; /* Bytes per offset (1-8) */
 } varintFORMeta;
 
+/* Compile-time size guarantees to prevent regressions */
+_Static_assert(sizeof(varintFORMeta) == 48,
+    "varintFORMeta size changed! Expected 48 bytes (5×8-byte + 1×4-byte + 4 padding). "
+    "Review field ordering if this fails.");
+_Static_assert(sizeof(varintFORMeta) <= 64,
+    "varintFORMeta exceeds single cache line (64 bytes)! "
+    "This will hurt performance - keep metadata structs cache-friendly.");
+
 /* Compute optimal offset width for a range of values */
 varintWidth varintFORComputeWidth(uint64_t range);
 

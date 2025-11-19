@@ -66,6 +66,14 @@ typedef struct varintAdaptiveDataStats {
     bool fitsInBitmapRange;     /* True if all values < 65536 */
 } varintAdaptiveDataStats;
 
+/* Compile-time size guarantees to prevent regressions */
+_Static_assert(sizeof(varintAdaptiveDataStats) == 80,
+    "varintAdaptiveDataStats size changed! Expected 80 bytes (8×8-byte + 2×4-byte + 3×1-byte + 5 padding). "
+    "93.8% efficient - acceptable for analysis struct.");
+_Static_assert(sizeof(varintAdaptiveDataStats) <= 128,
+    "varintAdaptiveDataStats should not exceed 2 cache lines (128 bytes)! "
+    "Hot fields (bytes 0-63) are in first cache line by design.");
+
 /* Metadata for selected encoding
  * Fields ordered by size (8-byte/union → 4-byte) to eliminate padding */
 typedef struct varintAdaptiveMeta {
@@ -81,6 +89,14 @@ typedef struct varintAdaptiveMeta {
 
     varintAdaptiveEncodingType encodingType;
 } varintAdaptiveMeta;
+
+/* Compile-time size guarantees to prevent regressions */
+_Static_assert(sizeof(varintAdaptiveMeta) == 72,
+    "varintAdaptiveMeta size changed! Expected 72 bytes (2×8-byte + 48-byte union + 4-byte enum + 4 padding). "
+    "94.4% efficient - union dominates size.");
+_Static_assert(sizeof(varintAdaptiveMeta) <= 128,
+    "varintAdaptiveMeta should not exceed 2 cache lines (128 bytes)! "
+    "Metadata union in first cache line, encodingType in second (read once during decode).");
 
 /* ====================================================================
  * Core API

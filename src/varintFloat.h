@@ -113,6 +113,14 @@ typedef struct varintFloatMeta {
     uint8_t mantissaBits;               /* Bits per mantissa */
 } varintFloatMeta;
 
+/* Compile-time size guarantees to prevent regressions */
+_Static_assert(sizeof(varintFloatMeta) == 48,
+    "varintFloatMeta size changed! Expected 48 bytes (4×8-byte + 2×4-byte + 2×1-byte + 6 padding). "
+    "87.5% efficient - padding after uint8_t fields is acceptable.");
+_Static_assert(sizeof(varintFloatMeta) <= 64,
+    "varintFloatMeta exceeds single cache line (64 bytes)! "
+    "Keep float metadata cache-friendly.");
+
 /* Encode array of doubles with specified precision
  * output: buffer to write encoded data (caller must allocate)
  * values: array of double values to encode

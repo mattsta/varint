@@ -36,6 +36,14 @@ typedef struct varintPFORMeta {
     uint32_t threshold;        /* Percentile threshold (90, 95, 99) */
 } varintPFORMeta;
 
+/* Compile-time size guarantees to prevent regressions */
+_Static_assert(sizeof(varintPFORMeta) == 40,
+    "varintPFORMeta size changed! Expected 40 bytes (3×8-byte + 4×4-byte, ZERO padding). "
+    "This struct achieved 100% efficiency - do not break it!");
+_Static_assert(sizeof(varintPFORMeta) <= 64,
+    "varintPFORMeta exceeds single cache line (64 bytes)! "
+    "Keep this struct cache-friendly for hot encoding paths.");
+
 /* Compute optimal threshold and metadata for encoding.
  * Returns width needed for regular values (non-exceptions).
  * exceptionCount will be set to number of values exceeding threshold. */
