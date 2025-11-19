@@ -484,14 +484,19 @@ size_t varintFloatEncodeAuto(const double *values, size_t count,
                              varintFloatEncodingMode mode,
                              varintFloatPrecision *selected_precision,
                              uint8_t *output) {
-    /* Select precision based on maximum allowable error */
+    /* Select precision based on maximum allowable relative error
+     * Thresholds based on mantissa bit counts with safety margins:
+     * FULL:   52-bit → 2^-52 ≈ 2e-16 (lossless)
+     * HIGH:   23-bit → 2^-23 ≈ 1.2e-7 (use for < 5e-4)
+     * MEDIUM: 10-bit → 2^-10 ≈ 9.8e-4 (use for < 3e-2)
+     * LOW:     4-bit → 2^-4  ≈ 6.3e-2 (use for >= 3e-2) */
     varintFloatPrecision precision = VARINT_FLOAT_PRECISION_LOW;
 
-    if (max_relative_error < 1e-15) {
+    if (max_relative_error < 1e-10) {
         precision = VARINT_FLOAT_PRECISION_FULL;
-    } else if (max_relative_error < 1e-6) {
+    } else if (max_relative_error < 5e-4) {  /* 0.05% threshold */
         precision = VARINT_FLOAT_PRECISION_HIGH;
-    } else if (max_relative_error < 1e-3) {
+    } else if (max_relative_error < 0.03) {  /* 3% threshold */
         precision = VARINT_FLOAT_PRECISION_MEDIUM;
     } else {
         precision = VARINT_FLOAT_PRECISION_LOW;

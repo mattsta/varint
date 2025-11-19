@@ -225,8 +225,10 @@ varintAdaptiveEncodingType varintAdaptiveSelectEncoding(
 
     /* 2. Dense sets in bitmap range → Bitmap encoding
      * IMPORTANT: Bitmap is for SETS (unique values only), not sequences
-     * Only use if all values are unique or nearly unique */
-    if (stats->fitsInBitmapRange && stats->uniqueRatio > 0.9f) {
+     * Only use if all values are unique or nearly unique
+     * AND data is already sorted (since BITMAP returns values in sorted order) */
+    if (stats->fitsInBitmapRange && stats->uniqueRatio > 0.9f &&
+        (stats->isSorted || stats->isReverseSorted)) {
         /* All or nearly all values are unique - bitmap might work */
         if (stats->range > 0 && stats->count < 10000) {
             float density = (float)stats->count / (float)stats->range;

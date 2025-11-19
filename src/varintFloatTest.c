@@ -261,14 +261,24 @@ int varintFloatTest(int argc, char *argv[]) {
     }
 
     TEST("Automatic precision selection") {
-        /* Temperature sensor data: ±0.01°C accuracy needed */
+        /* Temperature sensor data: ±0.01°C absolute accuracy needed */
         double values[] = {25.34, 25.35, 25.36, 25.33, 25.37};
-        double maxError = 0.01;
+        double absoluteError = 0.01;
+
+        /* Calculate average value to determine relative error requirement */
+        double avg = 0.0;
+        for (int i = 0; i < 5; i++) {
+            avg += values[i];
+        }
+        avg /= 5.0;
+
+        /* Convert absolute error to relative error */
+        double relativeError = absoluteError / avg;  /* ~0.0004 for 25°C */
 
         uint8_t buffer[256];
         varintFloatPrecision selected;
 
-        size_t encoded = varintFloatEncodeAuto(values, 5, maxError,
+        size_t encoded = varintFloatEncodeAuto(values, 5, relativeError,
                                               VARINT_FLOAT_MODE_INDEPENDENT,
                                               &selected, buffer);
 
@@ -276,20 +286,21 @@ int varintFloatTest(int argc, char *argv[]) {
             ERRR("Failed to encode with auto precision");
         }
 
-        /* MEDIUM or better precision should be selected */
-        if (selected > VARINT_FLOAT_PRECISION_MEDIUM) {
-            ERR("Selected precision %d too low for ±0.01 tolerance", selected);
+        /* HIGH or better precision should be selected for 0.04% relative error */
+        if (selected > VARINT_FLOAT_PRECISION_HIGH) {
+            ERR("Selected precision %d too low for %.2e relative error",
+                selected, relativeError);
         }
 
-        /* Verify selected precision meets requirement */
+        /* Verify selected precision meets absolute error requirement */
         double decoded[5];
         varintFloatDecode(buffer, 5, decoded);
 
         for (int i = 0; i < 5; i++) {
             double error = fabs(decoded[i] - values[i]);
-            if (error > maxError) {
+            if (error > absoluteError) {
                 ERR("Auto-selected precision: error %.4f exceeds tolerance %.2f",
-                    error, maxError);
+                    error, absoluteError);
                 break;
             }
         }
