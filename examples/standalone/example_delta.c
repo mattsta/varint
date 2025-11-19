@@ -16,6 +16,14 @@
 #include <stdlib.h>
 #include <inttypes.h>
 
+/* Memory allocation check macro for demo programs */
+#define CHECK_ALLOC(ptr) do { \
+    if (!(ptr)) { \
+        fprintf(stderr, "Error: Memory allocation failed at %s:%d\n", __FILE__, __LINE__); \
+        exit(EXIT_FAILURE); \
+    } \
+} while(0)
+
 /* Example 1: Basic delta encoding with sorted array */
 void example_basic() {
     printf("\n=== Example 1: Basic Delta Encoding ===\n");
@@ -27,6 +35,7 @@ void example_basic() {
     /* Allocate output buffer */
     size_t maxSize = varintDeltaMaxEncodedSize(count);
     uint8_t *encoded = malloc(maxSize);
+    CHECK_ALLOC(encoded);
 
     /* Encode as base + deltas */
     size_t encodedSize = varintDeltaEncode(encoded, docIds, count);
@@ -51,6 +60,9 @@ void example_basic() {
 
     /* Decode and verify */
     int64_t *decoded = malloc(count * sizeof(int64_t));
+    CHECK_ALLOC(decoded);
+    CHECK_ALLOC(decoded);
+    CHECK_ALLOC(encoded);
     size_t decodedBytes = varintDeltaDecode(encoded, count, decoded);
 
     assert(decodedBytes == encodedSize);
@@ -90,6 +102,7 @@ void example_time_series() {
     /* Encode */
     size_t maxSize = varintDeltaMaxEncodedSize(count);
     uint8_t *encoded = malloc(maxSize);
+    CHECK_ALLOC(encoded);
     size_t encodedSize = varintDeltaEncode(encoded, timestamps, count);
 
     printf("Timestamps: %zu values\n", count);
@@ -105,6 +118,9 @@ void example_time_series() {
 
     /* Decode and verify */
     int64_t *decoded = malloc(count * sizeof(int64_t));
+    CHECK_ALLOC(decoded);
+    CHECK_ALLOC(decoded);
+    CHECK_ALLOC(encoded);
     varintDeltaDecode(encoded, count, decoded);
 
     for (size_t i = 0; i < count; i++) {
@@ -176,6 +192,7 @@ void example_mixed_deltas() {
     /* Encode */
     size_t maxSize = varintDeltaMaxEncodedSize(count);
     uint8_t *encoded = malloc(maxSize);
+    CHECK_ALLOC(encoded);
     size_t encodedSize = varintDeltaEncode(encoded, prices, count);
 
     printf("Encoded: %zu bytes (vs %zu uncompressed)\n",
@@ -183,6 +200,9 @@ void example_mixed_deltas() {
 
     /* Decode and verify */
     int64_t *decoded = malloc(count * sizeof(int64_t));
+    CHECK_ALLOC(decoded);
+    CHECK_ALLOC(decoded);
+    CHECK_ALLOC(encoded);
     varintDeltaDecode(encoded, count, decoded);
 
     for (size_t i = 0; i < count; i++) {
@@ -202,6 +222,9 @@ void example_sorted_compression() {
     /* Generate sorted array: 1, 2, 3, ..., 1000 */
     size_t count = 1000;
     int64_t *sorted = malloc(count * sizeof(int64_t));
+    CHECK_ALLOC(sorted);
+    CHECK_ALLOC(sorted);
+    CHECK_ALLOC(encoded);
     for (size_t i = 0; i < count; i++) {
         sorted[i] = (int64_t)(i + 1);
     }
@@ -209,6 +232,7 @@ void example_sorted_compression() {
     /* Encode */
     size_t maxSize = varintDeltaMaxEncodedSize(count);
     uint8_t *encoded = malloc(maxSize);
+    CHECK_ALLOC(encoded);
     size_t encodedSize = varintDeltaEncode(encoded, sorted, count);
 
     size_t uncompressedSize = count * sizeof(int64_t);
@@ -228,6 +252,9 @@ void example_sorted_compression() {
 
     /* Decode and verify sample values */
     int64_t *decoded = malloc(count * sizeof(int64_t));
+    CHECK_ALLOC(decoded);
+    CHECK_ALLOC(decoded);
+    CHECK_ALLOC(encoded);
     varintDeltaDecode(encoded, count, decoded);
 
     assert(decoded[0] == 1);
@@ -258,6 +285,7 @@ void example_unsigned() {
     /* Encode */
     size_t maxSize = varintDeltaMaxEncodedSize(count);
     uint8_t *encoded = malloc(maxSize);
+    CHECK_ALLOC(encoded);
     size_t encodedSize = varintDeltaEncodeUnsigned(encoded, userIds, count);
 
     printf("Encoded: %zu bytes (vs %zu uncompressed)\n",
@@ -265,6 +293,9 @@ void example_unsigned() {
 
     /* Decode and verify */
     uint64_t *decoded = malloc(count * sizeof(uint64_t));
+    CHECK_ALLOC(decoded);
+    CHECK_ALLOC(decoded);
+    CHECK_ALLOC(encoded);
     varintDeltaDecodeUnsigned(encoded, count, decoded);
 
     for (size_t i = 0; i < count; i++) {
@@ -290,6 +321,9 @@ void example_space_analysis() {
     /* Test 1: Tightly packed sequential (delta = 1) */
     size_t count1 = 100;
     int64_t *seq1 = malloc(count1 * sizeof(int64_t));
+    CHECK_ALLOC(seq1);
+    CHECK_ALLOC(seq1); CHECK_ALLOC(seq2); CHECK_ALLOC(seq3); CHECK_ALLOC(seq4);
+    CHECK_ALLOC(encoded);
     for (size_t i = 0; i < count1; i++) seq1[i] = (int64_t)i;
     tests[0].description = "Sequential (0,1,2,...)";
     tests[0].values = seq1;
@@ -298,6 +332,9 @@ void example_space_analysis() {
     /* Test 2: Sparse sequential (delta = 10) */
     size_t count2 = 100;
     int64_t *seq2 = malloc(count2 * sizeof(int64_t));
+    CHECK_ALLOC(seq2);
+    CHECK_ALLOC(seq1); CHECK_ALLOC(seq2); CHECK_ALLOC(seq3); CHECK_ALLOC(seq4);
+    CHECK_ALLOC(encoded);
     for (size_t i = 0; i < count2; i++) seq2[i] = (int64_t)(i * 10);
     tests[1].description = "Sparse (0,10,20,...)";
     tests[1].values = seq2;
@@ -306,6 +343,9 @@ void example_space_analysis() {
     /* Test 3: Large base, small deltas */
     size_t count3 = 100;
     int64_t *seq3 = malloc(count3 * sizeof(int64_t));
+    CHECK_ALLOC(seq3);
+    CHECK_ALLOC(seq1); CHECK_ALLOC(seq2); CHECK_ALLOC(seq3); CHECK_ALLOC(seq4);
+    CHECK_ALLOC(encoded);
     for (size_t i = 0; i < count3; i++) seq3[i] = 1000000 + (int64_t)i;
     tests[2].description = "Large base (1000000+)";
     tests[2].values = seq3;
@@ -314,6 +354,9 @@ void example_space_analysis() {
     /* Test 4: Mixed deltas */
     size_t count4 = 100;
     int64_t *seq4 = malloc(count4 * sizeof(int64_t));
+    CHECK_ALLOC(seq4);
+    CHECK_ALLOC(seq1); CHECK_ALLOC(seq2); CHECK_ALLOC(seq3); CHECK_ALLOC(seq4);
+    CHECK_ALLOC(encoded);
     for (size_t i = 0; i < count4; i++) {
         seq4[i] = (int64_t)(i * 10 + (i % 2 ? -5 : 5));
     }
@@ -327,6 +370,7 @@ void example_space_analysis() {
     for (int t = 0; t < 4; t++) {
         size_t maxSize = varintDeltaMaxEncodedSize(tests[t].count);
         uint8_t *encoded = malloc(maxSize);
+    CHECK_ALLOC(encoded);
         size_t encodedSize = varintDeltaEncode(encoded, tests[t].values, tests[t].count);
         size_t uncompressed = tests[t].count * sizeof(int64_t);
 
@@ -365,9 +409,13 @@ void example_edge_cases() {
     for (size_t t = 0; t < sizeof(tests)/sizeof(tests[0]); t++) {
         size_t maxSize = varintDeltaMaxEncodedSize(tests[t].count);
         uint8_t *encoded = malloc(maxSize);
+    CHECK_ALLOC(encoded);
         size_t encodedSize = varintDeltaEncode(encoded, tests[t].values, tests[t].count);
 
         int64_t *decoded = malloc(tests[t].count * sizeof(int64_t));
+    CHECK_ALLOC(decoded);
+    CHECK_ALLOC(decoded);
+    CHECK_ALLOC(encoded);
         varintDeltaDecode(encoded, tests[t].count, decoded);
 
         /* Verify */

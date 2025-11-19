@@ -54,12 +54,17 @@ typedef struct {
 // INITIALIZATION AND CLEANUP
 // ============================================================================
 
-void kvStoreInit(KVStore *store, size_t initialCapacity) {
+bool kvStoreInit(KVStore *store, size_t initialCapacity) {
     store->entries = malloc(initialCapacity * sizeof(KVEntry));
+    if (!store->entries) {
+        fprintf(stderr, "Error: Failed to allocate KV store entries\n");
+        return false;
+    }
     store->count = 0;
     store->capacity = initialCapacity;
     store->totalKeyBytes = 0;
     store->totalValueBytes = 0;
+    return true;
 }
 
 void kvStoreFree(KVStore *store) {
@@ -173,10 +178,29 @@ bool kvStorePut(KVStore *store, uint64_t key, const void *value, size_t valueLen
     // Create new entry
     KVEntry *entry = &store->entries[insertPos];
     entry->key = malloc(keyLen);
+    if (!entry->key) {
+        fprintf(stderr, "Error: Failed to allocate key buffer\n");
+        // Shift entries back
+        if (insertPos < store->count) {
+            memmove(&store->entries[insertPos], &store->entries[insertPos + 1],
+                    (store->count - insertPos) * sizeof(KVEntry));
+        }
+        return false;
+    }
     memcpy(entry->key, keyBuffer, keyLen);
     entry->keyLen = keyLen;
 
     entry->value = malloc(valueLen);
+    if (!entry->value) {
+        fprintf(stderr, "Error: Failed to allocate value buffer\n");
+        free(entry->key);
+        // Shift entries back
+        if (insertPos < store->count) {
+            memmove(&store->entries[insertPos], &store->entries[insertPos + 1],
+                    (store->count - insertPos) * sizeof(KVEntry));
+        }
+        return false;
+    }
     memcpy(entry->value, value, valueLen);
     entry->valueLen = valueLen;
 
@@ -361,7 +385,10 @@ void demonstrateKVStore() {
     // 1. Initialize store
     printf("1. Initializing key-value store...\n");
     KVStore store;
-    kvStoreInit(&store, 16);
+    if (!kvStoreInit(&store, 16)) {
+        fprintf(stderr, "Error: Failed to initialize KV store\n");
+        return;
+    }
     printf("   Initialized with capacity for 16 entries\n");
 
     // 2. Insert key-value pairs

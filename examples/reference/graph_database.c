@@ -70,8 +70,12 @@ typedef struct {
 // INITIALIZATION
 // ============================================================================
 
-void graphInit(Graph *graph, size_t maxNodes, bool directed) {
+bool graphInit(Graph *graph, size_t maxNodes, bool directed) {
     graph->nodes = malloc(maxNodes * sizeof(Node));
+    if (!graph->nodes) {
+        fprintf(stderr, "Error: Failed to allocate nodes array\n");
+        return false;
+    }
     graph->nodeCount = 0;
     graph->nodeCapacity = maxNodes;
 
@@ -92,8 +96,14 @@ void graphInit(Graph *graph, size_t maxNodes, bool directed) {
     size_t bitsNeeded = maxNodes * maxNodes;
     size_t bytesNeeded = (bitsNeeded + 7) / 8;
     graph->adjacencyMatrix = calloc(1, bytesNeeded);
+    if (!graph->adjacencyMatrix) {
+        fprintf(stderr, "Error: Failed to allocate adjacency matrix\n");
+        free(graph->nodes);
+        return false;
+    }
 
     graph->isDirected = directed;
+    return true;
 }
 
 void graphFree(Graph *graph) {
@@ -237,13 +247,33 @@ TraversalResult graphBFS(const Graph *graph, NodeID startNode) {
 
     TraversalResult result;
     result.nodes = malloc(graph->nodeCount * sizeof(NodeID));
+    if (!result.nodes) {
+        fprintf(stderr, "Error: Failed to allocate BFS result nodes\n");
+        result.count = 0;
+        return result;
+    }
     result.count = 0;
 
     // Visited tracking
     bool *visited = calloc(graph->nodeCount, sizeof(bool));
+    if (!visited) {
+        fprintf(stderr, "Error: Failed to allocate BFS visited array\n");
+        free(result.nodes);
+        result.nodes = NULL;
+        result.count = 0;
+        return result;
+    }
 
     // Queue for BFS
     NodeID *queue = malloc(graph->nodeCount * sizeof(NodeID));
+    if (!queue) {
+        fprintf(stderr, "Error: Failed to allocate BFS queue\n");
+        free(result.nodes);
+        free(visited);
+        result.nodes = NULL;
+        result.count = 0;
+        return result;
+    }
     size_t queueFront = 0;
     size_t queueBack = 0;
 
@@ -288,8 +318,28 @@ ShortestPath graphDijkstra(const Graph *graph, NodeID start, NodeID end) {
 
     // Initialize distances
     uint32_t *distances = malloc(graph->nodeCount * sizeof(uint32_t));
+    if (!distances) {
+        fprintf(stderr, "Error: Failed to allocate Dijkstra distances array\n");
+        ShortestPath result = {.path = NULL, .pathLength = 0, .totalWeight = UINT32_MAX};
+        return result;
+    }
+
     NodeID *previous = malloc(graph->nodeCount * sizeof(NodeID));
+    if (!previous) {
+        fprintf(stderr, "Error: Failed to allocate Dijkstra previous array\n");
+        free(distances);
+        ShortestPath result = {.path = NULL, .pathLength = 0, .totalWeight = UINT32_MAX};
+        return result;
+    }
+
     bool *visited = calloc(graph->nodeCount, sizeof(bool));
+    if (!visited) {
+        fprintf(stderr, "Error: Failed to allocate Dijkstra visited array\n");
+        free(distances);
+        free(previous);
+        ShortestPath result = {.path = NULL, .pathLength = 0, .totalWeight = UINT32_MAX};
+        return result;
+    }
 
     for (size_t i = 0; i < graph->nodeCount; i++) {
         distances[i] = UINT32_MAX;
@@ -354,6 +404,15 @@ ShortestPath graphDijkstra(const Graph *graph, NodeID start, NodeID end) {
 
         // Build path
         result.path = malloc(pathLen * sizeof(NodeID));
+        if (!result.path) {
+            fprintf(stderr, "Error: Failed to allocate path array\n");
+            result.pathLength = 0;
+            result.totalWeight = UINT32_MAX;
+            free(distances);
+            free(previous);
+            free(visited);
+            return result;
+        }
         result.pathLength = pathLen;
 
         size_t idx = pathLen - 1;
@@ -378,7 +437,10 @@ void demonstrateGraphDB() {
     // 1. Create graph
     printf("1. Creating directed graph...\n");
     Graph graph;
-    graphInit(&graph, 256, true);  // Directed graph, max 256 nodes
+    if (!graphInit(&graph, 256, true)) {  // Directed graph, max 256 nodes
+        fprintf(stderr, "Error: Failed to initialize graph\n");
+        return;
+    }
 
     printf("   Max nodes: %zu\n", graph.nodeCapacity);
     printf("   Dimension encoding: ");

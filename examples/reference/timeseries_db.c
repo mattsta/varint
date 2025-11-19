@@ -69,17 +69,37 @@ typedef struct {
 // INITIALIZATION
 // ============================================================================
 
-void timeSeriesInit(TimeSeries *ts, const char *name, size_t initialCapacity) {
+bool timeSeriesInit(TimeSeries *ts, const char *name, size_t initialCapacity) {
     strncpy(ts->metricName, name, sizeof(ts->metricName) - 1);
     ts->metricName[sizeof(ts->metricName) - 1] = '\0';
     ts->baseTimestamp = 0;
+
     ts->deltaTimestamps = malloc(initialCapacity * sizeof(uint16_t));
+    if (!ts->deltaTimestamps) {
+        fprintf(stderr, "Error: Failed to allocate delta timestamps\n");
+        return false;
+    }
+
     ts->values = malloc(initialCapacity * sizeof(uint64_t));
+    if (!ts->values) {
+        fprintf(stderr, "Error: Failed to allocate values\n");
+        free(ts->deltaTimestamps);
+        return false;
+    }
+
     ts->valueWidths = malloc(initialCapacity * sizeof(varintWidth));
+    if (!ts->valueWidths) {
+        fprintf(stderr, "Error: Failed to allocate value widths\n");
+        free(ts->deltaTimestamps);
+        free(ts->values);
+        return false;
+    }
+
     ts->count = 0;
     ts->capacity = initialCapacity;
     ts->minValue = UINT64_MAX;
     ts->maxValue = 0;
+    return true;
 }
 
 void timeSeriesFree(TimeSeries *ts) {
@@ -88,10 +108,15 @@ void timeSeriesFree(TimeSeries *ts) {
     free(ts->valueWidths);
 }
 
-void timeSeriesDBInit(TimeSeriesDB *db, size_t maxSeries) {
+bool timeSeriesDBInit(TimeSeriesDB *db, size_t maxSeries) {
     db->series = malloc(maxSeries * sizeof(TimeSeries));
+    if (!db->series) {
+        fprintf(stderr, "Error: Failed to allocate series array\n");
+        return false;
+    }
     db->seriesCount = 0;
     db->seriesCapacity = maxSeries;
+    return true;
 }
 
 void timeSeriesDBFree(TimeSeriesDB *db) {
@@ -115,8 +140,12 @@ TimeSeries *timeSeriesDBGetOrCreate(TimeSeriesDB *db, const char *metricName) {
 
     // Create new metric
     assert(db->seriesCount < db->seriesCapacity);
-    TimeSeries *ts = &db->series[db->seriesCount++];
-    timeSeriesInit(ts, metricName, 1000);
+    TimeSeries *ts = &db->series[db->seriesCount];
+    if (!timeSeriesInit(ts, metricName, 1000)) {
+        fprintf(stderr, "Error: Failed to initialize time series\n");
+        return NULL;
+    }
+    db->seriesCount++;
     return ts;
 }
 
@@ -180,6 +209,10 @@ void timeSeriesAppend(TimeSeries *ts, uint64_t timestamp, uint64_t value) {
 void timeSeriesDBInsert(TimeSeriesDB *db, const char *metricName, uint64_t timestamp,
                         uint64_t value) {
     TimeSeries *ts = timeSeriesDBGetOrCreate(db, metricName);
+    if (!ts) {
+        fprintf(stderr, "Error: Failed to get or create time series\n");
+        return;
+    }
     timeSeriesAppend(ts, timestamp, value);
 }
 
@@ -239,8 +272,25 @@ size_t timeSeriesDeserialize(TimeSeries *ts, const uint8_t *buffer) {
     // Allocate storage
     ts->capacity = (size_t)count;
     ts->deltaTimestamps = malloc(ts->capacity * sizeof(uint16_t));
+    if (!ts->deltaTimestamps) {
+        fprintf(stderr, "Error: Failed to allocate delta timestamps during deserialization\n");
+        return 0;
+    }
+
     ts->values = malloc(ts->capacity * sizeof(uint64_t));
+    if (!ts->values) {
+        fprintf(stderr, "Error: Failed to allocate values during deserialization\n");
+        free(ts->deltaTimestamps);
+        return 0;
+    }
+
     ts->valueWidths = malloc(ts->capacity * sizeof(varintWidth));
+    if (!ts->valueWidths) {
+        fprintf(stderr, "Error: Failed to allocate value widths during deserialization\n");
+        free(ts->deltaTimestamps);
+        free(ts->values);
+        return 0;
+    }
     ts->count = (size_t)count;
 
     // Read data points
@@ -283,6 +333,11 @@ void queryResultFree(QueryResult *result) {
 QueryResult timeSeriesQuery(const TimeSeries *ts, const TimeRangeQuery *query) {
     QueryResult result;
     result.points = malloc(query->maxResults * sizeof(DataPoint));
+    if (!result.points) {
+        fprintf(stderr, "Error: Failed to allocate query result buffer\n");
+        result.count = 0;
+        return result;
+    }
     result.count = 0;
 
     for (size_t i = 0; i < ts->count && result.count < query->maxResults; i++) {
@@ -345,6 +400,11 @@ DownsampleResult timeSeriesDownsample(const TimeSeries *ts,
     // Allocate buckets
     DownsampleResult result;
     result.points = calloc(numBuckets, sizeof(AggregatedPoint));
+    if (!result.points) {
+        fprintf(stderr, "Error: Failed to allocate downsample buckets\n");
+        result.count = 0;
+        return result;
+    }
     result.count = 0;
 
     // Initialize buckets
@@ -420,7 +480,10 @@ void demonstrateTimeSeriesDB() {
     // 1. Initialize database
     printf("1. Initializing time-series database...\n");
     TimeSeriesDB db;
-    timeSeriesDBInit(&db, 10);
+    if (!timeSeriesDBInit(&db, 10)) {
+        fprintf(stderr, "Error: Failed to initialize database\n");
+        return;
+    }
     printf("   Initialized database for 10 metrics\n");
 
     // 2. Insert data points
@@ -456,6 +519,11 @@ void demonstrateTimeSeriesDB() {
     printf("\n3. Querying time range [+30min, +60min]...\n");
 
     TimeSeries *cpuSeries = timeSeriesDBGetOrCreate(&db, "cpu.usage");
+    if (!cpuSeries) {
+        fprintf(stderr, "Error: Failed to get cpu.usage series\n");
+        timeSeriesDBFree(&db);
+        return;
+    }
     TimeRangeQuery query = {.startTime = baseTime + 30 * 60,
                             .endTime = baseTime + 60 * 60,
                             .maxResults = 100};
@@ -516,6 +584,11 @@ void demonstrateTimeSeriesDB() {
     printf("\n6. Serializing time-series data...\n");
 
     uint8_t *buffer = malloc(100000);
+    if (!buffer) {
+        fprintf(stderr, "Error: Failed to allocate serialization buffer\n");
+        timeSeriesDBFree(&db);
+        return;
+    }
     size_t serializedSize = timeSeriesSerialize(cpuSeries, buffer);
 
     printf("   Serialized size: %zu bytes\n", serializedSize);
