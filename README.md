@@ -84,11 +84,11 @@ Code Guide
 ----------
 Varints are defined by how they track their size. Since varints have variable lengths, a varint must know how many bytes it contains.
 
-We have **thirteen types of varints** organized into three categories:
+We have **fifteen types of varints** organized into three categories:
 
 **Basic Encodings** (4 types): tagged, external, split, and chained. The chained type is the slowest and is not recommended for use in new systems.
 
-**Advanced Encodings** (6 types): delta, FOR (Frame-of-Reference), group, PFOR (Patched FOR), dictionary, and bitmap. These provide 10-100x compression for specialized use cases like sorted data, clustered values, and repetitive data.
+**Advanced Encodings** (8 types): delta, FOR (Frame-of-Reference), group, PFOR (Patched FOR), dictionary, bitmap, adaptive, and float. These provide 2-100x compression for specialized use cases like sorted data, clustered values, repetitive data, and floating point arrays.
 
 **Specialized Encodings** (3 types): packed (fixed-width bit arrays), dimension (matrix encoding), and bitstream (bit-level operations).
 
@@ -141,14 +141,20 @@ Dictionary encoding maps repetitive values to compact indices. Achieves 83-87% c
 ### Bitmap Encoding (varintBitmap)
 Hybrid dense/sparse encoding (Roaring-style) with automatic container adaptation. Uses ARRAY for sparse sets, BITMAP for dense regions, and RUNS for contiguous ranges. Supports set operations (AND, OR, XOR). Ideal for inverted indexes and boolean arrays. Full details in [varintBitmap.h](https://github.com/mattsta/varint/blob/main/src/varintBitmap.h).
 
+### Adaptive Encoding (varintAdaptive)
+Intelligent encoding selector that automatically analyzes data characteristics and chooses the optimal encoding strategy (DELTA, FOR, PFOR, DICT, BITMAP, or TAGGED). Achieves 1.35x-6.45x compression automatically without manual encoding selection. Self-describing format with 1-byte header. Ideal for mixed workloads, log compression, and API responses. Full details in [varintAdaptive.h](https://github.com/mattsta/varint/blob/main/src/varintAdaptive.h).
+
+### Floating Point Compression (varintFloat)
+Variable-precision floating point compression with configurable precision modes (FULL/HIGH/MEDIUM/LOW) and encoding strategies (INDEPENDENT/COMMON_EXPONENT/DELTA_EXPONENT). Achieves 1.5x-4.0x compression for sensor data, scientific measurements, and GPS coordinates while maintaining specified accuracy bounds. FULL mode is lossless. Full details in [varintFloat.h](https://github.com/mattsta/varint/blob/main/src/varintFloat.h).
+
 Comprehensive Examples
 ---------------------
 
-The `examples/` directory contains **41 production-quality examples** demonstrating real-world applications:
+The `examples/` directory contains **43 production-quality examples** demonstrating real-world applications:
 
-### **14 Standalone Examples** - Individual module demonstrations
+### **16 Standalone Examples** - Individual module demonstrations
 - **Basic encodings**: Tagged, External, Split, Chained, Packed, Dimension, Bitstream
-- **Advanced encodings**: Delta, FOR, Group, PFOR, Dictionary, Bitmap
+- **Advanced encodings**: Delta, FOR, Group, PFOR, Dictionary, Bitmap, Adaptive, Float
 - **Run-Length Encoding** (RLE) with varint lengths (11x-2560x compression)
 
 ### **9 Integration Examples** - Combining multiple varint types

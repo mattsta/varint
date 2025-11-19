@@ -1,5 +1,5 @@
 #!/bin/bash
-# Unit test runner for 6 new varint encodings
+# Unit test runner for 8 new varint encodings
 # Uses ctest.h framework with proper assertions
 
 set -e
@@ -66,7 +66,7 @@ echo "=========================================="
 echo "Using: AddressSanitizer + UndefinedBehaviorSanitizer"
 echo ""
 
-# Run all 6 unit tests
+# Run all 8 unit tests
 run_test "varintDelta" \
     "src/varintDeltaTest.c src/varintDelta.c src/varintExternal.c" \
     "VARINT_DELTA_TEST_STANDALONE"
@@ -90,6 +90,14 @@ run_test "varintDict" \
 run_test "varintBitmap" \
     "src/varintBitmapTest.c src/varintBitmap.c src/varintExternal.c" \
     "VARINT_BITMAP_TEST_STANDALONE"
+
+run_test "varintAdaptive" \
+    "src/varintAdaptiveTest.c src/varintAdaptive.c src/varintDelta.c src/varintFOR.c src/varintPFOR.c src/varintDict.c src/varintBitmap.c src/varintExternal.c src/varintTagged.c" \
+    "VARINT_ADAPTIVE_TEST_STANDALONE"
+
+run_test "varintFloat" \
+    "src/varintFloatTest.c src/varintFloat.c src/varintExternal.c src/varintTagged.c src/varintDelta.c" \
+    "VARINT_FLOAT_TEST_STANDALONE"
 
 # Summary
 echo ""

@@ -72,6 +72,8 @@ Each standalone example demonstrates a single varint type with:
 | `example_pfor.c` **[NEW]** | varintPFOR | Patched FOR with exceptions (57-83% compression) |
 | `example_dict.c` **[NEW]** | varintDict | Dictionary encoding (83-87% compression, 8x) |
 | `example_bitmap.c` **[NEW]** | varintBitmap | Hybrid dense/sparse (Roaring-style) |
+| `example_adaptive.c` **[NEW]** | varintAdaptive | Automatic encoding selection (1.35x-6.45x compression) |
+| `example_float.c` **[NEW]** | varintFloat | Variable-precision floating point (1.5x-4.0x compression) |
 
 ## Integration Examples
 
