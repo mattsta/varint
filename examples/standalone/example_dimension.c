@@ -20,6 +20,14 @@
 #include <string.h>
 #include <stdlib.h>
 
+/* Memory allocation check macro for demo programs */
+#define CHECK_ALLOC(ptr) do { \
+    if (!(ptr)) { \
+        fprintf(stderr, "Error: Memory allocation failed at %s:%d\n", __FILE__, __LINE__); \
+        exit(EXIT_FAILURE); \
+    } \
+} while(0)
+
 // Example 1: Basic matrix storage
 void example_basic_matrix() {
     printf("\n=== Example 1: Basic Matrix Storage ===\n");

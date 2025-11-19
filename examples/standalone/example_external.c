@@ -15,6 +15,14 @@
 #include <string.h>
 #include <stdlib.h>
 
+/* Memory allocation check macro for demo programs */
+#define CHECK_ALLOC(ptr) do { \
+    if (!(ptr)) { \
+        fprintf(stderr, "Error: Memory allocation failed at %s:%d\n", __FILE__, __LINE__); \
+        exit(EXIT_FAILURE); \
+    } \
+} while(0)
+
 // Example 1: Basic encode/decode with external width
 void example_basic() {
     printf("\n=== Example 1: Basic Encode/Decode ===\n");
@@ -92,10 +100,13 @@ typedef struct {
 
 ColumnStore* createColumnStore(size_t rows, size_t cols) {
     ColumnStore *store = malloc(sizeof(ColumnStore));
+    CHECK_ALLOC(store);
     store->numRows = rows;
     store->numCols = cols;
     store->widths = calloc(cols, sizeof(varintWidth));
+    CHECK_ALLOC(store->widths);
     store->columns = calloc(cols, sizeof(uint8_t*));
+    CHECK_ALLOC(store->columns);
     return store;
 }
 
@@ -110,6 +121,7 @@ void setColumn(ColumnStore *store, size_t col, const uint64_t *values) {
 
     store->widths[col] = maxWidth;
     store->columns[col] = malloc(maxWidth * store->numRows);
+    CHECK_ALLOC(store->columns[col]);
 
     // Encode all values at same width
     for (size_t i = 0; i < store->numRows; i++) {
@@ -209,6 +221,7 @@ void example_array_compression() {
 
     // Compress array
     uint8_t *compressed = malloc(width * count);
+    CHECK_ALLOC(compressed);
     for (size_t i = 0; i < count; i++) {
         varintExternalPutFixedWidthQuick_(
             compressed + (i * width),

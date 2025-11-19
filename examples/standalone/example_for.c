@@ -15,6 +15,14 @@
 #include <string.h>
 #include <stdlib.h>
 
+/* Memory allocation check macro for demo programs */
+#define CHECK_ALLOC(ptr) do { \
+    if (!(ptr)) { \
+        fprintf(stderr, "Error: Memory allocation failed at %s:%d\n", __FILE__, __LINE__); \
+        exit(EXIT_FAILURE); \
+    } \
+} while(0)
+
 // Example 1: Basic encode/decode
 void example_basic() {
     printf("\n=== Example 1: Basic Encode/Decode ===\n");
@@ -42,12 +50,14 @@ void example_basic() {
 
     // Encode
     uint8_t *encoded = malloc(meta.encodedSize);
+    CHECK_ALLOC(ptr_placeholder);
     size_t encodedLen = varintFOREncode(encoded, values, count, &meta);
     assert(encodedLen == meta.encodedSize);
     printf("Encoded %zu values in %zu bytes\n", count, encodedLen);
 
     // Decode
     uint64_t *decoded = malloc(count * sizeof(uint64_t));
+    CHECK_ALLOC(ptr_placeholder);
     size_t decodedCount = varintFORDecode(encoded, decoded, count);
     assert(decodedCount == count);
 
@@ -91,6 +101,7 @@ void example_timestamps() {
            meta.offsetWidth, meta.offsetWidth);
 
     uint8_t *encoded = malloc(meta.encodedSize);
+    CHECK_ALLOC(ptr_placeholder);
     varintFOREncode(encoded, timestamps, count, &meta);
 
     printf("Storage:\n");
@@ -128,6 +139,7 @@ void example_sequential_ids() {
     printf("  Offset width: %d byte(s)\n", meta.offsetWidth);
 
     uint8_t *encoded = malloc(meta.encodedSize);
+    CHECK_ALLOC(ptr_placeholder);
     varintFOREncode(encoded, ids, 100, &meta);
 
     printf("Storage comparison:\n");
@@ -169,6 +181,7 @@ void example_prices() {
            meta.offsetWidth == 1 ? "" : "s");
 
     uint8_t *encoded = malloc(meta.encodedSize);
+    CHECK_ALLOC(ptr_placeholder);
     varintFOREncode(encoded, prices, count, &meta);
 
     printf("Storage: %zu bytes vs %zu bytes (uint64_t)\n",
@@ -178,6 +191,7 @@ void example_prices() {
 
     // Decode and verify
     uint64_t *decoded = malloc(count * sizeof(uint64_t));
+    CHECK_ALLOC(ptr_placeholder);
     varintFORDecode(encoded, decoded, count);
 
     printf("Sample decoded prices: ");
@@ -204,6 +218,7 @@ void example_random_access() {
     varintFORAnalyze(values, count, &meta);
 
     uint8_t *encoded = malloc(meta.encodedSize);
+    CHECK_ALLOC(ptr_placeholder);
     varintFOREncode(encoded, values, count, &meta);
 
     printf("Encoded %zu values\n", count);
@@ -247,6 +262,7 @@ void example_edge_cases() {
     varintFORMeta meta1;
     varintFORAnalyze(single, 1, &meta1);
     uint8_t *enc1 = malloc(meta1.encodedSize);
+    CHECK_ALLOC(ptr_placeholder);
     varintFOREncode(enc1, single, 1, &meta1);
     assert(varintFORGetAt(enc1, 0) == 42);
     printf("  Single value (42): range=%lu, width=%d ✓\n",
@@ -312,6 +328,7 @@ void example_performance() {
     // Dataset 1: Tight cluster (1 byte offsets)
     datasets[0].count = 100;
     datasets[0].values = malloc(datasets[0].count * sizeof(uint64_t));
+    CHECK_ALLOC(ptr_placeholder);
     datasets[0].name = "Tight cluster (range 100)";
     for (size_t i = 0; i < datasets[0].count; i++) {
         datasets[0].values[i] = 1000000 + (i % 100);
@@ -320,6 +337,7 @@ void example_performance() {
     // Dataset 2: Medium cluster (2 byte offsets)
     datasets[1].count = 100;
     datasets[1].values = malloc(datasets[1].count * sizeof(uint64_t));
+    CHECK_ALLOC(ptr_placeholder);
     datasets[1].name = "Medium cluster (range 10000)";
     for (size_t i = 0; i < datasets[1].count; i++) {
         datasets[1].values[i] = 1000000 + (i * 100);
@@ -328,6 +346,7 @@ void example_performance() {
     // Dataset 3: Wide cluster (4 byte offsets)
     datasets[2].count = 100;
     datasets[2].values = malloc(datasets[2].count * sizeof(uint64_t));
+    CHECK_ALLOC(ptr_placeholder);
     datasets[2].name = "Wide cluster (range 1000000)";
     for (size_t i = 0; i < datasets[2].count; i++) {
         datasets[2].values[i] = 1000000 + (i * 10000);
@@ -336,6 +355,7 @@ void example_performance() {
     // Dataset 4: Sparse (8 byte offsets)
     datasets[3].count = 10;
     datasets[3].values = malloc(datasets[3].count * sizeof(uint64_t));
+    CHECK_ALLOC(ptr_placeholder);
     datasets[3].name = "Sparse (large range)";
     for (size_t i = 0; i < datasets[3].count; i++) {
         datasets[3].values[i] = i * 1000000000UL;
