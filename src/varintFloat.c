@@ -206,9 +206,16 @@ size_t varintFloatEncode(const double *values, size_t count,
                                                &exponents[i], &mantissas[i]);
         special_flags[i] = is_normal ? 0 : 1;
 
-        /* Truncate mantissa to desired precision */
-        if (is_normal && mant_bits < 52) {
-            mantissas[i] = truncateMantissa(mantissas[i], 52, mant_bits);
+        /* Truncate mantissa to desired precision
+         * Note: decompose returns 53-bit mantissa (52 + implicit 1) */
+        if (is_normal) {
+            if (mant_bits == 52) {
+                /* FULL precision: remove implicit 1 (bit 52) to get 52-bit field */
+                mantissas[i] &= 0xFFFFFFFFFFFFFULL;  /* Keep bits 51-0 */
+            } else {
+                /* Reduced precision: truncate from 53 bits to target */
+                mantissas[i] = truncateMantissa(mantissas[i], 53, mant_bits);
+            }
         }
     }
 
@@ -439,11 +446,19 @@ size_t varintFloatDecode(const uint8_t *input, size_t count, double *output) {
         unpackBits(p, normal_count, mant_bits, packed_mantissas);
         p += (normal_count * mant_bits + 7) / 8;
 
-        /* Expand mantissas back to full precision */
+        /* Expand mantissas back to full precision
+         * For FULL precision (52-bit): add implicit 1 back
+         * For reduced precision: expand to 53 bits (52 + implicit 1) */
         size_t mant_idx = 0;
         for (size_t i = 0; i < count; i++) {
             if (!special_flags[i]) {
-                mantissas[i] = expandMantissa(packed_mantissas[mant_idx++], mant_bits, 52);
+                if (mant_bits == 52) {
+                    /* FULL precision: add implicit 1 (bit 52) back */
+                    mantissas[i] = packed_mantissas[mant_idx++] | (1ULL << 52);
+                } else {
+                    /* Reduced precision: expand to 53 bits */
+                    mantissas[i] = expandMantissa(packed_mantissas[mant_idx++], mant_bits, 53);
+                }
             }
         }
 
