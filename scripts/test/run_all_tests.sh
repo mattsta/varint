@@ -4,9 +4,11 @@
 
 set -e
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 SANITIZER="${1:-none}"
-BUILD_DIR="build_tests"
-SRC_DIR="$(dirname $0)/src"
+BUILD_DIR="$REPO_ROOT/build_tests"
+SRC_DIR="$REPO_ROOT/src"
 
 # Sanitizer flags
 if [ "$SANITIZER" = "asan" ]; then

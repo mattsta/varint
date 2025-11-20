@@ -262,7 +262,7 @@ int varintBitmapTest(int argc, char *argv[]) {
     TEST("Iterator functionality") {
         varintBitmap *bm = varintBitmapCreate();
 
-        uint16_t values[] = {5, 15, 25, 35, 45};
+        const uint16_t values[] = {5, 15, 25, 35, 45};
         for (int i = 0; i < 5; i++) {
             varintBitmapAdd(bm, values[i]);
         }

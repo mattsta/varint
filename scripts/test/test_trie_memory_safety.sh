@@ -4,7 +4,8 @@
 set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-BUILD_DIR="$SCRIPT_DIR/build"
+REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
+BUILD_DIR="$REPO_ROOT/build"
 SERVER="$BUILD_DIR/examples/trie_server"
 CLIENT="$BUILD_DIR/examples/trie_client"
 PORT=40003
@@ -79,7 +80,7 @@ echo
 
 # Cleanup
 echo "Stopping server..."
-kill -9 $SERVER_PID 2>/dev/null || true
+$CLIENT shutdown 127.0.0.1 $PORT > /dev/null 2>&1 || kill -9 $SERVER_PID 2>/dev/null || true
 echo -e "${GREEN}✓${NC} Server stopped"
 echo
 

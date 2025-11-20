@@ -1,16 +1,4 @@
 /*
-** 2025 January 17
-**
-** The authors renounce all claim of copyright to this code and dedicate
-** this code to the public domain.  In place of legal notice, here is
-** a blessing:
-**
-**    May you do good and not evil.
-**    May you find forgiveness for yourself and forgive others.
-**    May you share freely, never taking more than you give.
-**
-*************************************************************************
-**
 ** This file contains routines for dictionary encoding of repetitive
 ** uint64_t values. Dictionary encoding is optimal for data with low
 ** cardinality but high repetition (e.g., log sources, enums, status codes).
@@ -61,8 +49,8 @@ static int compareUint64(const void *a, const void *b) {
 }
 
 /* Binary search for value in sorted dictionary */
-static int32_t binarySearch(const uint64_t *values, uint32_t size,
-                            uint64_t target) {
+static int32_t binarySearch(const uint64_t *values, const uint32_t size,
+                            const uint64_t target) {
     int32_t left = 0;
     int32_t right = (int32_t)(size - 1);
 
@@ -160,14 +148,14 @@ int varintDictBuild(varintDict *dict, const uint64_t *values, size_t count) {
     return 0;
 }
 
-int32_t varintDictFind(const varintDict *dict, uint64_t value) {
+int32_t varintDictFind(const varintDict *dict, const uint64_t value) {
     if (!dict || dict->size == 0) {
         return -1;
     }
     return binarySearch(dict->values, dict->size, value);
 }
 
-uint64_t varintDictLookup(const varintDict *dict, uint32_t index) {
+uint64_t varintDictLookup(const varintDict *dict, const uint32_t index) {
     if (!dict || index >= dict->size) {
         return 0;
     }
@@ -445,7 +433,8 @@ size_t varintDictEncodedSize(const uint64_t *values, size_t count) {
     return size;
 }
 
-size_t varintDictEncodedSizeWithDict(const varintDict *dict, size_t count) {
+size_t varintDictEncodedSizeWithDict(const varintDict *dict,
+                                     const size_t count) {
     if (!dict || count == 0) {
         return 0;
     }

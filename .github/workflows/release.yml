@@ -33,8 +33,8 @@ jobs:
 
       - name: Run ALL compiler checks (GCC + Clang)
         run: |
-          chmod +x run_all_compilers.sh
-          ./run_all_compilers.sh
+          chmod +x scripts/build/run_all_compilers.sh
+          ./scripts/build/run_all_compilers.sh
           if ! grep -q "GCC:   PASS" compiler_check_results/summary.txt || \
              ! grep -q "Clang: PASS" compiler_check_results/summary.txt; then
             echo "❌ RELEASE BLOCKED: Compiler warnings found"
@@ -44,15 +44,15 @@ jobs:
 
       - name: Run ALL unit tests
         run: |
-          chmod +x run_unit_tests.sh
-          ./run_unit_tests.sh
+          chmod +x scripts/test/run_unit_tests.sh
+          ./scripts/test/run_unit_tests.sh
           echo "✅ Unit tests completed"
 
       - name: Run ALL comprehensive examples
         timeout-minutes: 20
         run: |
-          chmod +x test_all_comprehensive.sh
-          ./test_all_comprehensive.sh 2>&1 | tee release_test_output.log
+          chmod +x scripts/test/test_all_comprehensive.sh
+          ./scripts/test/test_all_comprehensive.sh 2>&1 | tee release_test_output.log
           if ! grep -q "ALL TESTS PASSED" release_test_output.log; then
             echo "❌ RELEASE BLOCKED: Example tests failed"
             exit 1

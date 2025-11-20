@@ -86,7 +86,7 @@ int varintDeltaTest(int argc, char *argv[]) {
     }
 
     TEST("Delta array encode/decode - sorted sequence") {
-        int64_t values[] = {100, 105, 110, 115, 120};
+        const int64_t values[] = {100, 105, 110, 115, 120};
         size_t count = 5;
         uint8_t buffer[256];
 
@@ -112,7 +112,7 @@ int varintDeltaTest(int argc, char *argv[]) {
     }
 
     TEST("Delta array encode/decode - mixed positive/negative") {
-        int64_t values[] = {1000, 1005, 995, 1010, 990};
+        const int64_t values[] = {1000, 1005, 995, 1010, 990};
         size_t count = 5;
         uint8_t buffer[256];
 
@@ -159,7 +159,7 @@ int varintDeltaTest(int argc, char *argv[]) {
     }
 
     TEST("Large delta values") {
-        int64_t values[] = {0, 1000000000LL, 2000000000LL};
+        const int64_t values[] = {0, 1000000000LL, 2000000000LL};
         size_t count = 3;
         uint8_t buffer[256];
 
@@ -177,7 +177,7 @@ int varintDeltaTest(int argc, char *argv[]) {
     }
 
     TEST("Single value array") {
-        int64_t value[] = {42};
+        const int64_t value[] = {42};
         uint8_t buffer[16];
 
         size_t encoded = varintDeltaEncode(buffer, value, 1);
@@ -192,7 +192,7 @@ int varintDeltaTest(int argc, char *argv[]) {
     }
 
     TEST("Zero values") {
-        int64_t values[] = {0, 0, 0, 0};
+        const int64_t values[] = {0, 0, 0, 0};
         size_t count = 4;
         uint8_t buffer[64];
 

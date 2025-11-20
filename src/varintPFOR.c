@@ -1,16 +1,4 @@
 /*
-** 2025 January 19
-**
-** The authors renounce all claim of copyright to this code and dedicate
-** this code to the public domain.  In place of legal notice, here is
-** a blessing:
-**
-**    May you do good and not evil.
-**    May you find forgiveness for yourself and forgive others.
-**    May you share freely, never taking more than you give.
-**
-*************************************************************************
-**
 ** This file implements Patched Frame-of-Reference (PFOR) encoding for
 ** variable-length integers. PFOR is optimal for data with clustered
 ** values and few outliers (typically <5%).

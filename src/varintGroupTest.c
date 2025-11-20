@@ -31,7 +31,14 @@ int varintGroupTest(int argc, char *argv[]) {
     }
 
     TEST("Basic group encode/decode") {
-        uint64_t values[] = {10, 1000, 100000, 10000000};
+        uint64_t *values = (uint64_t *)malloc(4 * sizeof(uint64_t));
+        if (!values) {
+            ERRR("Failed to allocate memory for values");
+        }
+        values[0] = 10;
+        values[1] = 1000;
+        values[2] = 100000;
+        values[3] = 10000000;
         uint8_t fieldCount = 4;
         uint8_t buffer[256];
 
@@ -40,7 +47,11 @@ int varintGroupTest(int argc, char *argv[]) {
             ERRR("Failed to encode group");
         }
 
-        uint64_t decoded[4];
+        uint64_t *decoded = (uint64_t *)malloc(4 * sizeof(uint64_t));
+        if (!decoded) {
+            free(values);
+            ERRR("Failed to allocate memory for decoded");
+        }
         uint8_t decoded_count;
         size_t decoded_size =
             varintGroupDecode(buffer, decoded, &decoded_count, 4);
@@ -60,10 +71,13 @@ int varintGroupTest(int argc, char *argv[]) {
                     decoded[i], values[i]);
             }
         }
+
+        free(decoded);
+        free(values);
     }
 
     TEST("Single field group") {
-        uint64_t value[] = {42};
+        const uint64_t value[] = {42};
         uint8_t buffer[64];
 
         size_t encoded = varintGroupEncode(buffer, value, 1);
@@ -82,7 +96,7 @@ int varintGroupTest(int argc, char *argv[]) {
     }
 
     TEST("Random field access") {
-        uint64_t values[] = {100, 200, 300, 400, 500};
+        const uint64_t values[] = {100, 200, 300, 400, 500};
         uint8_t buffer[256];
 
         varintGroupEncode(buffer, values, 5);
@@ -103,7 +117,7 @@ int varintGroupTest(int argc, char *argv[]) {
 
     TEST("Mixed size values") {
         /* Small, medium, large values */
-        uint64_t values[] = {1, 256, 65536, 16777216};
+        const uint64_t values[] = {1, 256, 65536, 16777216};
         uint8_t buffer[256];
 
         size_t encoded = varintGroupEncode(buffer, values, 4);
@@ -121,7 +135,7 @@ int varintGroupTest(int argc, char *argv[]) {
     }
 
     TEST("All zero values") {
-        uint64_t values[8] = {0};
+        const uint64_t values[8] = {0};
         uint8_t buffer[256];
 
         size_t encoded = varintGroupEncode(buffer, values, 8);
@@ -173,7 +187,7 @@ int varintGroupTest(int argc, char *argv[]) {
     }
 
     TEST("Group size calculation") {
-        uint64_t values[] = {1, 2, 3, 4};
+        const uint64_t values[] = {1, 2, 3, 4};
         uint8_t buffer[256];
 
         size_t encoded = varintGroupEncode(buffer, values, 4);
@@ -187,8 +201,8 @@ int varintGroupTest(int argc, char *argv[]) {
 
     TEST("Round-trip encoding verification") {
         /* Verify group encoding produces correct round-trip results */
-        uint64_t values[] = {100000, 200000, 300000, 400000,
-                             500000, 600000, 700000, 800000};
+        const uint64_t values[] = {100000, 200000, 300000, 400000,
+                                   500000, 600000, 700000, 800000};
         uint8_t buffer[256];
 
         /* Encode */

@@ -12,7 +12,7 @@ int varintFloatTest(int argc, char *argv[]) {
     int32_t err = 0;
 
     TEST("FULL precision (lossless) encode/decode") {
-        double values[] = {
+        const double values[] = {
             3.14159265358979, -2.71828182845905, 1.41421356237310, 0.0, -0.0,
             123.456789012345};
         size_t count = 6;
@@ -41,7 +41,7 @@ int varintFloatTest(int argc, char *argv[]) {
     }
 
     TEST("HIGH precision encode/decode") {
-        double values[] = {100.123456, 200.987654, 300.555555};
+        const double values[] = {100.123456, 200.987654, 300.555555};
         size_t count = 3;
         uint8_t buffer[256];
 
@@ -65,7 +65,7 @@ int varintFloatTest(int argc, char *argv[]) {
     }
 
     TEST("MEDIUM precision encode/decode") {
-        double values[] = {25.5, 26.3, 24.8, 25.1};
+        const double values[] = {25.5, 26.3, 24.8, 25.1};
         size_t count = 4;
         uint8_t buffer[256];
 
@@ -90,7 +90,7 @@ int varintFloatTest(int argc, char *argv[]) {
     }
 
     TEST("LOW precision encode/decode") {
-        double values[] = {1.0, 2.0, 3.0, 4.0, 5.0};
+        const double values[] = {1.0, 2.0, 3.0, 4.0, 5.0};
         size_t count = 5;
         uint8_t buffer[256];
 
@@ -116,7 +116,7 @@ int varintFloatTest(int argc, char *argv[]) {
     }
 
     TEST("Special values: NaN, Infinity, Zero") {
-        double values[] = {NAN, INFINITY, -INFINITY, 0.0, -0.0};
+        const double values[] = {NAN, INFINITY, -INFINITY, 0.0, -0.0};
         size_t count = 5;
         uint8_t buffer[512];
 
@@ -256,7 +256,7 @@ int varintFloatTest(int argc, char *argv[]) {
 
     TEST("Automatic precision selection") {
         /* Temperature sensor data: ±0.01°C absolute accuracy needed */
-        double values[] = {25.34, 25.35, 25.36, 25.33, 25.37};
+        const double values[] = {25.34, 25.35, 25.36, 25.33, 25.37};
         double absoluteError = 0.01;
 
         /* Calculate average value to determine relative error requirement */
@@ -311,6 +311,9 @@ int varintFloatTest(int argc, char *argv[]) {
 
         uint8_t *buffer = malloc(
             varintFloatMaxEncodedSize(1000, VARINT_FLOAT_PRECISION_FULL));
+        if (!buffer) {
+            ERRR("Failed to allocate buffer");
+        }
 
         /* Compare different precision modes */
         size_t size_full =

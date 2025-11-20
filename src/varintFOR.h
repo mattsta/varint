@@ -44,10 +44,10 @@ _Static_assert(
     "This will hurt performance - keep metadata structs cache-friendly.");
 
 /* Compute optimal offset width for a range of values */
-varintWidth varintFORComputeWidth(uint64_t range);
+varintWidth varintFORComputeWidth(const uint64_t range);
 
 /* Analyze array and fill metadata structure */
-void varintFORAnalyze(const uint64_t *values, size_t count,
+void varintFORAnalyze(const uint64_t *values, const size_t count,
                       varintFORMeta *meta);
 
 /* Calculate size needed for FOR encoding */
@@ -55,15 +55,16 @@ size_t varintFORSize(const varintFORMeta *meta);
 
 /* Encode array using Frame-of-Reference
  * Returns number of bytes written to 'dst' */
-size_t varintFOREncode(uint8_t *dst, const uint64_t *values, size_t count,
+size_t varintFOREncode(uint8_t *dst, const uint64_t *values, const size_t count,
                        varintFORMeta *meta);
 
 /* Decode entire FOR-encoded array
  * Returns number of values decoded */
-size_t varintFORDecode(const uint8_t *src, uint64_t *values, size_t maxCount);
+size_t varintFORDecode(const uint8_t *src, uint64_t *values,
+                       const size_t maxCount);
 
 /* Random access: get value at specific index without full decode */
-uint64_t varintFORGetAt(const uint8_t *src, size_t index);
+uint64_t varintFORGetAt(const uint8_t *src, const size_t index);
 
 /* Extract metadata from encoded FOR data */
 void varintFORReadMetadata(const uint8_t *src, varintFORMeta *meta);

@@ -53,11 +53,11 @@ int varintDictBuild(varintDict *dict, const uint64_t *values, size_t count);
 
 /* Lookup a value's index in the dictionary.
  * Returns index or -1 if value not found (use signed return for error). */
-int32_t varintDictFind(const varintDict *dict, uint64_t value);
+int32_t varintDictFind(const varintDict *dict, const uint64_t value);
 
 /* Get value at given index in dictionary.
  * Returns value or 0 if index out of bounds. */
-uint64_t varintDictLookup(const varintDict *dict, uint32_t index);
+uint64_t varintDictLookup(const varintDict *dict, const uint32_t index);
 
 /* ====================================================================
  * Encoding and Decoding
@@ -98,7 +98,8 @@ size_t varintDictEncodedSize(const uint64_t *values, size_t count);
 
 /* Calculate size with pre-built dictionary.
  * Useful for estimating shared dictionary compression. */
-size_t varintDictEncodedSizeWithDict(const varintDict *dict, size_t count);
+size_t varintDictEncodedSizeWithDict(const varintDict *dict,
+                                     const size_t count);
 
 /* Calculate compression ratio.
  * Returns ratio > 1.0 for savings, < 1.0 for expansion.

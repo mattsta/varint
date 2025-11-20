@@ -3,6 +3,10 @@
 
 set -e
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
+cd "$REPO_ROOT"
+
 echo "=== Async Trie Server Test Suite ==="
 echo
 
@@ -38,7 +42,7 @@ echo
 
 # Cleanup
 echo "Stopping server..."
-kill $SERVER_PID 2>/dev/null || true
+./build/examples/trie_client shutdown 127.0.0.1 40000 > /dev/null 2>&1 || kill $SERVER_PID 2>/dev/null || true
 wait $SERVER_PID 2>/dev/null || true
 echo "✓ Server stopped"
 echo

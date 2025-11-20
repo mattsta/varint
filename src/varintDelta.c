@@ -4,7 +4,7 @@
 /* Encode a single delta value into buffer
  * Format: [width_byte][delta_bytes...]
  * The width byte indicates how many bytes the delta value uses */
-varintWidth varintDeltaPut(uint8_t *p, int64_t delta) {
+varintWidth varintDeltaPut(uint8_t *p, const int64_t delta) {
     /* Convert signed delta to unsigned via ZigZag */
     uint64_t zigzag = varintDeltaZigZag(delta);
 

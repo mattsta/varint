@@ -23,16 +23,16 @@ git checkout -b feature/your-feature-name
 ### 4. Run Local Tests
 ```bash
 # Compiler warning checks (GCC + Clang)
-./run_all_compilers.sh
+./scripts/build/run_all_compilers.sh
 
 # Unit tests with sanitizers
-./run_unit_tests.sh
+./scripts/test/run_unit_tests.sh
 
 # Comprehensive example testing
-./test_all_comprehensive.sh
+./scripts/test/test_all_comprehensive.sh
 
 # All tests with specific sanitizer
-./run_all_tests.sh asan    # or ubsan, both, none
+./scripts/test/run_all_tests.sh asan    # or ubsan, both, none
 ```
 
 ### 5. Ensure Quality Gates Pass
@@ -302,12 +302,10 @@ gcc -O3 -march=native -I. -o varintCompare \
 ### Primary Platforms
 - ✅ Linux (Ubuntu 20.04+, tested in CI)
 - ✅ macOS (12+, tested in CI)
-- 🔄 Windows (should work, needs CI setup)
 
 ### Compiler Support
 - ✅ GCC 10+ (tested in nightly CI)
 - ✅ Clang 11+ (tested in nightly CI)
-- 🔄 MSVC (should work, needs testing)
 
 ### Architecture Support
 - ✅ x86_64 (primary target)

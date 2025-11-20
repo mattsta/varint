@@ -32,7 +32,8 @@ typedef enum {
     CMD_STATS = 0x07,
     CMD_SAVE = 0x08,
     CMD_PING = 0x09,
-    CMD_AUTH = 0x0A
+    CMD_AUTH = 0x0A,
+    CMD_SHUTDOWN = 0x0B
 } CommandType;
 
 typedef enum {
@@ -727,6 +728,38 @@ bool cmdAuth(TrieClient *client, const char *token) {
     }
 }
 
+bool cmdShutdown(TrieClient *client) {
+    printf("Sending SHUTDOWN...\n");
+
+    if (!sendCommand(client, CMD_SHUTDOWN, NULL, 0)) {
+        fprintf(stderr, "Failed to send command\n");
+        return false;
+    }
+
+    StatusCode status;
+    uint8_t *data = (uint8_t *)malloc(MAX_RESPONSE_SIZE);
+    if (!data) {
+        return false;
+    }
+    size_t dataLen;
+
+    if (!receiveResponse(client, &status, data, &dataLen, MAX_RESPONSE_SIZE)) {
+        fprintf(stderr, "Failed to receive response\n");
+        free(data);
+        return false;
+    }
+
+    free(data);
+
+    if (status == STATUS_OK) {
+        printf("SHUTDOWN successful - server will terminate gracefully\n");
+        return true;
+    } else {
+        printf("Error: status = 0x%02X\n", status);
+        return false;
+    }
+}
+
 int main(int argc, char *argv[]) {
     if (argc < 2) {
         printf("Usage: %s <command> [args] [host] [port]\n", argv[0]);
@@ -750,6 +783,8 @@ int main(int argc, char *argv[]) {
             "  save                                   - Trigger manual save\n");
         printf("  auth <token>                           - Authenticate with "
                "token\n");
+        printf("  shutdown                               - Gracefully shutdown "
+               "server\n");
         printf("\nDefault host: 127.0.0.1\n");
         printf("Default port: 9999\n");
         printf("\nExamples:\n");
@@ -837,6 +872,8 @@ int main(int argc, char *argv[]) {
         success = cmdSave(&client);
     } else if (strcmp(command, "auth") == 0) {
         success = cmdAuth(&client, argv[2]);
+    } else if (strcmp(command, "shutdown") == 0) {
+        success = cmdShutdown(&client);
     } else {
         fprintf(stderr, "Unknown command: %s\n", command);
     }

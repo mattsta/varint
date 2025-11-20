@@ -42,7 +42,7 @@ static uint32_t randInt(void) {
     min = 0;                                                                   \
     max = 0;                                                                   \
     int _plen = printf("Testing " name "...\n");                               \
-    char *_smallname = small;                                                  \
+    const char *_smallname = small;                                            \
     char _eqs[_plen];                                                          \
     memset(_eqs, '=', (size_t)_plen);                                          \
     printf("%.*s\n", _plen, _eqs);                                             \
@@ -83,7 +83,13 @@ int32_t main(int argc, char **argv) {
     {
         SETUP("baseline overhead with no encode/decode", "baseline")
         for (i = 0; i < maxLoop; i++) {
-            GIVE_XZ;
+            uint64_t x = randInt();
+            x = (x << 32) + (uint64_t)randInt();
+            int32_t nbit = (int32_t)(randInt() % 65U);
+            if (nbit < 64) {
+                x &= (((uint64_t)1) << nbit) - 1;
+            }
+            const uint8_t z[20] = {0};
 
             /* Baseline overhead check - intentional self-comparison */
             // cppcheck-suppress duplicateExpression

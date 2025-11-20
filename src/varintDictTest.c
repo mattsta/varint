@@ -11,7 +11,7 @@ int varintDictTest(int argc, char *argv[]) {
     int32_t err = 0;
 
     TEST("Dictionary build and lookup") {
-        uint64_t values[] = {100, 200, 100, 300, 200, 100};
+        const uint64_t values[] = {100, 200, 100, 300, 200, 100};
         size_t count = 6;
 
         varintDict *dict = varintDictCreate();
@@ -40,7 +40,7 @@ int varintDictTest(int argc, char *argv[]) {
     }
 
     TEST("Basic dictionary encode/decode") {
-        uint64_t values[] = {10, 20, 10, 30, 20, 10, 30};
+        const uint64_t values[] = {10, 20, 10, 30, 20, 10, 30};
         size_t count = 7;
         uint8_t buffer[512];
 
@@ -54,6 +54,7 @@ int varintDictTest(int argc, char *argv[]) {
 
         if (decoded == NULL) {
             ERRR("Failed to decode dictionary array");
+            return err;
         }
 
         if (decoded_count != count) {
@@ -74,7 +75,7 @@ int varintDictTest(int argc, char *argv[]) {
     TEST("Highly repetitive data") {
         /* Simulate log sources: 5 unique values repeated 100 times */
         uint64_t values[100];
-        uint64_t sources[] = {100, 200, 300, 400, 500};
+        const uint64_t sources[] = {100, 200, 300, 400, 500};
         for (int i = 0; i < 100; i++) {
             values[i] = sources[i % 5];
         }
@@ -92,6 +93,11 @@ int varintDictTest(int argc, char *argv[]) {
 
         size_t count = 0;
         uint64_t *decoded = varintDictDecode(buffer, encoded, &count);
+
+        if (decoded == NULL) {
+            ERRR("Failed to decode repetitive data");
+            return err;
+        }
 
         if (count != 100) {
             ERR("Repetitive data count = %zu, expected 100", count);
@@ -120,6 +126,11 @@ int varintDictTest(int argc, char *argv[]) {
         size_t count = 0;
         uint64_t *decoded = varintDictDecode(buffer, encoded, &count);
 
+        if (decoded == NULL) {
+            ERRR("Failed to decode single unique value");
+            return err;
+        }
+
         for (int i = 0; i < 50; i++) {
             if (decoded[i] != 777) {
                 ERR("Single value[%d] = %" PRIu64 ", expected 777", i,
@@ -144,6 +155,11 @@ int varintDictTest(int argc, char *argv[]) {
         size_t count = 0;
         uint64_t *decoded = varintDictDecode(buffer, encoded, &count);
 
+        if (decoded == NULL) {
+            ERRR("Failed to decode unique values");
+            return err;
+        }
+
         for (int i = 0; i < 50; i++) {
             if (decoded[i] != values[i]) {
                 ERR("Unique values[%d] mismatch", i);
@@ -155,7 +171,7 @@ int varintDictTest(int argc, char *argv[]) {
     }
 
     TEST("Dictionary size calculation") {
-        uint64_t values[] = {1, 2, 1, 3, 2, 1};
+        const uint64_t values[] = {1, 2, 1, 3, 2, 1};
         uint8_t buffer[512];
 
         size_t calculated = varintDictEncodedSize(values, 6);
@@ -167,13 +183,18 @@ int varintDictTest(int argc, char *argv[]) {
     }
 
     TEST("Dictionary with large values") {
-        uint64_t values[] = {1000000000ULL, 2000000000ULL, 1000000000ULL,
-                             3000000000ULL, 2000000000ULL};
+        const uint64_t values[] = {1000000000ULL, 2000000000ULL, 1000000000ULL,
+                                   3000000000ULL, 2000000000ULL};
         uint8_t buffer[512];
 
         size_t encoded = varintDictEncode(buffer, values, 5);
         size_t count = 0;
         uint64_t *decoded = varintDictDecode(buffer, encoded, &count);
+
+        if (decoded == NULL) {
+            ERRR("Failed to decode large values");
+            return err;
+        }
 
         for (size_t i = 0; i < 5; i++) {
             if (decoded[i] != values[i]) {
@@ -186,7 +207,7 @@ int varintDictTest(int argc, char *argv[]) {
     }
 
     TEST("Empty dictionary build") {
-        uint64_t value[] = {42};
+        const uint64_t value[] = {42};
         varintDict *dict = varintDictCreate();
 
         varintDictBuild(dict, value, 1);
@@ -208,6 +229,11 @@ int varintDictTest(int argc, char *argv[]) {
         free(dict->values); /* Free the initial allocation from Create */
         dict->capacity = 10;
         dict->values = malloc(sizeof(uint64_t) * dict->capacity);
+        if (dict->values == NULL) {
+            ERRR("Failed to allocate dictionary values");
+            varintDictFree(dict);
+            return err;
+        }
         dict->size = 5;
         dict->values[0] = 10;
         dict->values[1] = 20;
@@ -233,7 +259,7 @@ int varintDictTest(int argc, char *argv[]) {
     }
 
     TEST("Dictionary decode into pre-allocated buffer") {
-        uint64_t values[] = {1, 2, 3, 1, 2};
+        const uint64_t values[] = {1, 2, 3, 1, 2};
         uint8_t buffer[512];
 
         size_t encoded = varintDictEncode(buffer, values, 5);

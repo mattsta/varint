@@ -27,18 +27,18 @@ jobs:
       - name: Run extended tests with ${{ matrix.sanitizer }}
         timeout-minutes: 30
         run: |
-          chmod +x run_all_tests.sh test_all_comprehensive.sh run_unit_tests.sh
+          chmod +x scripts/test/run_all_tests.sh scripts/test/test_all_comprehensive.sh scripts/test/run_unit_tests.sh
 
           echo "=== Running unit tests ==="
-          ./run_unit_tests.sh 2>&1 | tee unit_test_output.log
+          ./scripts/test/run_unit_tests.sh 2>&1 | tee unit_test_output.log
 
           echo ""
           echo "=== Running comprehensive examples ==="
-          ./test_all_comprehensive.sh 2>&1 | tee comprehensive_output.log
+          ./scripts/test/test_all_comprehensive.sh 2>&1 | tee comprehensive_output.log
 
           echo ""
           echo "=== Running all tests with ${{ matrix.sanitizer }} ==="
-          ./run_all_tests.sh ${{ matrix.sanitizer }} 2>&1 | tee all_tests_output.log
+          ./scripts/test/run_all_tests.sh ${{ matrix.sanitizer }} 2>&1 | tee all_tests_output.log
 
       - name: Check for sanitizer violations
         run: |
@@ -88,8 +88,8 @@ jobs:
           if command -v gcc-${{ matrix.gcc }} &> /dev/null; then
             export CC=gcc-${{ matrix.gcc }}
             export CXX=g++-${{ matrix.gcc }}
-            chmod +x run_all_compilers.sh
-            ./run_all_compilers.sh 2>&1 | tee gcc_${{ matrix.gcc }}_results.log
+            chmod +x scripts/build/run_all_compilers.sh
+            ./scripts/build/run_all_compilers.sh 2>&1 | tee gcc_${{ matrix.gcc }}_results.log
           fi
 
       - name: Test with Clang ${{ matrix.clang }}
@@ -98,8 +98,8 @@ jobs:
           if command -v clang-${{ matrix.clang }} &> /dev/null; then
             export CC=clang-${{ matrix.clang }}
             export CXX=clang++-${{ matrix.clang }}
-            chmod +x run_all_compilers.sh
-            ./run_all_compilers.sh 2>&1 | tee clang_${{ matrix.clang }}_results.log
+            chmod +x scripts/build/run_all_compilers.sh
+            ./scripts/build/run_all_compilers.sh 2>&1 | tee clang_${{ matrix.clang }}_results.log
           fi
 
       - name: Upload compiler matrix results
@@ -175,12 +175,12 @@ jobs:
         continue-on-error: true
         timeout-minutes: 30
         run: |
-          chmod +x run_unit_tests.sh
+          chmod +x scripts/test/run_unit_tests.sh
           # Run a subset with valgrind (full run is very slow)
           valgrind --leak-check=full --show-leak-kinds=all \
                    --track-origins=yes --verbose \
                    --log-file=valgrind_output.log \
-                   ./run_unit_tests.sh 2>&1 || true
+                   ./scripts/test/run_unit_tests.sh 2>&1 || true
 
       - name: Upload valgrind results
         if: always()

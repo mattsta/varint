@@ -31,7 +31,7 @@ int varintFORTest(int argc, char *argv[]) {
     }
 
     TEST("Basic FOR encode/decode") {
-        uint64_t values[] = {100, 105, 110, 115, 120};
+        const uint64_t values[] = {100, 105, 110, 115, 120};
         size_t count = 5;
         uint8_t buffer[256];
         varintFORMeta meta;
@@ -58,7 +58,7 @@ int varintFORTest(int argc, char *argv[]) {
     }
 
     TEST("FOR metadata analysis") {
-        uint64_t values[] = {1000, 1010, 1020, 1030};
+        const uint64_t values[] = {1000, 1010, 1020, 1030};
         size_t count = 4;
         varintFORMeta meta;
 
@@ -112,7 +112,7 @@ int varintFORTest(int argc, char *argv[]) {
     }
 
     TEST("Random access with varintFORGetAt") {
-        uint64_t values[] = {500, 510, 520, 530, 540};
+        const uint64_t values[] = {500, 510, 520, 530, 540};
         size_t count = 5;
         uint8_t buffer[256];
         varintFORMeta meta;
@@ -130,7 +130,7 @@ int varintFORTest(int argc, char *argv[]) {
     }
 
     TEST("Single value array") {
-        uint64_t value[] = {12345};
+        const uint64_t value[] = {12345};
         uint8_t buffer[64];
         varintFORMeta meta;
 
@@ -149,7 +149,7 @@ int varintFORTest(int argc, char *argv[]) {
     }
 
     TEST("Large range values") {
-        uint64_t values[] = {0, 100000000, 200000000};
+        const uint64_t values[] = {0, 100000000, 200000000};
         size_t count = 3;
         uint8_t buffer[256];
         varintFORMeta meta;

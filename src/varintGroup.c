@@ -1,17 +1,3 @@
-/*
-** 2025 January 19
-**
-** The authors renounce all claim of copyright to this code and dedicate
-** this code to the public domain.  In place of legal notice, here is
-** a blessing:
-**
-**    May you do good and not evil.
-**    May you find forgiveness for yourself and forgive others.
-**    May you share freely, never taking more than you give.
-**
-*************************************************************************
-**/
-
 #include "varintGroup.h"
 
 /*

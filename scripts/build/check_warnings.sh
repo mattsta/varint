@@ -3,8 +3,10 @@
 # Checks all source files with both GCC and Clang strict warnings
 # SHOWS ALL WARNINGS INLINE - does NOT hide anything
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 COMPILER="${1:-clang}"
-SRC_DIR="src"
+SRC_DIR="$REPO_ROOT/src"
 FAILED_FILES=()
 TOTAL=0
 PASSED=0
@@ -25,7 +27,7 @@ for file in $(find "$SRC_DIR" -name "*.c" | sort); do
     TOTAL=$((TOTAL + 1))
     printf "Checking %-40s ... " "$file"
 
-    if $COMPILER $FLAGS -I src -c "$file" -o /tmp/test.o 2>/tmp/err.log; then
+    if $COMPILER $FLAGS -I "$SRC_DIR" -c "$file" -o /tmp/test.o 2>/tmp/err.log; then
         echo "✓"
         PASSED=$((PASSED + 1))
     else

@@ -3,11 +3,10 @@
 # Tests with both GCC and Clang strict warnings
 # Shows ALL output inline - does NOT hide warnings
 
-RESULTS_DIR="compiler_check_results"
-mkdir -p "$RESULTS_DIR"
-
-# Get script directory for relative paths
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
+RESULTS_DIR="$REPO_ROOT/compiler_check_results"
+mkdir -p "$RESULTS_DIR"
 
 echo "========================================"
 echo "Varint Library Compiler Warning Check"

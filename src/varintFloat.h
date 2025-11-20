@@ -145,9 +145,10 @@ _Static_assert(sizeof(varintFloatMeta) <= 64,
  *
  * Format: [precision:1][exp_bits:1][mant_bits:1][mode:1][data...]
  * Maximum output size: varintFloatMaxEncodedSize(count, precision) */
-size_t varintFloatEncode(uint8_t *output, const double *values, size_t count,
-                         varintFloatPrecision precision,
-                         varintFloatEncodingMode mode);
+size_t varintFloatEncode(uint8_t *output, const double *values,
+                         const size_t count,
+                         const varintFloatPrecision precision,
+                         const varintFloatEncodingMode mode);
 
 /* Decode floating point array
  * input: encoded buffer
@@ -156,7 +157,8 @@ size_t varintFloatEncode(uint8_t *output, const double *values, size_t count,
  * sizeof(double)) Returns: total bytes read from input
  *
  * Note: Precision information is stored in the encoded data */
-size_t varintFloatDecode(const uint8_t *input, size_t count, double *output);
+size_t varintFloatDecode(const uint8_t *input, const size_t count,
+                         double *output);
 
 /* Encode with automatic precision selection based on data range
  * Analyzes the data and selects optimal precision mode
@@ -168,8 +170,9 @@ size_t varintFloatDecode(const uint8_t *input, size_t count, double *output);
  * selected_precision: output parameter for selected precision mode
  * Returns: total bytes written */
 size_t varintFloatEncodeAuto(uint8_t *output, const double *values,
-                             size_t count, double max_relative_error,
-                             varintFloatEncodingMode mode,
+                             const size_t count,
+                             const double max_relative_error,
+                             const varintFloatEncodingMode mode,
                              varintFloatPrecision *selected_precision);
 
 /* Calculate maximum output size needed for encoding

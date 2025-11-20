@@ -35,7 +35,7 @@
 
 #include "perf.h"
 
-int main(int argc, char *argv[]) {
+int main(int argc, const char *argv[]) {
     int32_t i;
     uint64_t j;
 

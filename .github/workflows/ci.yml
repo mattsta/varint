@@ -41,8 +41,8 @@ jobs:
 
       - name: Run complete compiler warning check
         run: |
-          chmod +x run_all_compilers.sh
-          ./run_all_compilers.sh
+          chmod +x scripts/build/run_all_compilers.sh
+          ./scripts/build/run_all_compilers.sh
           echo ""
           echo "=== Verification ==="
           if grep -q "GCC:   PASS" compiler_check_results/summary.txt && \
@@ -91,8 +91,8 @@ jobs:
 
       - name: Run unit tests with ${{ matrix.sanitizer }}
         run: |
-          chmod +x run_unit_tests.sh
-          ./run_unit_tests.sh
+          chmod +x scripts/test/run_unit_tests.sh
+          ./scripts/test/run_unit_tests.sh
 
       - name: Verify all tests passed
         run: |
@@ -131,8 +131,8 @@ jobs:
       - name: Run comprehensive example tests
         timeout-minutes: 15
         run: |
-          chmod +x test_all_comprehensive.sh
-          ./test_all_comprehensive.sh 2>&1 | tee comprehensive_test_output.log
+          chmod +x scripts/test/test_all_comprehensive.sh
+          ./scripts/test/test_all_comprehensive.sh 2>&1 | tee comprehensive_test_output.log
 
       - name: Verify all examples passed
         run: |
@@ -252,7 +252,7 @@ jobs:
 
       - name: Run tests with ${{ matrix.sanitizer }} sanitizer
         run: |
-          chmod +x run_all_tests.sh
+          chmod +x scripts/test/run_all_tests.sh
           # Map sanitizer names
           case "${{ matrix.sanitizer }}" in
             address) MODE="asan" ;;
@@ -261,7 +261,7 @@ jobs:
             memory) MODE="msan" ;;
             *) MODE="none" ;;
           esac
-          ./run_all_tests.sh $MODE 2>&1 | tee sanitizer_output.log
+          ./scripts/test/run_all_tests.sh $MODE 2>&1 | tee sanitizer_output.log
 
       - name: Check sanitizer results
         run: |
@@ -300,8 +300,8 @@ jobs:
 
       - name: Run compiler checks
         run: |
-          chmod +x run_all_compilers.sh
-          ./run_all_compilers.sh
+          chmod +x scripts/build/run_all_compilers.sh
+          ./scripts/build/run_all_compilers.sh
 
       - name: Verify results
         run: |

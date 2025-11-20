@@ -41,7 +41,7 @@ static inline int64_t varintDeltaZigZagDecode(uint64_t zigzag) {
 /* Encode a single delta value into buffer
  * Returns number of bytes written (1 + varint bytes)
  * Format: [width_byte][delta_bytes...] */
-varintWidth varintDeltaPut(uint8_t *p, int64_t delta);
+varintWidth varintDeltaPut(uint8_t *p, const int64_t delta);
 
 /* Decode a single delta value from buffer
  * Returns number of bytes read (1 + varint bytes)

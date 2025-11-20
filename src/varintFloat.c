@@ -111,45 +111,47 @@ double varintFloatCompose(uint64_t sign, int16_t exponent, uint64_t mantissa) {
 }
 
 /* Truncate mantissa to specified number of bits with rounding */
-static inline uint64_t truncateMantissa(uint64_t mantissa, uint8_t from_bits,
-                                        uint8_t to_bits) {
+static inline uint64_t truncateMantissa(const uint64_t mantissa,
+                                        const uint8_t from_bits,
+                                        const uint8_t to_bits) {
     if (to_bits >= from_bits) {
         return mantissa;
     }
 
     /* Number of bits to remove */
-    uint8_t shift = from_bits - to_bits;
+    const uint8_t shift = from_bits - to_bits;
 
     /* Round to nearest: add 0.5 in the LSB of the result */
-    uint64_t rounding = 1ULL << (shift - 1);
-    uint64_t rounded = mantissa + rounding;
+    const uint64_t rounding = 1ULL << (shift - 1);
+    const uint64_t rounded = mantissa + rounding;
 
     /* Shift down */
     return rounded >> shift;
 }
 
 /* Expand mantissa from reduced precision back to full precision */
-static inline uint64_t expandMantissa(uint64_t mantissa, uint8_t from_bits,
-                                      uint8_t to_bits) {
+static inline uint64_t expandMantissa(const uint64_t mantissa,
+                                      const uint8_t from_bits,
+                                      const uint8_t to_bits) {
     if (from_bits >= to_bits) {
         return mantissa;
     }
 
     /* Shift up */
-    uint8_t shift = to_bits - from_bits;
+    const uint8_t shift = to_bits - from_bits;
     return mantissa << shift;
 }
 
 /* Pack bits into byte array */
-static void packBits(const uint64_t *values, size_t count,
-                     uint8_t bits_per_value, uint8_t *output) {
+static void packBits(const uint64_t *values, const size_t count,
+                     const uint8_t bits_per_value, uint8_t *output) {
     size_t bit_offset = 0;
     memset(output, 0, (count * bits_per_value + 7) / 8);
 
     for (size_t i = 0; i < count; i++) {
-        uint64_t value = values[i];
-        size_t byte_offset = bit_offset / 8;
-        size_t bit_in_byte = bit_offset % 8;
+        const uint64_t value = values[i];
+        const size_t byte_offset = bit_offset / 8;
+        const size_t bit_in_byte = bit_offset % 8;
 
         /* Write value bit by bit */
         for (uint8_t bit = 0; bit < bits_per_value; bit++) {
@@ -164,19 +166,19 @@ static void packBits(const uint64_t *values, size_t count,
 }
 
 /* Unpack bits from byte array */
-static void unpackBits(const uint8_t *input, size_t count,
-                       uint8_t bits_per_value, uint64_t *output) {
+static void unpackBits(const uint8_t *input, const size_t count,
+                       const uint8_t bits_per_value, uint64_t *output) {
     size_t bit_offset = 0;
 
     for (size_t i = 0; i < count; i++) {
         uint64_t value = 0;
-        size_t byte_offset = bit_offset / 8;
-        size_t bit_in_byte = bit_offset % 8;
+        const size_t byte_offset = bit_offset / 8;
+        const size_t bit_in_byte = bit_offset % 8;
 
         /* Read value bit by bit */
         for (uint8_t bit = 0; bit < bits_per_value; bit++) {
-            size_t src_byte = byte_offset + (bit + bit_in_byte) / 8;
-            size_t src_bit = (bit + bit_in_byte) % 8;
+            const size_t src_byte = byte_offset + (bit + bit_in_byte) / 8;
+            const size_t src_bit = (bit + bit_in_byte) % 8;
             if (input[src_byte] & (1 << src_bit)) {
                 value |= (1ULL << bit);
             }
@@ -188,9 +190,10 @@ static void unpackBits(const uint8_t *input, size_t count,
 }
 
 /* Encode floating point array */
-size_t varintFloatEncode(uint8_t *output, const double *values, size_t count,
-                         varintFloatPrecision precision,
-                         varintFloatEncodingMode mode) {
+size_t varintFloatEncode(uint8_t *output, const double *values,
+                         const size_t count,
+                         const varintFloatPrecision precision,
+                         const varintFloatEncodingMode mode) {
     if (count == 0) {
         return 0;
     }
@@ -199,8 +202,8 @@ size_t varintFloatEncode(uint8_t *output, const double *values, size_t count,
 
     /* Write header */
     *p++ = (uint8_t)precision;
-    uint8_t exp_bits = varintFloatPrecisionExponentBits(precision);
-    uint8_t mant_bits = varintFloatPrecisionMantissaBits(precision);
+    const uint8_t exp_bits = varintFloatPrecisionExponentBits(precision);
+    const uint8_t mant_bits = varintFloatPrecisionMantissaBits(precision);
     *p++ = exp_bits;
     *p++ = mant_bits;
     *p++ = (uint8_t)mode;
@@ -229,8 +232,8 @@ size_t varintFloatEncode(uint8_t *output, const double *values, size_t count,
 
     /* Decompose all values */
     for (size_t i = 0; i < count; i++) {
-        bool is_normal = varintFloatDecompose(values[i], &signs[i],
-                                              &exponents[i], &mantissas[i]);
+        const bool is_normal = varintFloatDecompose(
+            values[i], &signs[i], &exponents[i], &mantissas[i]);
         special_flags[i] = is_normal ? 0 : 1;
 
         /* Truncate mantissa to desired precision
@@ -248,7 +251,7 @@ size_t varintFloatEncode(uint8_t *output, const double *values, size_t count,
     }
 
     /* Write special values bitmap */
-    size_t special_bitmap_size = (count + 7) / 8;
+    const size_t special_bitmap_size = (count + 7) / 8;
     packBits(special_flags, count, 1, p);
     p += special_bitmap_size;
 
@@ -289,7 +292,7 @@ size_t varintFloatEncode(uint8_t *output, const double *values, size_t count,
 
         /* Write base exponent (min) only if there are normal values */
         if (normal_exp_count > 0) {
-            uint64_t zigzag = varintDeltaZigZag(min_exp);
+            const uint64_t zigzag = varintDeltaZigZag(min_exp);
             varintWidth width;
             varintExternalUnsignedEncoding(zigzag, width);
             *p++ = (uint8_t)width;
@@ -299,7 +302,7 @@ size_t varintFloatEncode(uint8_t *output, const double *values, size_t count,
             /* Write exponent deltas */
             for (size_t i = 0; i < count; i++) {
                 if (!special_flags[i]) {
-                    uint8_t delta = (uint8_t)(exponents[i] - min_exp);
+                    const uint8_t delta = (uint8_t)(exponents[i] - min_exp);
                     *p++ = delta;
                 }
             }
@@ -312,7 +315,7 @@ size_t varintFloatEncode(uint8_t *output, const double *values, size_t count,
         }
 
         if (first_normal < count) {
-            uint64_t zigzag = varintDeltaZigZag(exponents[first_normal]);
+            const uint64_t zigzag = varintDeltaZigZag(exponents[first_normal]);
             varintWidth width;
             varintExternalUnsignedEncoding(zigzag, width);
             *p++ = (uint8_t)width;
@@ -323,8 +326,8 @@ size_t varintFloatEncode(uint8_t *output, const double *values, size_t count,
             int16_t prev_exp = exponents[first_normal];
             for (size_t i = first_normal + 1; i < count; i++) {
                 if (!special_flags[i]) {
-                    int16_t delta = exponents[i] - prev_exp;
-                    uint64_t delta_zigzag = varintDeltaZigZag(delta);
+                    const int16_t delta = exponents[i] - prev_exp;
+                    const uint64_t delta_zigzag = varintDeltaZigZag(delta);
                     varintWidth dwidth;
                     varintExternalUnsignedEncoding(delta_zigzag, dwidth);
                     *p++ = (uint8_t)dwidth;
@@ -344,7 +347,7 @@ size_t varintFloatEncode(uint8_t *output, const double *values, size_t count,
         }
     }
     if (normal_count > 0) {
-        size_t mantissa_bytes = (normal_count * mant_bits + 7) / 8;
+        const size_t mantissa_bytes = (normal_count * mant_bits + 7) / 8;
         packBits(mantissas, normal_count, mant_bits, p);
         p += mantissa_bytes;
     }
@@ -372,7 +375,8 @@ size_t varintFloatEncode(uint8_t *output, const double *values, size_t count,
 }
 
 /* Decode floating point array */
-size_t varintFloatDecode(const uint8_t *input, size_t count, double *output) {
+size_t varintFloatDecode(const uint8_t *input, const size_t count,
+                         double *output) {
     if (count == 0) {
         return 0;
     }
@@ -380,12 +384,12 @@ size_t varintFloatDecode(const uint8_t *input, size_t count, double *output) {
     const uint8_t *p = input;
 
     /* Read header */
-    varintFloatPrecision precision = (varintFloatPrecision)(*p++);
-    uint8_t exp_bits = *p++;
-    uint8_t mant_bits = *p++;
+    const varintFloatPrecision precision = (varintFloatPrecision)(*p++);
+    const uint8_t exp_bits = *p++;
+    const uint8_t mant_bits = *p++;
     (void)precision; /* Precision info embedded in exp/mant_bits */
     (void)exp_bits;  /* Bits info used implicitly in unpacking */
-    varintFloatEncodingMode mode = (varintFloatEncodingMode)(*p++);
+    const varintFloatEncodingMode mode = (varintFloatEncodingMode)(*p++);
 
     /* Check for integer overflow in allocation sizes */
     size_t allocSize1, allocSize2;
@@ -409,7 +413,7 @@ size_t varintFloatDecode(const uint8_t *input, size_t count, double *output) {
     }
 
     /* Read special values bitmap */
-    size_t special_bitmap_size = (count + 7) / 8;
+    const size_t special_bitmap_size = (count + 7) / 8;
     unpackBits(p, count, 1, special_flags);
     p += special_bitmap_size;
 
@@ -438,15 +442,15 @@ size_t varintFloatDecode(const uint8_t *input, size_t count, double *output) {
 
         /* Read base exponent only if there are normal values */
         if (normal_exp_count > 0) {
-            varintWidth width = (varintWidth)(*p++);
-            uint64_t zigzag = varintExternalGet(p, width);
-            int16_t base_exp = (int16_t)varintDeltaZigZagDecode(zigzag);
+            const varintWidth width = (varintWidth)(*p++);
+            const uint64_t zigzag = varintExternalGet(p, width);
+            const int16_t base_exp = (int16_t)varintDeltaZigZagDecode(zigzag);
             p += width;
 
             /* Read exponent deltas */
             for (size_t i = 0; i < count; i++) {
                 if (!special_flags[i]) {
-                    uint8_t delta = *p++;
+                    const uint8_t delta = *p++;
                     exponents[i] = base_exp + delta;
                 }
             }
@@ -460,8 +464,8 @@ size_t varintFloatDecode(const uint8_t *input, size_t count, double *output) {
 
         if (first_normal < count) {
             /* Read first exponent */
-            varintWidth width = (varintWidth)(*p++);
-            uint64_t zigzag = varintExternalGet(p, width);
+            const varintWidth width = (varintWidth)(*p++);
+            const uint64_t zigzag = varintExternalGet(p, width);
             exponents[first_normal] = (int16_t)varintDeltaZigZagDecode(zigzag);
             p += width;
 
@@ -469,11 +473,11 @@ size_t varintFloatDecode(const uint8_t *input, size_t count, double *output) {
             int16_t prev_exp = exponents[first_normal];
             for (size_t i = first_normal + 1; i < count; i++) {
                 if (!special_flags[i]) {
-                    varintWidth dwidth = (varintWidth)(*p++);
-                    uint64_t delta_zigzag = varintExternalGet(p, dwidth);
+                    const varintWidth dwidth = (varintWidth)(*p++);
+                    const uint64_t delta_zigzag = varintExternalGet(p, dwidth);
                     p += dwidth; // IMPORTANT: advance pointer after reading
                                  // value
-                    int16_t delta =
+                    const int16_t delta =
                         (int16_t)varintDeltaZigZagDecode(delta_zigzag);
                     exponents[i] = prev_exp + delta;
                     prev_exp = exponents[i];
@@ -564,8 +568,9 @@ size_t varintFloatDecode(const uint8_t *input, size_t count, double *output) {
 
 /* Encode with automatic precision selection */
 size_t varintFloatEncodeAuto(uint8_t *output, const double *values,
-                             size_t count, double max_relative_error,
-                             varintFloatEncodingMode mode,
+                             const size_t count,
+                             const double max_relative_error,
+                             const varintFloatEncodingMode mode,
                              varintFloatPrecision *selected_precision) {
     /* Select precision based on maximum allowable relative error
      * Thresholds based on mantissa bit counts with safety margins:

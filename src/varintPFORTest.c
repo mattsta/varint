@@ -11,7 +11,10 @@ int varintPFORTest(int argc, char *argv[]) {
     int32_t err = 0;
 
     TEST("Basic PFOR encode/decode with 95th percentile") {
-        uint64_t values[100];
+        uint64_t *values = (uint64_t *)malloc(100 * sizeof(uint64_t));
+        if (!values) {
+            ERRR("Failed to allocate memory for values");
+        }
         for (int i = 0; i < 95; i++) {
             values[i] = 100 + (uint64_t)i; /* Clustered 100-194 */
         }
@@ -34,7 +37,11 @@ int varintPFORTest(int argc, char *argv[]) {
             ERR("Exception count = %u, expected ~5", meta.exceptionCount);
         }
 
-        uint64_t decoded[100];
+        uint64_t *decoded = (uint64_t *)malloc(100 * sizeof(uint64_t));
+        if (!decoded) {
+            free(values);
+            ERRR("Failed to allocate memory for decoded");
+        }
         uint32_t decoded_count =
             (uint32_t)varintPFORDecode(buffer, decoded, &meta);
 
@@ -49,6 +56,9 @@ int varintPFORTest(int argc, char *argv[]) {
                 break;
             }
         }
+
+        free(decoded);
+        free(values);
     }
 
     TEST("PFOR with 90th percentile threshold") {
@@ -117,7 +127,7 @@ int varintPFORTest(int argc, char *argv[]) {
     }
 
     TEST("PFOR random access with exceptions") {
-        uint64_t values[] = {10, 20, 30, 40, 50, 10000};
+        const uint64_t values[] = {10, 20, 30, 40, 50, 10000};
         size_t count = 6;
         uint8_t buffer[512];
 
@@ -164,7 +174,7 @@ int varintPFORTest(int argc, char *argv[]) {
     }
 
     TEST("PFOR size calculation") {
-        uint64_t values[] = {100, 200, 300, 10000};
+        const uint64_t values[] = {100, 200, 300, 10000};
         uint8_t buffer[512];
 
         varintPFORMeta meta;
@@ -178,7 +188,7 @@ int varintPFORTest(int argc, char *argv[]) {
     }
 
     TEST("PFOR single value") {
-        uint64_t value[] = {12345};
+        const uint64_t value[] = {12345};
         uint8_t buffer[256];
 
         varintPFORMeta meta;
@@ -196,7 +206,7 @@ int varintPFORTest(int argc, char *argv[]) {
     }
 
     TEST("PFOR metadata reading") {
-        uint64_t values[] = {10, 20, 30, 40, 50000};
+        const uint64_t values[] = {10, 20, 30, 40, 50000};
         uint8_t buffer[512];
 
         varintPFORMeta meta_encode;

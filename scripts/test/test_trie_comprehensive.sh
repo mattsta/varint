@@ -5,7 +5,8 @@
 set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-BUILD_DIR="$SCRIPT_DIR/build"
+REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
+BUILD_DIR="$REPO_ROOT/build"
 SERVER="$BUILD_DIR/examples/trie_server"
 CLIENT="$BUILD_DIR/examples/trie_client"
 PORT=40001
@@ -85,7 +86,7 @@ echo "$OUTPUT"
 PATTERN_COUNT=$(echo "$OUTPUT" | grep "Patterns (" | sed 's/.*(\(.*\) total).*/\1/')
 if [ "$PATTERN_COUNT" != "3" ]; then
     echo -e "${RED}✗${NC} Expected 3 patterns, got $PATTERN_COUNT"
-    kill $SERVER_PID 2>/dev/null || true
+    $CLIENT shutdown 127.0.0.1 $PORT > /dev/null 2>&1 || kill $SERVER_PID 2>/dev/null || true
     exit 1
 fi
 echo -e "${GREEN}✓${NC} LIST test passed (3 patterns listed)"
@@ -100,7 +101,7 @@ echo "$OUTPUT"
 MATCH_COUNT=$(echo "$OUTPUT" | grep "Matches found:" | awk '{print $3}')
 if [ "$MATCH_COUNT" != "3" ]; then
     echo -e "${RED}✗${NC} Expected 3 matches, got $MATCH_COUNT"
-    kill $SERVER_PID 2>/dev/null || true
+    $CLIENT shutdown 127.0.0.1 $PORT > /dev/null 2>&1 || kill $SERVER_PID 2>/dev/null || true
     exit 1
 fi
 echo -e "${GREEN}✓${NC} MATCH test passed (3 subscribers matched)"
@@ -120,7 +121,7 @@ OUTPUT=$(valgrind $VALGRIND_OPTS $CLIENT match "sensors.room1.temperature" 127.0
 MATCH_COUNT=$(echo "$OUTPUT" | grep "Matches found:" | awk '{print $3}')
 if [ "$MATCH_COUNT" != "2" ]; then
     echo -e "${RED}✗${NC} Expected 2 matches after unsubscribe, got $MATCH_COUNT"
-    kill $SERVER_PID 2>/dev/null || true
+    $CLIENT shutdown 127.0.0.1 $PORT > /dev/null 2>&1 || kill $SERVER_PID 2>/dev/null || true
     exit 1
 fi
 echo -e "${GREEN}✓${NC} Unsubscribe verified (2 subscribers remain)"
@@ -146,7 +147,7 @@ echo
 # ============================================================================
 echo -e "${BLUE}=== TEST 9: Persistence (Server Restart) ===${NC}"
 echo "Stopping server..."
-kill $SERVER_PID 2>/dev/null || true
+$CLIENT shutdown 127.0.0.1 $PORT > /dev/null 2>&1 || kill $SERVER_PID 2>/dev/null || true
 wait $SERVER_PID 2>/dev/null || true
 sleep 1
 
@@ -161,7 +162,7 @@ echo "$OUTPUT"
 PATTERN_COUNT=$(echo "$OUTPUT" | grep "Patterns (" | sed 's/.*(\(.*\) total).*/\1/')
 if [ "$PATTERN_COUNT" != "3" ]; then
     echo -e "${RED}✗${NC} Expected 3 patterns after reload, got $PATTERN_COUNT"
-    kill $SERVER_PID 2>/dev/null || true
+    $CLIENT shutdown 127.0.0.1 $PORT > /dev/null 2>&1 || kill $SERVER_PID 2>/dev/null || true
     exit 1
 fi
 
@@ -170,7 +171,7 @@ OUTPUT=$(valgrind $VALGRIND_OPTS $CLIENT match "sensors.room1.temperature" 127.0
 MATCH_COUNT=$(echo "$OUTPUT" | grep "Matches found:" | awk '{print $3}')
 if [ "$MATCH_COUNT" != "2" ]; then
     echo -e "${RED}✗${NC} Expected 2 matches after reload, got $MATCH_COUNT"
-    kill $SERVER_PID 2>/dev/null || true
+    $CLIENT shutdown 127.0.0.1 $PORT > /dev/null 2>&1 || kill $SERVER_PID 2>/dev/null || true
     exit 1
 fi
 echo -e "${GREEN}✓${NC} Persistence test passed (data survived restart)"
@@ -185,7 +186,7 @@ OUTPUT=$(valgrind $VALGRIND_OPTS $CLIENT list 127.0.0.1 $PORT 2>&1 | grep -v "^D
 PATTERN_COUNT=$(echo "$OUTPUT" | grep "Patterns (" | sed 's/.*(\(.*\) total).*/\1/')
 if [ "$PATTERN_COUNT" != "2" ]; then
     echo -e "${RED}✗${NC} Expected 2 patterns after remove, got $PATTERN_COUNT"
-    kill $SERVER_PID 2>/dev/null || true
+    $CLIENT shutdown 127.0.0.1 $PORT > /dev/null 2>&1 || kill $SERVER_PID 2>/dev/null || true
     exit 1
 fi
 echo -e "${GREEN}✓${NC} REMOVE test passed"
@@ -209,7 +210,7 @@ OUTPUT=$(valgrind $VALGRIND_OPTS $CLIENT match "sensors.room2.temperature" 127.0
 MATCH_COUNT=$(echo "$OUTPUT" | grep "Matches found:" | awk '{print $3}')
 if [ "$MATCH_COUNT" != "2" ]; then
     echo -e "${RED}✗${NC} Single wildcard (*) test failed: expected 2, got $MATCH_COUNT"
-    kill $SERVER_PID 2>/dev/null || true
+    $CLIENT shutdown 127.0.0.1 $PORT > /dev/null 2>&1 || kill $SERVER_PID 2>/dev/null || true
     exit 1
 fi
 echo "  ✓ Single wildcard (*) works"
@@ -219,7 +220,7 @@ OUTPUT=$(valgrind $VALGRIND_OPTS $CLIENT match "sensors.room1.zone2.humidity" 12
 MATCH_COUNT=$(echo "$OUTPUT" | grep "Matches found:" | awk '{print $3}')
 if [ "$MATCH_COUNT" != "1" ]; then
     echo -e "${RED}✗${NC} Multi wildcard (#) test failed: expected 1, got $MATCH_COUNT"
-    kill $SERVER_PID 2>/dev/null || true
+    $CLIENT shutdown 127.0.0.1 $PORT > /dev/null 2>&1 || kill $SERVER_PID 2>/dev/null || true
     exit 1
 fi
 echo "  ✓ Multi wildcard (#) works"
@@ -231,7 +232,7 @@ echo
 # Cleanup
 # ============================================================================
 echo "Stopping server..."
-kill $SERVER_PID 2>/dev/null || true
+$CLIENT shutdown 127.0.0.1 $PORT > /dev/null 2>&1 || kill $SERVER_PID 2>/dev/null || true
 wait $SERVER_PID 2>/dev/null || true
 rm -f "$SAVE_FILE"
 echo -e "${GREEN}✓${NC} Server stopped"

@@ -206,11 +206,164 @@ See [`examples/README.md`](examples/README.md) for full catalog and learning pat
 
 ## Testing
 
-For testing and performance comparisons, run:
+### Quick Start
 
-- `./build/src/varint-compare`
-- `./build/src/varintDimensionTest`
-- `./build/src/varintPackedTest 3000`
+```bash
+# Run all unit tests via CMake
+make test
+
+# Run comprehensive test suite with sanitizers
+make test-comprehensive
+
+# Check for compiler warnings
+make check-warnings
+```
+
+### Manual Testing
+
+**Unit Tests:**
+
+```bash
+./scripts/test/run_all_tests.sh both     # All unit tests with ASan+UBSan
+./scripts/test/run_unit_tests.sh         # Quick unit test runner
+```
+
+**Example Tests:**
+
+```bash
+./scripts/test/test_all_comprehensive.sh  # All 43 examples with sanitizers
+```
+
+**Compiler Checks:**
+
+```bash
+./scripts/build/run_all_compilers.sh      # GCC + Clang warning verification
+```
+
+**Performance Benchmarks:**
+
+```bash
+./build/src/varint-compare
+./build/src/varintDimensionTest
+./build/src/varintPackedTest 3000
+```
+
+See [`scripts/README.md`](scripts/README.md) for complete testing documentation.
+
+## Repository Structure
+
+```
+varint/
+├── src/                        # Core library implementation
+│   ├── varint*.h               # Header files for all varint encodings
+│   ├── varint*.c               # Implementation files
+│   ├── varint*Test.c           # Unit tests (8 test suites)
+│   ├── varintCompare.c         # Performance benchmarking tool
+│   ├── ctest.h                 # Testing framework
+│   ├── perf.h                  # Performance measurement utilities
+│   └── CMakeLists.txt          # Source build configuration
+│
+├── examples/                   # 43 production-quality examples
+│   ├── standalone/             # 16 individual module demonstrations
+│   │   ├── example_tagged.c    # Tagged varint encoding
+│   │   ├── example_external.c  # External varint encoding
+│   │   ├── example_delta.c     # Delta encoding for sorted data
+│   │   ├── example_for.c       # Frame-of-Reference encoding
+│   │   ├── example_adaptive.c  # Adaptive encoding selection
+│   │   └── ...                 # 11 more encoding examples
+│   ├── integration/            # 9 multi-encoding system examples
+│   │   ├── database_system.c   # Database row compression
+│   │   ├── network_protocol.c  # Network packet encoding
+│   │   ├── sensor_network.c    # IoT sensor data compression
+│   │   ├── vector_clock.c      # Distributed system timestamps
+│   │   └── ...                 # 5 more integration examples
+│   ├── advanced/               # 15 production-ready real-world systems
+│   │   ├── trie_server.c       # Async autocomplete server (epoll)
+│   │   ├── trie_client.c       # Autocomplete client
+│   │   ├── bloom_filter.c      # Probabilistic membership testing
+│   │   ├── dns_server.c        # DNS caching server
+│   │   ├── search_engine.c     # Inverted index search
+│   │   └── ...                 # 10 more advanced examples
+│   ├── reference/              # 3 complete reference implementations
+│   │   ├── kv_store.c          # Key-value store
+│   │   ├── timeseries_db.c     # Time-series database
+│   │   └── graph_db.c          # Graph database
+│   ├── README.md               # Complete example catalog
+│   └── CMakeLists.txt          # Example build configuration
+│
+├── scripts/                    # Automation and testing scripts
+│   ├── build/                  # Build and compiler verification
+│   │   ├── run_all_compilers.sh    # GCC + Clang warning checks
+│   │   └── check_warnings.sh       # Single compiler checker
+│   ├── test/                   # Test execution scripts
+│   │   ├── run_all_tests.sh            # Unit tests with sanitizers
+│   │   ├── run_unit_tests.sh           # Quick unit test runner
+│   │   ├── test_all_comprehensive.sh   # All 43 examples with ASan+UBSan
+│   │   ├── test_all_examples_sanitizers.sh  # CMake-based example testing
+│   │   ├── test_trie_comprehensive.sh  # Full trie system validation
+│   │   ├── test_trie_fast.sh           # Quick trie tests
+│   │   ├── test_trie_memory_safety.sh  # Valgrind memory analysis
+│   │   ├── test_trie_sanitizers.sh     # Trie with ASan+UBSan
+│   │   └── test_trie_server.sh         # Basic trie functionality
+│   └── README.md               # Complete script documentation
+│
+├── docs/                             # Comprehensive documentation
+│   ├── ARCHITECTURE.md               # System architecture and design
+│   ├── CHOOSING_VARINTS.md           # Decision guide for encoding selection
+│   ├── ENCODING_ANALYSIS.md          # Deep-dive encoding analysis
+│   ├── QUICK_REFERENCE.md            # API quick reference
+│   ├── BUILD_AND_TEST.md             # Build system and testing guide
+│   ├── modules/                      # Per-module detailed documentation
+│   │   ├── varintTagged.md           # Tagged encoding guide
+│   │   ├── varintExternal.md         # External encoding guide
+│   │   ├── varintSplit.md            # Split encoding guide
+│   │   ├── varintChained.md          # Chained encoding guide
+│   │   ├── varintPacked.md           # Packed arrays guide
+│   │   ├── varintDimension.md        # Matrix encoding guide
+│   │   └── varintBitstream.md        # Bitstream operations guide
+│   └── struct-optimization-guide.md  # Memory layout optimization
+│
+├── tools/                      # Development and analysis tools
+│   ├── struct_analyzer.c       # Struct layout analyzer
+│   ├── struct_audit.c          # Struct padding audit tool
+│   ├── struct_pahole_analyzer.sh  # pahole-based analysis
+│   ├── struct_size_check.c     # Size verification tool
+│   └── README.md               # Tool documentation
+│
+├── util/                       # Utility scripts
+│   └── dimensionPairMap.py     # Dimension mapping generator
+│
+├── .github/                    # GitHub configuration
+│   ├── workflows/              # CI/CD pipelines
+│   │   ├── ci.yml              # Continuous integration
+│   │   ├── release.yml         # Release verification
+│   │   └── nightly.yml         # Nightly comprehensive testing
+│   ├── CONTRIBUTING.md         # Contribution guidelines
+│   └── CI_CD_DOCUMENTATION.md  # CI/CD documentation
+│
+├── CMakeLists.txt              # Root build configuration
+├── README.md                   # This file
+├── LICENSE                     # MIT/Public Domain dual-license
+└── .gitignore                  # Git ignore patterns
+```
+
+### Directory Purpose
+
+- **`src/`** - Core varint library with 15 encoding types, unit tests, and benchmarking
+- **`examples/`** - 43 complete, production-quality examples demonstrating real-world usage
+- **`scripts/`** - Build automation, testing, and quality assurance scripts
+- **`docs/`** - Comprehensive documentation including architecture, guides, and module references
+- **`tools/`** - Development tools for struct analysis and optimization
+- **`.github/`** - CI/CD workflows and contribution guidelines
+
+### Key Features
+
+- **Zero dependencies** - Pure C11 implementation
+- **Extensively tested** - 8 unit test suites + 43 example programs with sanitizers
+- **Production-ready** - All examples include benchmarks and memory safety validation
+- **Well-documented** - 2,900+ lines of documentation across architecture, guides, and API references
+- **Cross-platform** - Tested on Linux (Ubuntu) and macOS with GCC and Clang
+- **Quality-assured** - Strict compiler warnings, ASan, UBSan, and Valgrind validation
 
 ## License
 

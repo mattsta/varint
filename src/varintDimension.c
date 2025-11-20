@@ -39,7 +39,8 @@ void varintDimensionPackedDecode(size_t *rows, size_t *cols,
 /* ====================================================================
  * Dimension Pairing (row, col) = [X][Y] as individual external varints
  * ==================================================================== */
-varintDimensionPair varintDimensionPairDimension(size_t rows, size_t cols) {
+varintDimensionPair varintDimensionPairDimension(const size_t rows,
+                                                 const size_t cols) {
     varintWidth widthRows = 0;
     /* It's okay if we make a "zero row" matrix; we just treat
      * it as a vector of length 'cols' */
@@ -58,13 +59,14 @@ varintDimensionPair varintDimensionPairDimension(size_t rows, size_t cols) {
     return VARINT_DIMENSION_PAIR_PAIR(widthRows, widthCols, false);
 }
 
-varintDimensionPair varintDimensionPairEncode(void *_dst, size_t row,
-                                              size_t col) {
+varintDimensionPair varintDimensionPairEncode(void *_dst, const size_t row,
+                                              const size_t col) {
     uint8_t *dst = (uint8_t *)_dst;
 
     varintWidth widthRows;
     varintWidth widthCols;
-    varintDimensionPair dimension = varintDimensionPairDimension(row, col);
+    const varintDimensionPair dimension =
+        varintDimensionPairDimension(row, col);
     VARINT_DIMENSION_PAIR_DEPAIR(widthRows, widthCols, dimension);
 
     /* Handle zero-row case (vectors): don't encode row count if width is 0 */
@@ -207,9 +209,9 @@ void varintDimensionPairEntrySetFloatHalfIntrinsic(
 }
 
 float varintDimensionPairEntryGetFloatHalfIntrinsic(
-    void *_dst, const size_t row, const size_t col,
+    const void *_dst, const size_t row, const size_t col,
     const varintDimensionPair dimension) {
-    uint8_t *dst = (uint8_t *)_dst;
+    const uint8_t *dst = (const uint8_t *)_dst;
 
     const size_t entryOffset =
         getEntryByteOffset(dst, row, col, sizeof(float), dimension);
@@ -234,7 +236,7 @@ void varintDimensionPairEntrySetDouble(void *_dst, const size_t row,
     memcpy(dst + entryOffset, &entryValue, sizeof(double));
 }
 
-void varintDimensionPairEntrySetBit(const void *_dst, const size_t row,
+void varintDimensionPairEntrySetBit(void *_dst, const size_t row,
                                     const size_t col, const bool setBit,
                                     const varintDimensionPair dimension) {
     uint8_t *dst = (uint8_t *)_dst;
@@ -245,7 +247,7 @@ void varintDimensionPairEntrySetBit(const void *_dst, const size_t row,
     dst[offsetByte] |= setBit << offsetBit;
 }
 
-bool varintDimensionPairEntryToggleBit(const void *_dst, const size_t row,
+bool varintDimensionPairEntryToggleBit(void *_dst, const size_t row,
                                        const size_t col,
                                        const varintDimensionPair dimension) {
     uint8_t *dst = (uint8_t *)_dst;
@@ -253,7 +255,7 @@ bool varintDimensionPairEntryToggleBit(const void *_dst, const size_t row,
     uint8_t offsetBit;
     _bitOffsets(dst, row, col, dimension, offsetByte, offsetBit);
 
-    bool oldValue = ((dst[offsetByte] >> offsetBit) & 0x01);
+    const bool oldValue = ((dst[offsetByte] >> offsetBit) & 0x01);
     dst[offsetByte] ^= 1 << offsetBit;
     return oldValue;
 }
@@ -362,13 +364,14 @@ int varintDimensionTest(int argc, char *argv[]) {
     }
 
     TEST("64x64 (4k) boolean matrix: set and get every entry position") {
-        varintDimensionPair widthSizes = varintDimensionPairDimension(64, 64);
+        const varintDimensionPair widthSizes =
+            varintDimensionPairDimension(64, 64);
         if (VARINT_DIMENSION_PAIR_BYTE_LENGTH(widthSizes) != 2) {
             ERRR("Didn't get correct length storage byte width!");
         }
 
         uint8_t totalMatrix[2 + (64 * 64)] = {0};
-        varintDimensionPair mat =
+        const varintDimensionPair mat =
             varintDimensionPairEncode(totalMatrix, 64, 64);
 
         for (int row = 0; row < 64; row++) {
@@ -398,14 +401,17 @@ int varintDimensionTest(int argc, char *argv[]) {
     /* TODO: loop these sizes / creations */
     TEST("6400x6400 (40 million) boolean matrix: set and get every entry "
          "position") {
-        varintDimensionPair widthSizes =
+        const varintDimensionPair widthSizes =
             varintDimensionPairDimension(6400, 6400);
         if (VARINT_DIMENSION_PAIR_BYTE_LENGTH(widthSizes) != 4) {
             ERRR("Didn't get correct length storage byte width!");
         }
 
         uint8_t *totalMatrix = calloc(1, 4 + (6400 * 6400));
-        varintDimensionPair mat =
+        if (!totalMatrix) {
+            ERRR("Failed to allocate memory for totalMatrix!");
+        }
+        const varintDimensionPair mat =
             varintDimensionPairEncode(totalMatrix, 6400, 6400);
 
         for (int row = 0; row < 6400; row++) {
@@ -435,13 +441,17 @@ int varintDimensionTest(int argc, char *argv[]) {
     }
 
     TEST("64x64 uint8_t matrix: set and get every entry position") {
-        varintDimensionPair widthSizes = varintDimensionPairDimension(64, 64);
+        const varintDimensionPair widthSizes =
+            varintDimensionPairDimension(64, 64);
         if (VARINT_DIMENSION_PAIR_BYTE_LENGTH(widthSizes) != 2) {
             ERRR("Didn't get correct length storage byte width!");
         }
 
         uint8_t *totalMatrix = calloc(1, 2 + ((64 * 64) * sizeof(uint8_t)));
-        varintDimensionPair mat =
+        if (!totalMatrix) {
+            ERRR("Failed to allocate memory for totalMatrix!");
+        }
+        const varintDimensionPair mat =
             varintDimensionPairEncode(totalMatrix, 64, 64);
 
         for (int row = 0; row < 64; row++) {
@@ -462,13 +472,17 @@ int varintDimensionTest(int argc, char *argv[]) {
     }
 
     TEST("64x64 int8_t matrix: set and get every entry position") {
-        varintDimensionPair widthSizes = varintDimensionPairDimension(64, 64);
+        const varintDimensionPair widthSizes =
+            varintDimensionPairDimension(64, 64);
         if (VARINT_DIMENSION_PAIR_BYTE_LENGTH(widthSizes) != 2) {
             ERRR("Didn't get correct length storage byte width!");
         }
 
         uint8_t *totalMatrix = calloc(1, 2 + ((64 * 64) * sizeof(uint8_t)));
-        varintDimensionPair mat =
+        if (!totalMatrix) {
+            ERRR("Failed to allocate memory for totalMatrix!");
+        }
+        const varintDimensionPair mat =
             varintDimensionPairEncode(totalMatrix, 64, 64);
 
         for (int row = 0; row < 64; row++) {
@@ -489,14 +503,18 @@ int varintDimensionTest(int argc, char *argv[]) {
     }
 
     TEST("64x64 uint24_t matrix: set and get every entry position") {
-        varintDimensionPair widthSizes = varintDimensionPairDimension(64, 64);
+        const varintDimensionPair widthSizes =
+            varintDimensionPairDimension(64, 64);
         if (VARINT_DIMENSION_PAIR_BYTE_LENGTH(widthSizes) != 2) {
             ERRR("Didn't get correct length storage byte width!");
         }
 
         uint8_t *totalMatrix =
             calloc(1, 2 + ((64 * 64) * (3 * sizeof(uint8_t))));
-        varintDimensionPair mat =
+        if (!totalMatrix) {
+            ERRR("Failed to allocate memory for totalMatrix!");
+        }
+        const varintDimensionPair mat =
             varintDimensionPairEncode(totalMatrix, 64, 64);
 
         for (int row = 0; row < 64; row++) {
@@ -517,14 +535,18 @@ int varintDimensionTest(int argc, char *argv[]) {
     }
 
     TEST("64x64 int24_t matrix: set and get every entry position") {
-        varintDimensionPair widthSizes = varintDimensionPairDimension(64, 64);
+        const varintDimensionPair widthSizes =
+            varintDimensionPairDimension(64, 64);
         if (VARINT_DIMENSION_PAIR_BYTE_LENGTH(widthSizes) != 2) {
             ERRR("Didn't get correct length storage byte width!");
         }
 
         uint8_t *totalMatrix =
             calloc(1, 2 + ((64 * 64) * (3 * sizeof(uint8_t))));
-        varintDimensionPair mat =
+        if (!totalMatrix) {
+            ERRR("Failed to allocate memory for totalMatrix!");
+        }
+        const varintDimensionPair mat =
             varintDimensionPairEncode(totalMatrix, 64, 64);
 
         for (int row = 0; row < 64; row++) {

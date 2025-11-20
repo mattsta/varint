@@ -46,9 +46,14 @@ varint/
 │   ├── standalone/             # Standalone example programs
 │   ├── integration/            # Integration examples
 │   └── advanced/               # Advanced use cases
-├── test_all_comprehensive.sh   # Comprehensive test runner script
-├── run_all_compilers.sh        # Multi-compiler warning checker
-└── check_warnings.sh           # Single-compiler warning checker
+├── scripts/
+│   ├── test/                   # Test execution scripts
+│   │   ├── test_all_comprehensive.sh       # Comprehensive test runner
+│   │   ├── run_all_tests.sh                # Unit tests with sanitizers
+│   │   └── run_unit_tests.sh               # Quick unit test runner
+│   └── build/                  # Build and compiler checking scripts
+│       ├── run_all_compilers.sh            # Multi-compiler checker
+│       └── check_warnings.sh               # Single-compiler checker
 ```
 
 ## Testing Levels

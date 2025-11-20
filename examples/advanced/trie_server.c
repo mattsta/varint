@@ -280,7 +280,8 @@ typedef enum {
     CMD_STATS = 0x07,
     CMD_SAVE = 0x08,
     CMD_PING = 0x09,
-    CMD_AUTH = 0x0A
+    CMD_AUTH = 0x0A,
+    CMD_SHUTDOWN = 0x0B
 } CommandType;
 
 typedef enum {
@@ -2161,6 +2162,35 @@ bool processCommand(TrieServer *server, ClientConnection *client,
         } else {
             sendResponse(server->eventFd, client, STATUS_ERROR, NULL, 0);
         }
+        break;
+    }
+
+    case CMD_SHUTDOWN: {
+        // SHUTDOWN - gracefully shutdown the server
+        // Send OK response first, then initiate shutdown
+        sendResponse(server->eventFd, client, STATUS_OK, NULL, 0);
+
+        // Force synchronous flush of response by writing immediately
+        while (client->writeOffset < client->writeLength) {
+            ssize_t n =
+                write(client->fd, client->writeBuffer + client->writeOffset,
+                      client->writeLength - client->writeOffset);
+            if (n > 0) {
+                client->writeOffset += n;
+            } else if (n < 0 && errno != EAGAIN && errno != EWOULDBLOCK) {
+                break; // Write error, but continue shutdown anyway
+            }
+        }
+
+        // Save trie if auto-save is enabled
+        if (server->saveFilePath) {
+            printf("Saving trie before shutdown...\n");
+            trieSave(&server->trie, server->saveFilePath);
+        }
+
+        // Trigger graceful shutdown
+        printf("Server shutdown requested by client\n");
+        server->running = false;
         break;
     }
 

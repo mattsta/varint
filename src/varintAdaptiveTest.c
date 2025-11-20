@@ -48,7 +48,7 @@ int varintAdaptiveTest(int argc, char *argv[]) {
     TEST("Encoding selection for status codes (high repetition)") {
         /* Highly repetitive data with few unique values - should choose DICT */
         uint64_t values[200];
-        uint64_t codes[] = {200, 404, 500, 304, 403};
+        const uint64_t codes[] = {200, 404, 500, 304, 403};
         for (int i = 0; i < 200; i++) {
             values[i] = codes[i % 5];
         }
@@ -169,7 +169,7 @@ int varintAdaptiveTest(int argc, char *argv[]) {
     }
 
     TEST("Single value array") {
-        uint64_t value[] = {12345};
+        const uint64_t value[] = {12345};
         uint8_t buffer[256];
 
         varintAdaptiveMeta meta;
@@ -219,7 +219,7 @@ int varintAdaptiveTest(int argc, char *argv[]) {
     }
 
     TEST("Data statistics analysis") {
-        uint64_t values[] = {10, 20, 10, 30, 20, 10};
+        const uint64_t values[] = {10, 20, 10, 30, 20, 10};
         varintAdaptiveDataStats stats;
 
         varintAdaptiveAnalyze(values, 6, &stats);
@@ -248,7 +248,7 @@ int varintAdaptiveTest(int argc, char *argv[]) {
 
     TEST("Encoding selection API") {
         /* Test that we can force specific encodings */
-        uint64_t values[] = {1, 2, 3, 4, 5};
+        const uint64_t values[] = {1, 2, 3, 4, 5};
         uint8_t buffer[256];
 
         /* Force DELTA encoding */
@@ -275,6 +275,9 @@ int varintAdaptiveTest(int argc, char *argv[]) {
     TEST("Large dataset compression") {
         /* 1000 timestamps with realistic deltas */
         uint64_t *values = malloc(1000 * sizeof(uint64_t));
+        if (values == NULL) {
+            ERRR("Failed to allocate memory for values");
+        }
         uint64_t base = 1700000000000ULL;
 
         for (int i = 0; i < 1000; i++) {
@@ -284,6 +287,10 @@ int varintAdaptiveTest(int argc, char *argv[]) {
         }
 
         uint8_t *buffer = malloc(16384);
+        if (buffer == NULL) {
+            free(values);
+            ERRR("Failed to allocate memory for buffer");
+        }
         varintAdaptiveMeta meta;
         size_t encoded = varintAdaptiveEncode(buffer, values, 1000, &meta);
 
@@ -300,6 +307,11 @@ int varintAdaptiveTest(int argc, char *argv[]) {
 
         /* Verify correctness */
         uint64_t *decoded = malloc(1000 * sizeof(uint64_t));
+        if (decoded == NULL) {
+            free(values);
+            free(buffer);
+            ERRR("Failed to allocate memory for decoded");
+        }
         varintAdaptiveDecode(buffer, decoded, 1000, NULL);
 
         for (int i = 0; i < 1000; i++) {
@@ -316,7 +328,7 @@ int varintAdaptiveTest(int argc, char *argv[]) {
     }
 
     TEST("Metadata reading") {
-        uint64_t values[] = {100, 200, 300};
+        const uint64_t values[] = {100, 200, 300};
         uint8_t buffer[256];
 
         varintAdaptiveMeta meta_encode;

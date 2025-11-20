@@ -3,14 +3,14 @@
 #include <string.h>
 
 /* Compute optimal offset width for a given range */
-varintWidth varintFORComputeWidth(uint64_t range) {
+varintWidth varintFORComputeWidth(const uint64_t range) {
     varintWidth width;
     varintExternalUnsignedEncoding(range, width);
     return width;
 }
 
 /* Analyze array to find min, max, range, and optimal width */
-void varintFORAnalyze(const uint64_t *values, size_t count,
+void varintFORAnalyze(const uint64_t *values, const size_t count,
                       varintFORMeta *meta) {
     assert(count > 0);
     assert(values != NULL);
@@ -54,7 +54,7 @@ size_t varintFORSize(const varintFORMeta *meta) {
 }
 
 /* Encode array using Frame-of-Reference */
-size_t varintFOREncode(uint8_t *dst, const uint64_t *values, size_t count,
+size_t varintFOREncode(uint8_t *dst, const uint64_t *values, const size_t count,
                        varintFORMeta *meta) {
     assert(dst != NULL);
     assert(values != NULL);
@@ -129,7 +129,8 @@ void varintFORReadMetadata(const uint8_t *src, varintFORMeta *meta) {
 }
 
 /* Decode entire FOR-encoded array */
-size_t varintFORDecode(const uint8_t *src, uint64_t *values, size_t maxCount) {
+size_t varintFORDecode(const uint8_t *src, uint64_t *values,
+                       const size_t maxCount) {
     assert(src != NULL);
     assert(values != NULL);
 
@@ -159,7 +160,7 @@ size_t varintFORDecode(const uint8_t *src, uint64_t *values, size_t maxCount) {
 }
 
 /* Random access to specific index */
-uint64_t varintFORGetAt(const uint8_t *src, size_t index) {
+uint64_t varintFORGetAt(const uint8_t *src, const size_t index) {
     assert(src != NULL);
 
     varintFORMeta meta;

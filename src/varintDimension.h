@@ -223,9 +223,10 @@ void varintDimensionUnpack(size_t *rows, size_t *cols, const uint64_t packed,
                             << VARINT_DIMENSION_PACKED_TO_BITS(dimension)));   \
     } while (0)
 
-varintDimensionPair varintDimensionPairEncode(void *dst, size_t row,
-                                              size_t col);
-varintDimensionPair varintDimensionPairDimension(size_t row, size_t col);
+varintDimensionPair varintDimensionPairEncode(void *dst, const size_t row,
+                                              const size_t col);
+varintDimensionPair varintDimensionPairDimension(const size_t row,
+                                                 const size_t col);
 
 #define VARINT_DIMENSION_PAIR_BYTE_LENGTH(dim)                                 \
     (VARINT_DIMENSION_PAIR_WIDTH_ROW_COUNT(dim) +                              \
@@ -263,11 +264,11 @@ void varintDimensionPairEntrySetDouble(void *_dst, const size_t row,
 bool varintDimensionPairEntryGetBit(const void *_src, const size_t row,
                                     const size_t col,
                                     const varintDimensionPair dimension);
-void varintDimensionPairEntrySetBit(const void *_dst, const size_t row,
+void varintDimensionPairEntrySetBit(void *_dst, const size_t row,
                                     const size_t col, const bool setBit,
                                     const varintDimensionPair dimension);
 /* Returns previous value of bit */
-bool varintDimensionPairEntryToggleBit(const void *_dst, const size_t row,
+bool varintDimensionPairEntryToggleBit(void *_dst, const size_t row,
                                        const size_t col,
                                        const varintDimensionPair dimension);
 

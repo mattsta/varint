@@ -5,9 +5,16 @@
 set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-cd "$SCRIPT_DIR"
+REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
+cd "$REPO_ROOT"
 
-CFLAGS="-I$SCRIPT_DIR/src -fsanitize=address,undefined -fno-omit-frame-pointer -g -O1"
+# Platform-specific sanitizer options
+if [[ "$OSTYPE" == "darwin"* ]]; then
+    # macOS: Disable leak detection (not supported)
+    export ASAN_OPTIONS=detect_leaks=0
+fi
+
+CFLAGS="-I$REPO_ROOT/src -fsanitize=address,undefined -fno-omit-frame-pointer -g -O1"
 PASSED=0
 FAILED=0
 SKIPPED=0
@@ -156,8 +163,8 @@ if [ -n "$TRIE_SERVER_PID" ]; then
         FAILED_TESTS+=("trie_client (compile)")
     fi
 
-    # Kill server
-    kill $TRIE_SERVER_PID 2>/dev/null || true
+    # Graceful shutdown via SHUTDOWN command
+    /tmp/trie_client_test shutdown 127.0.0.1 9999 > /dev/null 2>&1 || kill $TRIE_SERVER_PID 2>/dev/null || true
     wait $TRIE_SERVER_PID 2>/dev/null || true
 fi
 
