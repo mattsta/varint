@@ -49,14 +49,148 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <sys/epoll.h>
 #include <sys/socket.h>
 #include <time.h>
 #include <unistd.h>
 
+/* Platform-specific event loop implementation */
+#if defined(__linux__)
+#include <sys/epoll.h>
+#define USE_EPOLL 1
+#elif defined(__APPLE__) || defined(__FreeBSD__) || defined(__NetBSD__) ||     \
+    defined(__OpenBSD__)
+#include <sys/event.h>
+#define USE_KQUEUE 1
+#else
+#error "Unsupported platform: need epoll (Linux) or kqueue (BSD/macOS) support"
+#endif
+
 #include "../../src/varint.h"
 #include "../../src/varintBitstream.h"
 #include "../../src/varintTagged.h"
+
+// ============================================================================
+// PLATFORM ABSTRACTION LAYER (epoll/kqueue)
+// ============================================================================
+
+#ifdef USE_EPOLL
+/* Linux: use epoll directly */
+typedef struct epoll_event event_t;
+#define EVENT_SIZE sizeof(struct epoll_event)
+
+static inline int event_queue_create(void) {
+    return epoll_create1(0);
+}
+
+static inline int event_queue_add(int eq, int fd, uint32_t events, void *data) {
+    struct epoll_event ev;
+    ev.events = events;
+    ev.data.ptr = data;
+    return epoll_ctl(eq, EPOLL_CTL_ADD, fd, &ev);
+}
+
+static inline int event_queue_mod(int eq, int fd, uint32_t events, void *data) {
+    struct epoll_event ev;
+    ev.events = events;
+    ev.data.ptr = data;
+    return epoll_ctl(eq, EPOLL_CTL_MOD, fd, &ev);
+}
+
+static inline int event_queue_del(int eq, int fd) {
+    return epoll_ctl(eq, EPOLL_CTL_DEL, fd, NULL);
+}
+
+static inline int event_queue_wait(int eq, event_t *events, int maxevents,
+                                   int timeout) {
+    return epoll_wait(eq, events, maxevents, timeout);
+}
+
+static inline void *event_get_data(event_t *ev) {
+    return ev->data.ptr;
+}
+
+static inline uint32_t event_get_events(event_t *ev) {
+    return ev->events;
+}
+
+#define EVENT_READ EPOLLIN
+#define EVENT_WRITE EPOLLOUT
+#define EVENT_ET EPOLLET
+
+#elif defined(USE_KQUEUE)
+/* macOS/BSD: use kqueue with compatibility layer */
+typedef struct kevent event_t;
+#define EVENT_SIZE sizeof(struct kevent)
+
+/* Event flags - define before using in functions */
+#define EVENT_READ 0x001
+#define EVENT_WRITE 0x004
+#define EVENT_ET 0 /* kqueue is always edge-triggered */
+
+/* Compatibility defines for epoll constants used in code */
+#define EPOLLIN EVENT_READ
+#define EPOLLOUT EVENT_WRITE
+#define EPOLLET EVENT_ET
+#define epoll_event kevent
+
+static inline int event_queue_create(void) {
+    return kqueue();
+}
+
+static inline int event_queue_add(int kq, int fd, uint32_t events, void *data) {
+    struct kevent ev[2];
+    int n = 0;
+    if (events & EVENT_READ) {
+        EV_SET(&ev[n++], fd, EVFILT_READ, EV_ADD | EV_CLEAR, 0, 0, data);
+    }
+    if (events & EVENT_WRITE) {
+        EV_SET(&ev[n++], fd, EVFILT_WRITE, EV_ADD | EV_CLEAR, 0, 0, data);
+    }
+    return kevent(kq, ev, n, NULL, 0, NULL);
+}
+
+static inline int event_queue_mod(int kq, int fd, uint32_t events, void *data) {
+    /* For kqueue, mod is the same as add - it updates existing events */
+    return event_queue_add(kq, fd, events, data);
+}
+
+static inline int event_queue_del(int kq, int fd) {
+    struct kevent ev[2];
+    EV_SET(&ev[0], fd, EVFILT_READ, EV_DELETE, 0, 0, NULL);
+    EV_SET(&ev[1], fd, EVFILT_WRITE, EV_DELETE, 0, 0, NULL);
+    /* Ignore errors as the filters might not be registered */
+    kevent(kq, ev, 2, NULL, 0, NULL);
+    return 0;
+}
+
+static inline int event_queue_wait(int kq, event_t *events, int maxevents,
+                                   int timeout) {
+    struct timespec ts;
+    struct timespec *tsp = NULL;
+    if (timeout >= 0) {
+        ts.tv_sec = timeout / 1000;
+        ts.tv_nsec = (timeout % 1000) * 1000000;
+        tsp = &ts;
+    }
+    return kevent(kq, NULL, 0, events, maxevents, tsp);
+}
+
+static inline void *event_get_data(event_t *ev) {
+    return ev->udata;
+}
+
+static inline uint32_t event_get_events(event_t *ev) {
+    uint32_t events = 0;
+    if (ev->filter == EVFILT_READ) {
+        events |= EVENT_READ;
+    }
+    if (ev->filter == EVFILT_WRITE) {
+        events |= EVENT_WRITE;
+    }
+    return events;
+}
+
+#endif
 
 // ============================================================================
 // CONFIGURATION
@@ -196,7 +330,7 @@ typedef struct {
 
 typedef struct {
     int listenFd;
-    int epollFd;
+    int eventFd; /* epoll fd on Linux, kqueue fd on macOS/BSD */
     PatternTrie trie;
     ClientConnection clients[MAX_CLIENTS];
     bool running;
@@ -249,7 +383,7 @@ void serverShutdown(TrieServer *server);
 void handleClient(TrieServer *server, ClientConnection *client);
 bool processCommand(TrieServer *server, ClientConnection *client,
                     const uint8_t *data, size_t length);
-void sendResponse(int epollFd, ClientConnection *client, StatusCode status,
+void sendResponse(int eventFd, ClientConnection *client, StatusCode status,
                   const uint8_t *data, size_t dataLen);
 
 // ============================================================================
@@ -278,11 +412,11 @@ static bool checkRateLimit(ClientConnection *client) {
     return true;
 }
 
-static void resetClient(int epollFd, ClientConnection *client) {
+static void resetClient(int eventFd, ClientConnection *client) {
     if (client->fd >= 0) {
-        // Remove from epoll before closing
-        if (epollFd >= 0) {
-            epoll_ctl(epollFd, EPOLL_CTL_DEL, client->fd, NULL);
+        // Remove from event queue before closing
+        if (eventFd >= 0) {
+            event_queue_del(eventFd, client->fd);
         }
         close(client->fd);
     }
@@ -1281,10 +1415,10 @@ bool serverInit(TrieServer *server, uint16_t port, const char *authToken,
 
     setNonBlocking(server->listenFd);
 
-    // Create epoll instance
-    server->epollFd = epoll_create1(0);
-    if (server->epollFd < 0) {
-        perror("epoll_create1");
+    // Create event queue (epoll on Linux, kqueue on BSD/macOS)
+    server->eventFd = event_queue_create();
+    if (server->eventFd < 0) {
+        perror("event_queue_create");
         close(server->listenFd);
         trieFree(&server->trie);
         if (server->authToken) {
@@ -1296,15 +1430,14 @@ bool serverInit(TrieServer *server, uint16_t port, const char *authToken,
         return false;
     }
 
-    // Register listen socket with epoll
-    struct epoll_event ev;
-    ev.events = EPOLLIN;
-    ev.data.fd = server->listenFd;
-    printf("DEBUG: Registering listen socket (fd=%d) with epoll (fd=%d)\n",
-           server->listenFd, server->epollFd);
-    if (epoll_ctl(server->epollFd, EPOLL_CTL_ADD, server->listenFd, &ev) < 0) {
-        perror("epoll_ctl: listen socket");
-        close(server->epollFd);
+    // Register listen socket with event queue
+    printf(
+        "DEBUG: Registering listen socket (fd=%d) with event queue (fd=%d)\n",
+        server->listenFd, server->eventFd);
+    if (event_queue_add(server->eventFd, server->listenFd, EVENT_READ,
+                        (void *)(intptr_t)server->listenFd) < 0) {
+        perror("event_queue_add: listen socket");
+        close(server->eventFd);
         close(server->listenFd);
         trieFree(&server->trie);
         if (server->authToken) {
@@ -1317,8 +1450,13 @@ bool serverInit(TrieServer *server, uint16_t port, const char *authToken,
     }
     printf("DEBUG: Listen socket registered successfully\n");
 
-    printf("Trie server listening on port %d (using epoll for high-performance "
-           "async I/O)\n",
+    printf("Trie server listening on port %d (using "
+#ifdef USE_EPOLL
+           "epoll"
+#else
+           "kqueue"
+#endif
+           " for high-performance async I/O)\n",
            port);
     if (server->requireAuth) {
         printf("Authentication: ENABLED\n");
@@ -1347,20 +1485,20 @@ void serverRun(TrieServer *server) {
     signal(SIGTERM, signalHandler);
 
     fprintf(stderr, "Server ready. Press Ctrl+C to stop.\n");
-    DEBUG_LOG("Entering event loop with epollFd=%d, listenFd=%d\n",
-              server->epollFd, server->listenFd);
+    DEBUG_LOG("Entering event loop with eventFd=%d, listenFd=%d\n",
+              server->eventFd, server->listenFd);
 
 #define MAX_EVENTS 64
-    struct epoll_event events[MAX_EVENTS];
+    event_t events[MAX_EVENTS];
 
     int loopCount = 0;
     while (server->running && !g_shutdown) {
         // Wait for events (1 second timeout)
-        int nfds = epoll_wait(server->epollFd, events, MAX_EVENTS, 1000);
+        int nfds = event_queue_wait(server->eventFd, events, MAX_EVENTS, 1000);
 
         if (loopCount < 5 || nfds > 0) {
-            DEBUG_LOG("epoll_wait iteration %d returned nfds=%d\n", loopCount,
-                      nfds);
+            DEBUG_LOG("event_queue_wait iteration %d returned nfds=%d\n",
+                      loopCount, nfds);
         }
         loopCount++;
 
@@ -1368,18 +1506,19 @@ void serverRun(TrieServer *server) {
             if (errno == EINTR) {
                 continue;
             }
-            perror("epoll_wait");
+            perror("event_queue_wait");
             break;
         }
 
         if (nfds > 0) {
-            DEBUG_LOG("epoll_wait returned %d events\n", nfds);
+            DEBUG_LOG("event_queue_wait returned %d events\n", nfds);
         }
 
         // Process all events
         for (int n = 0; n < nfds; n++) {
-            int fd = events[n].data.fd;
-            DEBUG_LOG("Event on fd=%d (events=0x%x)\n", fd, events[n].events);
+            int fd = (int)(intptr_t)event_get_data(&events[n]);
+            uint32_t evflags = event_get_events(&events[n]);
+            DEBUG_LOG("Event on fd=%d (events=0x%x)\n", fd, evflags);
 
             // New connection on listen socket
             if (fd == server->listenFd) {
@@ -1402,22 +1541,19 @@ void serverRun(TrieServer *server) {
                     if (slot >= 0) {
                         setNonBlocking(clientFd);
                         ClientConnection *client = &server->clients[slot];
-                        resetClient(server->epollFd, client);
+                        resetClient(server->eventFd, client);
                         client->fd = clientFd;
                         client->state = CONN_READING_LENGTH;
                         client->authenticated = !server->requireAuth;
                         client->lastActivity = time(NULL);
                         client->rateLimitWindowStart = time(NULL);
 
-                        // Register client with epoll for edge-triggered reading
-                        struct epoll_event ev;
-                        ev.events =
-                            EPOLLIN |
-                            EPOLLET; // Edge-triggered prevents busy-loop
-                        ev.data.fd = clientFd;
-                        if (epoll_ctl(server->epollFd, EPOLL_CTL_ADD, clientFd,
-                                      &ev) < 0) {
-                            perror("epoll_ctl: client socket");
+                        // Register client with event queue for edge-triggered
+                        // reading
+                        if (event_queue_add(server->eventFd, clientFd,
+                                            EVENT_READ | EVENT_ET,
+                                            (void *)(intptr_t)clientFd) < 0) {
+                            perror("event_queue_add: client socket");
                             close(clientFd);
                             client->fd = -1;
                         } else {
@@ -1454,18 +1590,17 @@ void serverRun(TrieServer *server) {
             bool active = false;
 
             // Handle read events
-            if (events[n].events & EPOLLIN) {
+            if (evflags & EPOLLIN) {
                 handleClient(server, client);
                 active = true;
             }
 
             // Handle write events
-            if (events[n].events & EPOLLOUT) {
+            if (evflags & EPOLLOUT) {
                 DEBUG_LOG("EPOLLOUT event on fd=%d, state=%d\n", fd,
                           client->state);
             }
-            if (events[n].events & EPOLLOUT &&
-                client->state == CONN_WRITING_RESPONSE) {
+            if (evflags & EPOLLOUT && client->state == CONN_WRITING_RESPONSE) {
                 DEBUG_LOG(
                     "Writing response, writeOffset=%zu, writeLength=%zu\n",
                     client->writeOffset, client->writeLength);
@@ -1485,18 +1620,16 @@ void serverRun(TrieServer *server) {
                         client->writeOffset = 0;
                         client->writeLength = 0;
 
-                        // Modify epoll to monitor for read only
+                        // Modify event queue to monitor for read only
                         // (edge-triggered)
-                        struct epoll_event ev;
-                        ev.events = EPOLLIN | EPOLLET;
-                        ev.data.fd = client->fd;
-                        epoll_ctl(server->epollFd, EPOLL_CTL_MOD, client->fd,
-                                  &ev);
+                        event_queue_mod(server->eventFd, client->fd,
+                                        EVENT_READ | EVENT_ET,
+                                        (void *)(intptr_t)client->fd);
                     }
                     active = true;
                 } else if (sent < 0 && errno != EAGAIN &&
                            errno != EWOULDBLOCK) {
-                    resetClient(server->epollFd, client);
+                    resetClient(server->eventFd, client);
                 }
             }
 
@@ -1512,7 +1645,7 @@ void serverRun(TrieServer *server) {
             if (client->fd >= 0 &&
                 now - client->lastActivity > CLIENT_TIMEOUT) {
                 printf("Client %d timed out\n", i);
-                resetClient(server->epollFd, client);
+                resetClient(server->eventFd, client);
             }
         }
 
@@ -1547,7 +1680,7 @@ void serverShutdown(TrieServer *server) {
     // Close all client connections
     for (int i = 0; i < MAX_CLIENTS; i++) {
         if (server->clients[i].fd >= 0) {
-            resetClient(server->epollFd, &server->clients[i]);
+            resetClient(server->eventFd, &server->clients[i]);
         }
     }
 
@@ -1562,9 +1695,9 @@ void serverShutdown(TrieServer *server) {
         close(server->listenFd);
     }
 
-    // Close epoll fd
-    if (server->epollFd >= 0) {
-        close(server->epollFd);
+    // Close event queue fd
+    if (server->eventFd >= 0) {
+        close(server->eventFd);
     }
 
     // Free resources
@@ -1584,7 +1717,7 @@ void serverShutdown(TrieServer *server) {
 // PROTOCOL HANDLING
 // ============================================================================
 
-void sendResponse(int epollFd, ClientConnection *client, StatusCode status,
+void sendResponse(int eventFd, ClientConnection *client, StatusCode status,
                   const uint8_t *data, size_t dataLen) {
     DEBUG_LOG("sendResponse called - fd=%d status=0x%02X dataLen=%zu\n",
               client->fd, status, dataLen);
@@ -1627,15 +1760,15 @@ void sendResponse(int epollFd, ClientConnection *client, StatusCode status,
     client->writeOffset = 0;
     client->state = CONN_WRITING_RESPONSE;
 
-    // Modify epoll to monitor for both read and write (edge-triggered)
-    struct epoll_event ev;
-    ev.events = EPOLLIN | EPOLLOUT | EPOLLET;
-    ev.data.fd = client->fd;
-    DEBUG_LOG("Modifying epoll for fd=%d to EPOLLIN|EPOLLOUT|EPOLLET, "
-              "writeLength=%zu\n",
-              client->fd, client->writeLength);
-    int ret = epoll_ctl(epollFd, EPOLL_CTL_MOD, client->fd, &ev);
-    DEBUG_LOG("epoll_ctl MOD returned %d (errno=%d)\n", ret,
+    // Modify event queue to monitor for both read and write (edge-triggered)
+    DEBUG_LOG(
+        "Modifying event queue for fd=%d to EVENT_READ|EVENT_WRITE|EVENT_ET, "
+        "writeLength=%zu\n",
+        client->fd, client->writeLength);
+    int ret = event_queue_mod(eventFd, client->fd,
+                              EVENT_READ | EVENT_WRITE | EVENT_ET,
+                              (void *)(intptr_t)client->fd);
+    DEBUG_LOG("event_queue_mod returned %d (errno=%d)\n", ret,
               ret < 0 ? errno : 0);
 }
 
@@ -1643,7 +1776,7 @@ bool processCommand(TrieServer *server, ClientConnection *client,
                     const uint8_t *data, size_t length) {
     DEBUG_LOG("processCommand called - length=%zu\n", length);
     if (length == 0) {
-        sendResponse(server->epollFd, client, STATUS_ERROR, NULL, 0);
+        sendResponse(server->eventFd, client, STATUS_ERROR, NULL, 0);
         return false;
     }
 
@@ -1653,13 +1786,13 @@ bool processCommand(TrieServer *server, ClientConnection *client,
 
     // Check authentication
     if (server->requireAuth && !client->authenticated && cmd != CMD_AUTH) {
-        sendResponse(server->epollFd, client, STATUS_AUTH_REQUIRED, NULL, 0);
+        sendResponse(server->eventFd, client, STATUS_AUTH_REQUIRED, NULL, 0);
         return false;
     }
 
     // Check rate limit
     if (!checkRateLimit(client)) {
-        sendResponse(server->epollFd, client, STATUS_RATE_LIMITED, NULL, 0);
+        sendResponse(server->eventFd, client, STATUS_RATE_LIMITED, NULL, 0);
         server->totalErrors++;
         return false;
     }
@@ -1673,7 +1806,7 @@ bool processCommand(TrieServer *server, ClientConnection *client,
     switch (cmd) {
     case CMD_PING: {
         // PING - just respond OK
-        sendResponse(server->epollFd, client, STATUS_OK, NULL, 0);
+        sendResponse(server->eventFd, client, STATUS_OK, NULL, 0);
         break;
     }
 
@@ -1685,14 +1818,14 @@ bool processCommand(TrieServer *server, ClientConnection *client,
         if (width == VARINT_WIDTH_INVALID) {
             fprintf(stderr,
                     "Error: Invalid varint for patternLen in CMD_ADD\n");
-            sendResponse(server->epollFd, client, STATUS_ERROR, NULL, 0);
+            sendResponse(server->eventFd, client, STATUS_ERROR, NULL, 0);
             server->totalErrors++;
             return false;
         }
         offset += width;
 
         if (offset + patternLen > length) {
-            sendResponse(server->epollFd, client, STATUS_ERROR, NULL, 0);
+            sendResponse(server->eventFd, client, STATUS_ERROR, NULL, 0);
             server->totalErrors++;
             return false;
         }
@@ -1707,7 +1840,7 @@ bool processCommand(TrieServer *server, ClientConnection *client,
         if (width == VARINT_WIDTH_INVALID) {
             fprintf(stderr,
                     "Error: Invalid varint for subscriberId in CMD_ADD\n");
-            sendResponse(server->epollFd, client, STATUS_ERROR, NULL, 0);
+            sendResponse(server->eventFd, client, STATUS_ERROR, NULL, 0);
             server->totalErrors++;
             return false;
         }
@@ -1718,14 +1851,14 @@ bool processCommand(TrieServer *server, ClientConnection *client,
         if (width == VARINT_WIDTH_INVALID) {
             fprintf(stderr,
                     "Error: Invalid varint for subscriberNameLen in CMD_ADD\n");
-            sendResponse(server->epollFd, client, STATUS_ERROR, NULL, 0);
+            sendResponse(server->eventFd, client, STATUS_ERROR, NULL, 0);
             server->totalErrors++;
             return false;
         }
         offset += width;
 
         if (offset + subscriberNameLen > length) {
-            sendResponse(server->epollFd, client, STATUS_ERROR, NULL, 0);
+            sendResponse(server->eventFd, client, STATUS_ERROR, NULL, 0);
             server->totalErrors++;
             return false;
         }
@@ -1736,9 +1869,9 @@ bool processCommand(TrieServer *server, ClientConnection *client,
 
         if (trieInsert(&server->trie, pattern, (uint32_t)subscriberId,
                        subscriberName)) {
-            sendResponse(server->epollFd, client, STATUS_OK, NULL, 0);
+            sendResponse(server->eventFd, client, STATUS_OK, NULL, 0);
         } else {
-            sendResponse(server->epollFd, client, STATUS_ERROR, NULL, 0);
+            sendResponse(server->eventFd, client, STATUS_ERROR, NULL, 0);
             server->totalErrors++;
         }
         break;
@@ -1751,14 +1884,14 @@ bool processCommand(TrieServer *server, ClientConnection *client,
         if (width == VARINT_WIDTH_INVALID) {
             fprintf(stderr,
                     "Error: Invalid varint for patternLen in CMD_REMOVE\n");
-            sendResponse(server->epollFd, client, STATUS_ERROR, NULL, 0);
+            sendResponse(server->eventFd, client, STATUS_ERROR, NULL, 0);
             server->totalErrors++;
             return false;
         }
         offset += width;
 
         if (offset + patternLen > length) {
-            sendResponse(server->epollFd, client, STATUS_ERROR, NULL, 0);
+            sendResponse(server->eventFd, client, STATUS_ERROR, NULL, 0);
             server->totalErrors++;
             return false;
         }
@@ -1768,9 +1901,9 @@ bool processCommand(TrieServer *server, ClientConnection *client,
                          patternLen);
 
         if (trieRemovePattern(&server->trie, pattern)) {
-            sendResponse(server->epollFd, client, STATUS_OK, NULL, 0);
+            sendResponse(server->eventFd, client, STATUS_OK, NULL, 0);
         } else {
-            sendResponse(server->epollFd, client, STATUS_ERROR, NULL, 0);
+            sendResponse(server->eventFd, client, STATUS_ERROR, NULL, 0);
             server->totalErrors++;
         }
         break;
@@ -1784,14 +1917,14 @@ bool processCommand(TrieServer *server, ClientConnection *client,
         if (width == VARINT_WIDTH_INVALID) {
             fprintf(stderr,
                     "Error: Invalid varint for patternLen in CMD_SUBSCRIBE\n");
-            sendResponse(server->epollFd, client, STATUS_ERROR, NULL, 0);
+            sendResponse(server->eventFd, client, STATUS_ERROR, NULL, 0);
             server->totalErrors++;
             return false;
         }
         offset += width;
 
         if (offset + patternLen > length) {
-            sendResponse(server->epollFd, client, STATUS_ERROR, NULL, 0);
+            sendResponse(server->eventFd, client, STATUS_ERROR, NULL, 0);
             server->totalErrors++;
             return false;
         }
@@ -1807,7 +1940,7 @@ bool processCommand(TrieServer *server, ClientConnection *client,
             fprintf(
                 stderr,
                 "Error: Invalid varint for subscriberId in CMD_SUBSCRIBE\n");
-            sendResponse(server->epollFd, client, STATUS_ERROR, NULL, 0);
+            sendResponse(server->eventFd, client, STATUS_ERROR, NULL, 0);
             server->totalErrors++;
             return false;
         }
@@ -1818,14 +1951,14 @@ bool processCommand(TrieServer *server, ClientConnection *client,
         if (width == VARINT_WIDTH_INVALID) {
             fprintf(stderr, "Error: Invalid varint for subscriberNameLen in "
                             "CMD_SUBSCRIBE\n");
-            sendResponse(server->epollFd, client, STATUS_ERROR, NULL, 0);
+            sendResponse(server->eventFd, client, STATUS_ERROR, NULL, 0);
             server->totalErrors++;
             return false;
         }
         offset += width;
 
         if (offset + subscriberNameLen > length) {
-            sendResponse(server->epollFd, client, STATUS_ERROR, NULL, 0);
+            sendResponse(server->eventFd, client, STATUS_ERROR, NULL, 0);
             server->totalErrors++;
             return false;
         }
@@ -1838,9 +1971,9 @@ bool processCommand(TrieServer *server, ClientConnection *client,
         // subscriber
         if (trieInsert(&server->trie, pattern, (uint32_t)subscriberId,
                        subscriberName)) {
-            sendResponse(server->epollFd, client, STATUS_OK, NULL, 0);
+            sendResponse(server->eventFd, client, STATUS_OK, NULL, 0);
         } else {
-            sendResponse(server->epollFd, client, STATUS_ERROR, NULL, 0);
+            sendResponse(server->eventFd, client, STATUS_ERROR, NULL, 0);
             server->totalErrors++;
         }
         break;
@@ -1854,14 +1987,14 @@ bool processCommand(TrieServer *server, ClientConnection *client,
             fprintf(
                 stderr,
                 "Error: Invalid varint for patternLen in CMD_UNSUBSCRIBE\n");
-            sendResponse(server->epollFd, client, STATUS_ERROR, NULL, 0);
+            sendResponse(server->eventFd, client, STATUS_ERROR, NULL, 0);
             server->totalErrors++;
             return false;
         }
         offset += width;
 
         if (offset + patternLen > length) {
-            sendResponse(server->epollFd, client, STATUS_ERROR, NULL, 0);
+            sendResponse(server->eventFd, client, STATUS_ERROR, NULL, 0);
             server->totalErrors++;
             return false;
         }
@@ -1877,7 +2010,7 @@ bool processCommand(TrieServer *server, ClientConnection *client,
             fprintf(
                 stderr,
                 "Error: Invalid varint for subscriberId in CMD_UNSUBSCRIBE\n");
-            sendResponse(server->epollFd, client, STATUS_ERROR, NULL, 0);
+            sendResponse(server->eventFd, client, STATUS_ERROR, NULL, 0);
             server->totalErrors++;
             return false;
         }
@@ -1885,9 +2018,9 @@ bool processCommand(TrieServer *server, ClientConnection *client,
 
         if (trieRemoveSubscriber(&server->trie, pattern,
                                  (uint32_t)subscriberId)) {
-            sendResponse(server->epollFd, client, STATUS_OK, NULL, 0);
+            sendResponse(server->eventFd, client, STATUS_OK, NULL, 0);
         } else {
-            sendResponse(server->epollFd, client, STATUS_ERROR, NULL, 0);
+            sendResponse(server->eventFd, client, STATUS_ERROR, NULL, 0);
             server->totalErrors++;
         }
         break;
@@ -1902,14 +2035,14 @@ bool processCommand(TrieServer *server, ClientConnection *client,
         if (width == VARINT_WIDTH_INVALID) {
             fprintf(stderr,
                     "Error: Invalid varint for inputLen in CMD_MATCH\n");
-            sendResponse(server->epollFd, client, STATUS_ERROR, NULL, 0);
+            sendResponse(server->eventFd, client, STATUS_ERROR, NULL, 0);
             server->totalErrors++;
             return false;
         }
         offset += width;
 
         if (offset + inputLen > length) {
-            sendResponse(server->epollFd, client, STATUS_ERROR, NULL, 0);
+            sendResponse(server->eventFd, client, STATUS_ERROR, NULL, 0);
             server->totalErrors++;
             return false;
         }
@@ -1933,7 +2066,7 @@ bool processCommand(TrieServer *server, ClientConnection *client,
             pos += nameLen;
         }
 
-        sendResponse(server->epollFd, client, STATUS_OK, responseBuf, pos);
+        sendResponse(server->eventFd, client, STATUS_OK, responseBuf, pos);
         break;
     }
 
@@ -1954,14 +2087,14 @@ bool processCommand(TrieServer *server, ClientConnection *client,
             pos += patternLen;
         }
 
-        sendResponse(server->epollFd, client, STATUS_OK, responseBuf, pos);
+        sendResponse(server->eventFd, client, STATUS_OK, responseBuf, pos);
         break;
     }
 
     case CMD_AUTH: {
         // AUTH <token_len:varint><token:bytes>
         if (!server->requireAuth) {
-            sendResponse(server->epollFd, client, STATUS_OK, NULL, 0);
+            sendResponse(server->eventFd, client, STATUS_OK, NULL, 0);
             break;
         }
 
@@ -1969,14 +2102,14 @@ bool processCommand(TrieServer *server, ClientConnection *client,
         varintWidth width = varintTaggedGet64(data + offset, &tokenLen);
         if (width == VARINT_WIDTH_INVALID) {
             fprintf(stderr, "Error: Invalid varint for tokenLen in CMD_AUTH\n");
-            sendResponse(server->epollFd, client, STATUS_ERROR, NULL, 0);
+            sendResponse(server->eventFd, client, STATUS_ERROR, NULL, 0);
             server->totalErrors++;
             return false;
         }
         offset += width;
 
         if (offset + tokenLen > length) {
-            sendResponse(server->epollFd, client, STATUS_ERROR, NULL, 0);
+            sendResponse(server->eventFd, client, STATUS_ERROR, NULL, 0);
             server->totalErrors++;
             return false;
         }
@@ -1984,9 +2117,9 @@ bool processCommand(TrieServer *server, ClientConnection *client,
         if (tokenLen == strlen(server->authToken) &&
             memcmp(data + offset, server->authToken, tokenLen) == 0) {
             client->authenticated = true;
-            sendResponse(server->epollFd, client, STATUS_OK, NULL, 0);
+            sendResponse(server->eventFd, client, STATUS_OK, NULL, 0);
         } else {
-            sendResponse(server->epollFd, client, STATUS_ERROR, NULL, 0);
+            sendResponse(server->eventFd, client, STATUS_ERROR, NULL, 0);
             server->totalErrors++;
         }
         break;
@@ -2010,7 +2143,7 @@ bool processCommand(TrieServer *server, ClientConnection *client,
         pos += varintTaggedPut64(responseBuf + pos,
                                  time(NULL) - server->startTime);
 
-        sendResponse(server->epollFd, client, STATUS_OK, responseBuf, pos);
+        sendResponse(server->eventFd, client, STATUS_OK, responseBuf, pos);
         break;
     }
 
@@ -2020,19 +2153,19 @@ bool processCommand(TrieServer *server, ClientConnection *client,
             if (trieSave(&server->trie, server->saveFilePath)) {
                 server->lastSaveTime = time(NULL);
                 server->commandsSinceLastSave = 0;
-                sendResponse(server->epollFd, client, STATUS_OK, NULL, 0);
+                sendResponse(server->eventFd, client, STATUS_OK, NULL, 0);
             } else {
-                sendResponse(server->epollFd, client, STATUS_ERROR, NULL, 0);
+                sendResponse(server->eventFd, client, STATUS_ERROR, NULL, 0);
                 server->totalErrors++;
             }
         } else {
-            sendResponse(server->epollFd, client, STATUS_ERROR, NULL, 0);
+            sendResponse(server->eventFd, client, STATUS_ERROR, NULL, 0);
         }
         break;
     }
 
     default:
-        sendResponse(server->epollFd, client, STATUS_INVALID_CMD, NULL, 0);
+        sendResponse(server->eventFd, client, STATUS_INVALID_CMD, NULL, 0);
         server->totalErrors++;
         return false;
     }
@@ -2058,7 +2191,7 @@ void handleClient(TrieServer *server, ClientConnection *client) {
             }
             // Connection closed or error
             DEBUG_LOG("Connection closed or error, resetting client\n");
-            resetClient(server->epollFd, client);
+            resetClient(server->eventFd, client);
             return;
         }
 
@@ -2091,7 +2224,7 @@ void handleClient(TrieServer *server, ClientConnection *client) {
                     // Not enough bytes yet for complete varint
                     if (client->readOffset >= 9) {
                         // Invalid varint (too long)
-                        resetClient(server->epollFd, client);
+                        resetClient(server->eventFd, client);
                         return;
                     }
                     continue; // Try reading more data
@@ -2100,7 +2233,7 @@ void handleClient(TrieServer *server, ClientConnection *client) {
                 client->messageLength = (size_t)msgLen;
                 if (client->messageLength == 0 ||
                     client->messageLength > MAX_MESSAGE_SIZE) {
-                    resetClient(server->epollFd, client);
+                    resetClient(server->eventFd, client);
                     return;
                 }
 
