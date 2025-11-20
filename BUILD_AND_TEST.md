@@ -67,6 +67,7 @@ ctest --verbose
 ```
 
 **Unit Tests Included:**
+
 - `varint-packed` - Packed varint encoding
 - `varint-dimension` - Dimensional varint encoding
 - `varint-delta` - Delta encoding with ZigZag
@@ -88,6 +89,7 @@ make test-comprehensive
 ```
 
 This runs:
+
 - All unit tests
 - All standalone examples
 - All integration examples
@@ -95,6 +97,7 @@ This runs:
 - All reference examples
 
 With **AddressSanitizer** and **UndefinedBehaviorSanitizer** enabled to catch:
+
 - Memory leaks
 - Buffer overflows
 - Use-after-free
@@ -111,6 +114,7 @@ make check-warnings
 ```
 
 This checks all source files with:
+
 - GCC with `-Wall -Wextra -Wpedantic -Wformat`
 - Clang with `-Wall -Wextra -Wpedantic -Wformat`
 
@@ -176,6 +180,7 @@ If ANY step fails, **DO NOT COMMIT**. Fix the issues first.
 To add a new unit test:
 
 1. Create `src/varintMyFeatureTest.c` with this structure:
+
    ```c
    #include "varintMyFeature.h"
    #include "ctest.h"
@@ -204,6 +209,7 @@ To add a new unit test:
    ```
 
 2. Add to `src/CMakeLists.txt`:
+
    ```cmake
    add_executable(varintMyFeatureTest varintMyFeatureTest.c varintMyFeature.c varintExternal.c)
    target_compile_definitions(varintMyFeatureTest PRIVATE VARINT_MY_FEATURE_TEST_STANDALONE)
@@ -225,6 +231,7 @@ To add a new example:
 
 1. Create `examples/category/my_example.c`
 2. Add to `examples/CMakeLists.txt`:
+
    ```cmake
    add_executable(my_example category/my_example.c ${VARINT_SOURCES})
    ```
@@ -249,6 +256,7 @@ printf("Value: %llu\n", value);  // ✗ WRONG - fails on Linux
 ```
 
 **Format Macros:**
+
 - `PRIu64` for `uint64_t`
 - `PRId64` for `int64_t`
 - `PRIu32` for `uint32_t`
@@ -258,15 +266,17 @@ printf("Value: %llu\n", value);  // ✗ WRONG - fails on Linux
 ### Compiler Differences
 
 The build system tests with both GCC and Clang because they have different warning sets:
+
 - GCC catches certain portability issues
 - Clang catches different undefined behavior
 - **Both must pass with zero warnings**
 
 ## Troubleshooting
 
-### "make: *** No targets specified and no makefile found"
+### "make: \*\*\* No targets specified and no makefile found"
 
 You need to run `cmake` first:
+
 ```bash
 mkdir build && cd build
 cmake ..
@@ -275,6 +285,7 @@ cmake ..
 ### "Test failed: undefined reference to main"
 
 The test file is missing its `#ifdef` wrapper. Check that it has:
+
 ```c
 #ifdef VARINT_MY_TEST_STANDALONE
 int main(int argc, char *argv[]) {
@@ -284,6 +295,7 @@ int main(int argc, char *argv[]) {
 ```
 
 And that CMakeLists.txt has:
+
 ```cmake
 target_compile_definitions(myTest PRIVATE VARINT_MY_TEST_STANDALONE)
 ```
@@ -291,6 +303,7 @@ target_compile_definitions(myTest PRIVATE VARINT_MY_TEST_STANDALONE)
 ### "warning: format '%lu' expects argument of type 'unsigned long'"
 
 Use `<inttypes.h>` macros instead:
+
 ```c
 #include <inttypes.h>
 printf("%" PRIu64, my_uint64_value);
@@ -299,6 +312,7 @@ printf("%" PRIu64, my_uint64_value);
 ### "AddressSanitizer: heap-buffer-overflow"
 
 Run the specific test under gdb or valgrind:
+
 ```bash
 cd build/src
 gdb ./varintMyTest
@@ -309,12 +323,14 @@ bt
 ## Why This Unified System?
 
 **Before:** Multiple disconnected test systems:
+
 - Manual compilation of tests
 - Separate shell scripts for comprehensive tests
 - No unified "does everything work?" command
 - Easy to forget to run all tests
 
 **After:** Single unified system:
+
 - `make test` - Fast unit tests
 - `make test-comprehensive` - Complete validation
 - `make check-warnings` - Zero-warning guarantee

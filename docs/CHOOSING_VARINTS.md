@@ -31,26 +31,27 @@ START: What are you storing?
 
 ### Core Varint Types (for Variable-Width Single Values)
 
-| Type | Space Efficiency | Speed | Sortable | O(1) Length | Best For |
-|------|-----------------|-------|----------|-------------|----------|
-| **varintTagged** | Good | Fast | Yes | Yes | Database keys, sorted data |
-| **varintExternal** | Best | Fastest | No | External | Column stores, schemas |
-| **varintSplit** | Good | Fast | No | Yes | Custom packing, known boundaries |
-| **varintChained** | Good | Slowest | No | No | Legacy compatibility only |
+| Type               | Space Efficiency | Speed   | Sortable | O(1) Length | Best For                         |
+| ------------------ | ---------------- | ------- | -------- | ----------- | -------------------------------- |
+| **varintTagged**   | Good             | Fast    | Yes      | Yes         | Database keys, sorted data       |
+| **varintExternal** | Best             | Fastest | No       | External    | Column stores, schemas           |
+| **varintSplit**    | Good             | Fast    | No       | Yes         | Custom packing, known boundaries |
+| **varintChained**  | Good             | Slowest | No       | No          | Legacy compatibility only        |
 
 ### Advanced Features (for Arrays and Matrices)
 
-| Type | Use Case | Space Efficiency | Performance |
-|------|----------|-----------------|-------------|
-| **varintPacked** | Fixed-width arrays (arbitrary bit widths) | Excellent | Fast |
-| **varintDimension** | Matrices with bounded dimensions | Good | Fast |
-| **varintBitstream** | Bit-level stream operations | Perfect | Moderate |
+| Type                | Use Case                                  | Space Efficiency | Performance |
+| ------------------- | ----------------------------------------- | ---------------- | ----------- |
+| **varintPacked**    | Fixed-width arrays (arbitrary bit widths) | Excellent        | Fast        |
+| **varintDimension** | Matrices with bounded dimensions          | Good             | Fast        |
+| **varintBitstream** | Bit-level stream operations               | Perfect          | Moderate    |
 
 ## Use Case Scenarios
 
 ### Scenario 1: Database Primary Keys
 
 **Requirements**:
+
 - Auto-incrementing IDs (start small, grow unbounded)
 - Must be sortable for B-tree indexes
 - Fast encode/decode
@@ -59,6 +60,7 @@ START: What are you storing?
 **Recommendation**: **varintTagged**
 
 **Why**:
+
 - Sortable with memcmp() (big-endian)
 - O(1) length detection
 - First byte stores values 0-240 (1 byte)
@@ -66,6 +68,7 @@ START: What are you storing?
 - Fast encode/decode
 
 **Example**:
+
 ```c
 #include "varintTagged.h"
 
@@ -78,6 +81,7 @@ varintWidth len = varintTaggedPut64(key, userId);
 ```
 
 **Alternatives**:
+
 - **varintExternal** if you maintain width separately (more efficient but not sortable)
 
 ---
@@ -85,6 +89,7 @@ varintWidth len = varintTaggedPut64(key, userId);
 ### Scenario 2: In-Memory Column Store
 
 **Requirements**:
+
 - Millions of integers per column
 - Column metadata available (type, width)
 - Maximum space efficiency
@@ -93,6 +98,7 @@ varintWidth len = varintTaggedPut64(key, userId);
 **Recommendation**: **varintExternal**
 
 **Why**:
+
 - Zero metadata overhead
 - Maximum space efficiency (8 bytes max vs 9 for others)
 - Fastest encode/decode
@@ -100,6 +106,7 @@ varintWidth len = varintTaggedPut64(key, userId);
 - Column already tracks metadata
 
 **Example**:
+
 ```c
 #include "varintExternal.h"
 
@@ -116,6 +123,7 @@ for (size_t i = 0; i < row_count; i++) {
 ```
 
 **Alternatives**:
+
 - **varintTagged** if you need self-describing data
 
 ---
@@ -123,6 +131,7 @@ for (size_t i = 0; i < row_count; i++) {
 ### Scenario 3: Protocol Buffers Wire Format
 
 **Requirements**:
+
 - Must match Protocol Buffers specification
 - Chained continuation bits
 - Legacy compatibility
@@ -130,11 +139,13 @@ for (size_t i = 0; i < row_count; i++) {
 **Recommendation**: **varintChained**
 
 **Why**:
+
 - Direct Protocol Buffers compatibility
 - Standard continuation-bit encoding
 - Widely supported format
 
 **Example**:
+
 ```c
 #include "varintChained.h"
 
@@ -153,6 +164,7 @@ offset += varintChainedPutVarint(buffer + offset, value);
 ```
 
 **Alternatives**:
+
 - None - this is specifically for legacy compatibility
 
 ---
@@ -160,6 +172,7 @@ offset += varintChainedPutVarint(buffer + offset, value);
 ### Scenario 4: Game World Coordinates
 
 **Requirements**:
+
 - 1 million entities with (x, y, z) coordinates
 - Each coordinate: 0-4095 (12 bits)
 - Compact storage
@@ -168,12 +181,14 @@ offset += varintChainedPutVarint(buffer + offset, value);
 **Recommendation**: **varintPacked** (12-bit)
 
 **Why**:
+
 - Perfect fit for 12-bit values (non-native width)
 - Array-based access (indexed by entity)
 - Template generates optimized code
 - Massive space savings
 
 **Example**:
+
 ```c
 #define PACK_STORAGE_BITS 12
 #include "varintPacked.h"
@@ -193,6 +208,7 @@ void setPos(EntityPosition *e, uint16_t x, uint16_t y, uint16_t z) {
 ```
 
 **Alternatives**:
+
 - **varintExternal** if coordinates vary significantly in size
 - Native `uint16_t[3]` if 16-bit precision is acceptable (6 bytes vs 5)
 
@@ -201,6 +217,7 @@ void setPos(EntityPosition *e, uint16_t x, uint16_t y, uint16_t z) {
 ### Scenario 5: Sorted Integer Set
 
 **Requirements**:
+
 - Store 10,000 unique integers (0-8191)
 - Fast membership testing
 - Fast sorted insertion
@@ -209,12 +226,14 @@ void setPos(EntityPosition *e, uint16_t x, uint16_t y, uint16_t z) {
 **Recommendation**: **varintPacked** (13-bit) with sorted operations
 
 **Why**:
+
 - 13 bits perfect for 0-8191 range
 - Built-in binary search (O(log n) membership)
 - Sorted insertion maintains order
 - Deletion support
 
 **Example**:
+
 ```c
 #define PACK_STORAGE_BITS 13
 #include "varintPacked.h"
@@ -238,6 +257,7 @@ varintPacked13DeleteMember(set, count--, 500);
 ```
 
 **Alternatives**:
+
 - Hash table if order doesn't matter
 - Bitmap if range is small (< 10,000 values)
 
@@ -246,6 +266,7 @@ varintPacked13DeleteMember(set, count--, 500);
 ### Scenario 6: Sparse Feature Matrix (ML/AI)
 
 **Requirements**:
+
 - 100,000 samples × 10 million features
 - 99.9% sparse (mostly zeros)
 - Features have IDs (0-10M)
@@ -254,11 +275,13 @@ varintPacked13DeleteMember(set, count--, 500);
 **Recommendation**: **varintDimension** (sparse mode) + varintExternal for values
 
 **Why**:
+
 - Sparse mode stores only non-zero entries
 - Dimension encoding: SPRSE_3_4 (sample: 3 bytes, feature: 4 bytes)
 - Massive savings for sparse data
 
 **Example**:
+
 ```c
 #include "varintDimension.h"
 #include "varintExternal.h"
@@ -282,6 +305,7 @@ typedef struct {
 ```
 
 **Alternatives**:
+
 - Compressed Sparse Row (CSR) format for standard ML libraries
 - Hash table for even sparser data
 
@@ -290,6 +314,7 @@ typedef struct {
 ### Scenario 7: Custom Network Protocol
 
 **Requirements**:
+
 - Packet with mixed-width fields
 - Version (3 bits), Type (5 bits), Length (12 bits), Flags (8 bits)
 - Tight packing
@@ -298,12 +323,14 @@ typedef struct {
 **Recommendation**: **varintBitstream**
 
 **Why**:
+
 - Arbitrary bit offsets
 - Variable bit widths per field
 - Perfect for custom protocols
 - Handles slot-spanning automatically
 
 **Example**:
+
 ```c
 #include "varintBitstream.h"
 
@@ -326,6 +353,7 @@ offset += 8;
 ```
 
 **Alternatives**:
+
 - **varintPacked** if all fields have same bit width
 - Byte-aligned structs if space is not critical
 
@@ -334,6 +362,7 @@ offset += 8;
 ### Scenario 8: Time-Series Sensor Data
 
 **Requirements**:
+
 - 1 million temperature readings per day
 - Timestamp (grows monotonically)
 - Temperature (0-10000, needs 14 bits)
@@ -342,12 +371,14 @@ offset += 8;
 **Recommendation**: **varintExternal** for timestamps + **varintPacked** for readings
 
 **Why**:
+
 - Timestamps compress well with varintExternal (5 bytes current UNIX time)
 - Temperature: 14-bit packed
 - Humidity: 7-bit packed
 - Combined: optimal for each field type
 
 **Example**:
+
 ```c
 #include "varintExternal.h"
 
@@ -369,6 +400,7 @@ typedef struct {
 ```
 
 **Alternatives**:
+
 - Delta encoding for timestamps (store differences)
 - Fixed-width if precision is acceptable
 
@@ -377,6 +409,7 @@ typedef struct {
 ### Scenario 9: AMQP-Style Pattern Matching Trie
 
 **Requirements**:
+
 - Message broker routing with wildcard patterns
 - 100K+ patterns with hierarchical structure
 - AMQP-style wildcards: `*` (one word), `#` (zero or more words)
@@ -386,12 +419,14 @@ typedef struct {
 **Recommendation**: **varintBitstream** for node flags + **varintExternal** for IDs
 
 **Why**:
+
 - varintBitstream: 3-bit node flags (terminal, wildcard type) - perfect bit packing
 - varintExternal: Subscriber IDs, segment lengths, counts - variable width
 - Prefix sharing: 0.7 bytes/pattern at 1M scale
 - O(m) query time regardless of pattern count (m = segments)
 
 **Example**:
+
 ```c
 #include "varintBitstream.h"
 #include "varintExternal.h"
@@ -426,6 +461,7 @@ for (size_t i = 0; i < node->subscriberCount; i++) {
 ```
 
 **Real-World Results** (from advanced/trie_pattern_matcher.c):
+
 ```
 Patterns    Naive (μs)    Trie (μs)    Speedup    Memory Savings
 100         3.00          1.00         3x         ~8%
@@ -436,6 +472,7 @@ Patterns    Naive (μs)    Trie (μs)    Speedup    Memory Savings
 ```
 
 **Alternatives**:
+
 - Hash table for exact patterns only (no wildcard support)
 - Regex engine (100-1000x slower for complex patterns)
 
@@ -463,6 +500,7 @@ Patterns    Naive (μs)    Trie (μs)    Speedup    Memory Savings
 ## Common Mistakes
 
 ### Mistake 1: Using Varints for Fixed-Size Data
+
 ```c
 // WRONG: All values are always uint32_t
 uint64_t value = always_32_bits();
@@ -474,6 +512,7 @@ memcpy(buffer, &value, 4);
 ```
 
 ### Mistake 2: Wrong Varint for Sorted Data
+
 ```c
 // WRONG: varintExternal not sortable
 uint64_t key = 12345;
@@ -486,6 +525,7 @@ varintTaggedPut64(indexKey, key);
 ```
 
 ### Mistake 3: Chained for New Systems
+
 ```c
 // WRONG: Using slowest type for new code
 varintChainedPutVarint(buffer, value);  // 2-3x slower!
@@ -497,6 +537,7 @@ varintWidth w = varintExternalPut(buffer, value);  // Fastest
 ```
 
 ### Mistake 4: varintPacked for Variable Widths
+
 ```c
 // WRONG: Values have different sizes
 #define PACK_STORAGE_BITS 32
@@ -552,6 +593,7 @@ varintTaggedPut64(buffer, value);
 ## Summary
 
 **Choose**:
+
 - **varintTagged**: Sortable keys, B-trees, self-describing data
 - **varintExternal**: Maximum efficiency, schemas, column stores
 - **varintSplit**: Custom packing, known boundaries, hybrid encodings
@@ -561,6 +603,7 @@ varintTaggedPut64(buffer, value);
 - **varintBitstream**: Bit-level protocols, variable-width streams
 
 **When in doubt**:
+
 1. Need sortable? → **varintTagged**
 2. Have schema? → **varintExternal**
 3. Fixed bit width? → **varintPacked**

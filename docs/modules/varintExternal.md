@@ -10,29 +10,29 @@
 
 ## Key Characteristics
 
-| Property | Value |
-|----------|-------|
-| Metadata Storage | External (caller manages) |
-| Endianness | Little-endian (or big-endian variant) |
-| Size Range | 1-8 bytes |
-| 1-Byte Maximum | 255 |
-| Sortable | No |
-| Performance | Fastest (O(1), can cast to native types) |
+| Property         | Value                                    |
+| ---------------- | ---------------------------------------- |
+| Metadata Storage | External (caller manages)                |
+| Endianness       | Little-endian (or big-endian variant)    |
+| Size Range       | 1-8 bytes                                |
+| 1-Byte Maximum   | 255                                      |
+| Sortable         | No                                       |
+| Performance      | Fastest (O(1), can cast to native types) |
 
 ## Encoding Format
 
 ### Byte-Width Maximums
 
-| Bytes | Maximum Value | Native Type Equivalent |
-|-------|---------------|------------------------|
-| 1 | 255 | uint8_t |
-| 2 | 65,535 | uint16_t |
-| 3 | 16,777,215 | uint24_t (3 bytes) |
-| 4 | 4,294,967,295 | uint32_t |
-| 5 | 1,099,511,627,775 | uint40_t (5 bytes) |
-| 6 | 281,474,976,710,655 | uint48_t (6 bytes) |
-| 7 | 72,057,594,037,927,935 | uint56_t (7 bytes) |
-| 8 | 18,446,744,073,709,551,615 | uint64_t |
+| Bytes | Maximum Value              | Native Type Equivalent |
+| ----- | -------------------------- | ---------------------- |
+| 1     | 255                        | uint8_t                |
+| 2     | 65,535                     | uint16_t               |
+| 3     | 16,777,215                 | uint24_t (3 bytes)     |
+| 4     | 4,294,967,295              | uint32_t               |
+| 5     | 1,099,511,627,775          | uint40_t (5 bytes)     |
+| 6     | 281,474,976,710,655        | uint48_t (6 bytes)     |
+| 7     | 72,057,594,037,927,935     | uint56_t (7 bytes)     |
+| 8     | 18,446,744,073,709,551,615 | uint64_t               |
 
 ### Why No Metadata = Maximum Efficiency
 
@@ -51,16 +51,19 @@ External varint:                    [DATA|DATA|DATA|...]
 ```c
 varintWidth varintExternalPut(void *buffer, uint64_t value);
 ```
+
 Encodes a value using minimum bytes needed. Returns the width (1-8).
 
 ```c
 void varintExternalPutFixedWidth(void *buffer, uint64_t value, varintWidth encoding);
 ```
+
 Encodes at a specific width. Use when you need consistent sizing or pre-know the width.
 
 ```c
 void varintExternalPutFixedWidthBig(__uint128_t value, varintWidth encoding);
 ```
+
 Encodes 128-bit values (up to 16 bytes).
 
 ### Decoding Functions
@@ -68,11 +71,13 @@ Encodes 128-bit values (up to 16 bytes).
 ```c
 uint64_t varintExternalGet(const void *buffer, varintWidth encoding);
 ```
+
 Decodes from buffer. **You must provide the width** - it's not stored in the buffer.
 
 ```c
 __uint128_t varintBigExternalGet(const void *buffer, varintWidth encoding);
 ```
+
 Decodes 128-bit values.
 
 ### Utility Functions
@@ -80,16 +85,19 @@ Decodes 128-bit values.
 ```c
 varintWidth varintExternalSignedEncoding(int64_t value);
 ```
+
 Calculates the minimum width needed for a **signed** value (handles negative numbers).
 
 ```c
 #define varintExternalLen(value)
 ```
+
 Macro to calculate minimum width for unsigned value.
 
 ```c
 #define varintExternalUnsignedEncoding(value, encoding)
 ```
+
 Macro that efficiently calculates width by counting bytes with non-zero bits.
 
 ### Fast Path Macros
@@ -97,16 +105,19 @@ Macro that efficiently calculates width by counting bytes with non-zero bits.
 ```c
 #define varintExternalPutFixedWidthQuick_(buffer, value, encoding)
 ```
+
 Fast inline encoding for 1-3 byte values.
 
 ```c
 #define varintExternalGetQuick_(buffer, width, result)
 ```
+
 Fast inline decoding for 1-3 byte values.
 
 ```c
 #define varintExternalGetQuickMedium_(buffer, width, result)
 ```
+
 Fast inline decoding for 2-3 byte values (skips 1-byte case).
 
 ### Arithmetic Functions
@@ -114,11 +125,13 @@ Fast inline decoding for 2-3 byte values (skips 1-byte case).
 ```c
 varintWidth varintExternalAddNoGrow(uint8_t *buffer, varintWidth encoding, int64_t add);
 ```
+
 Adds `add` to value in-place. **Asserts if result would exceed current width.**
 
 ```c
 varintWidth varintExternalAddGrow(uint8_t *buffer, varintWidth encoding, int64_t add);
 ```
+
 Adds `add` to value, allowing width to grow if needed.
 
 ## Signed Value Encoding
@@ -167,6 +180,7 @@ int32_t restored = (int32_t)encoded;
 ```
 
 Available macros:
+
 - `varintPrepareSigned32to24_` / `varintRestoreSigned24to32_`
 - `varintPrepareSigned64to40_` / `varintRestoreSigned40to64_`
 - `varintPrepareSigned64to48_` / `varintRestoreSigned48to64_`
@@ -476,25 +490,26 @@ void demonstrateAdaptive() {
 
 **BEST POSSIBLE** for variable-length encoding:
 
-| Value Range | Bytes | Savings vs uint64_t |
-|-------------|-------|---------------------|
-| 0-255 | 1 | 87.5% |
-| 256-65535 | 2 | 75% |
-| 65536-16777215 | 3 | 62.5% |
-| 16777216-4294967295 | 4 | 50% |
-| >4294967295 | 5-8 | 37.5% - 0% |
+| Value Range         | Bytes | Savings vs uint64_t |
+| ------------------- | ----- | ------------------- |
+| 0-255               | 1     | 87.5%               |
+| 256-65535           | 2     | 75%                 |
+| 65536-16777215      | 3     | 62.5%               |
+| 16777216-4294967295 | 4     | 50%                 |
+| >4294967295         | 5-8   | 37.5% - 0%          |
 
 **No metadata overhead** - every bit stores user data.
 
 ### Time Complexity
 
-| Operation | Complexity | Cycles (typical) |
-|-----------|-----------|------------------|
-| Encode | O(1) | 2-4 |
-| Decode | O(1) | 2-4 |
-| Native cast (LE) | O(1) | 0 (direct memory access) |
+| Operation        | Complexity | Cycles (typical)         |
+| ---------------- | ---------- | ------------------------ |
+| Encode           | O(1)       | 2-4                      |
+| Decode           | O(1)       | 2-4                      |
+| Native cast (LE) | O(1)       | 0 (direct memory access) |
 
 **Fastest varint type** due to:
+
 1. No metadata parsing
 2. Simple byte copying
 3. Zero-copy reads possible (system widths, LE)
@@ -512,6 +527,7 @@ uint64_t decoded = varintExternalGetBigEndian(buffer, width);
 ```
 
 Use when:
+
 - Sending over network (network byte order is big-endian)
 - Cross-platform file formats
 - Need memcmp-sortable external varints (rare - use varintTagged instead)
@@ -519,6 +535,7 @@ Use when:
 ## When to Use varintExternal
 
 ### Use When:
+
 - You have a **schema or type system** that tracks widths
 - **Maximum space efficiency** is critical
 - You can track metadata **externally** (separate byte, implicit, etc.)
@@ -526,6 +543,7 @@ Use when:
 - Building **column stores** or **typed data structures**
 
 ### Don't Use When:
+
 - You need **self-describing** data (use varintTagged or varintSplit)
 - You need **sortable** encodings (use varintTagged)
 - Tracking external metadata is **too complex** for your use case
@@ -534,6 +552,7 @@ Use when:
 ## Common Pitfalls
 
 ### Pitfall 1: Forgetting to Track Width
+
 ```c
 // WRONG: Lost the width!
 uint8_t buffer[8];
@@ -551,6 +570,7 @@ uint64_t value = varintExternalGet(record.data, record.width);
 ```
 
 ### Pitfall 2: Wrong Endianness Assumption
+
 ```c
 // WRONG: Assuming big-endian
 uint8_t buffer[4];
@@ -564,6 +584,7 @@ varintExternalPutBigEndian(buffer, 0x12345678, VARINT_WIDTH_32B);
 ```
 
 ### Pitfall 3: Zero-Copy on Big-Endian Systems
+
 ```c
 // WRONG: Zero-copy cast on big-endian system
 varintExternalPutFixedWidth(buffer, value, VARINT_WIDTH_32B);
@@ -606,10 +627,12 @@ int main() {
 ## Implementation Details
 
 ### Source Files
+
 - **Little-Endian**: `src/varintExternal.h` / `src/varintExternal.c`
 - **Big-Endian**: `src/varintExternalBigEndian.h` / `src/varintExternalBigEndian.c`
 
 ### Width Encoding Constants
+
 ```c
 typedef enum varintWidth {
     VARINT_WIDTH_8B = 1,   // 1 byte

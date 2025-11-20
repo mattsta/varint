@@ -10,14 +10,14 @@
 
 ## Key Characteristics
 
-| Property | Value |
-|----------|-------|
-| Metadata Storage | Continuation bit in each byte |
-| Endianness | Little-endian (value bytes) |
-| Size Range | 1-9 bytes |
-| 1-Byte Maximum | 127 (7 bits) |
-| Sortable | No |
-| Performance | **Slowest** (O(w) operations) |
+| Property             | Value                              |
+| -------------------- | ---------------------------------- |
+| Metadata Storage     | Continuation bit in each byte      |
+| Endianness           | Little-endian (value bytes)        |
+| Size Range           | 1-9 bytes                          |
+| 1-Byte Maximum       | 127 (7 bits)                       |
+| Sortable             | No                                 |
+| Performance          | **Slowest** (O(w) operations)      |
 | Legacy Compatibility | SQLite3, LevelDB, Protocol Buffers |
 
 ## Encoding Format
@@ -32,17 +32,17 @@ Byte format: [C|DDDDDDD]
 
 ### Bit Layout
 
-| Bytes | Data Bits | Maximum Value |
-|-------|-----------|---------------|
-| 1 | 7 | 127 (2^7 - 1) |
-| 2 | 14 | 16,383 (2^14 - 1) |
-| 3 | 21 | 2,097,151 (~2 million) |
-| 4 | 28 | 268,435,455 (~268 million) |
-| 5 | 35 | 34,359,738,367 (~34 billion) |
-| 6 | 42 | 4,398,046,511,103 |
-| 7 | 49 | 562,949,953,421,311 |
-| 8 | 56 | 72,057,594,037,927,935 |
-| 9 | 64 | 2^64 - 1 (full uint64_t) |
+| Bytes | Data Bits | Maximum Value                |
+| ----- | --------- | ---------------------------- |
+| 1     | 7         | 127 (2^7 - 1)                |
+| 2     | 14        | 16,383 (2^14 - 1)            |
+| 3     | 21        | 2,097,151 (~2 million)       |
+| 4     | 28        | 268,435,455 (~268 million)   |
+| 5     | 35        | 34,359,738,367 (~34 billion) |
+| 6     | 42        | 4,398,046,511,103            |
+| 7     | 49        | 562,949,953,421,311          |
+| 8     | 56        | 72,057,594,037,927,935       |
+| 9     | 64        | 2^64 - 1 (full uint64_t)     |
 
 **Special optimization**: The 9th byte uses all 8 bits (no continuation bit needed).
 
@@ -67,6 +67,7 @@ len++;
 ```c
 varintWidth varintChainedPutVarint(uint8_t *buffer, uint64_t value);
 ```
+
 Encodes a value. Returns bytes used (1-9).
 
 ### Decoding
@@ -74,11 +75,13 @@ Encodes a value. Returns bytes used (1-9).
 ```c
 varintWidth varintChainedGetVarint(const uint8_t *buffer, uint64_t *value);
 ```
+
 Decodes a value. Returns bytes consumed.
 
 ```c
 varintWidth varintChainedGetVarint32(const uint8_t *buffer, uint32_t *value);
 ```
+
 Optimized decoder for 32-bit values (max 5 bytes).
 
 ### Utility
@@ -86,6 +89,7 @@ Optimized decoder for 32-bit values (max 5 bytes).
 ```c
 varintWidth varintChainedVarintLen(uint64_t value);
 ```
+
 Calculates encoding length without encoding.
 
 ### Arithmetic
@@ -93,11 +97,13 @@ Calculates encoding length without encoding.
 ```c
 varintWidth varintChainedVarintAddNoGrow(uint8_t *buffer, int64_t add);
 ```
+
 In-place addition (asserts if grows).
 
 ```c
 varintWidth varintChainedVarintAddGrow(uint8_t *buffer, int64_t add);
 ```
+
 In-place addition (allows growth).
 
 ### Fast Path Macros
@@ -105,11 +111,13 @@ In-place addition (allows growth).
 ```c
 varintChained_getVarint32(buffer, result)
 ```
+
 Inline macro for decoding. Fast path for 1-byte values.
 
 ```c
 varintChained_putVarint32(buffer, value)
 ```
+
 Inline macro for encoding. Fast path for values < 128.
 
 ## Real-World Examples
@@ -334,6 +342,7 @@ varintWidth varintChainedSimpleGetVarint(const uint8_t *p, uint64_t *v);
 ```
 
 **Differences from standard chained**:
+
 - Simplified loop structure
 - Better compiler optimization
 - Slightly faster for LevelDB-typical value ranges
@@ -344,27 +353,28 @@ varintWidth varintChainedSimpleGetVarint(const uint8_t *p, uint64_t *v);
 
 ### Time Complexity
 
-| Operation | Complexity | Why |
-|-----------|-----------|-----|
-| Encode | O(w) | Must write w bytes with continuation bits |
-| Decode | O(w) | Must read w bytes until continuation bit = 0 |
-| Get Length | O(w) | Must scan until continuation bit = 0 |
+| Operation  | Complexity | Why                                          |
+| ---------- | ---------- | -------------------------------------------- |
+| Encode     | O(w)       | Must write w bytes with continuation bits    |
+| Decode     | O(w)       | Must read w bytes until continuation bit = 0 |
+| Get Length | O(w)       | Must scan until continuation bit = 0         |
 
 **w** = width in bytes (1-9)
 
 For comparison:
+
 - **varintTagged**: O(1) - read first byte, know length
 - **varintExternal**: O(1) - length provided externally
 - **varintSplit**: O(1) - read first byte, know length
 
 ### Space Efficiency
 
-| Value Range | Chained Bytes | Tagged Bytes | Winner |
-|-------------|---------------|--------------|--------|
-| 0-127 | 1 | 1 | Tie |
-| 128-16,383 | 2 | 2 | Tie |
-| 16,384-2,097,151 | 3 | 3-4 | Chained |
-| 2,097,152+ | 4-9 | 4-9 | Similar |
+| Value Range      | Chained Bytes | Tagged Bytes | Winner  |
+| ---------------- | ------------- | ------------ | ------- |
+| 0-127            | 1             | 1            | Tie     |
+| 128-16,383       | 2             | 2            | Tie     |
+| 16,384-2,097,151 | 3             | 3-4          | Chained |
+| 2,097,152+       | 4-9           | 4-9          | Similar |
 
 **Advantage**: Chained can store ~2 million in 3 bytes (21 bits), while tagged needs 4 bytes for values > 67,823.
 
@@ -373,6 +383,7 @@ For comparison:
 ### CPU Performance
 
 From `varintCompare` benchmarks:
+
 - **Encode**: ~8-12 cycles (2-3x slower than tagged/external)
 - **Decode**: ~8-12 cycles (2-3x slower than tagged/external)
 - **Length detection**: Must decode entire varint (vs. 1 byte for others)
@@ -380,11 +391,13 @@ From `varintCompare` benchmarks:
 ## When to Use varintChained
 
 ### Use When:
+
 - **Legacy compatibility** required (SQLite3, LevelDB, Protocol Buffers)
 - Interfacing with **existing wire protocols**
 - Values frequently in 16,384 - 2,097,151 range (3-byte sweet spot)
 
 ### Don't Use When:
+
 - Building **new systems** (use varintTagged or varintExternal)
 - **Performance is critical**
 - Need **O(1) length detection**
@@ -393,6 +406,7 @@ From `varintCompare` benchmarks:
 ## Common Pitfalls
 
 ### Pitfall 1: Assuming Fast Length Detection
+
 ```c
 // WRONG: Thinking you can quickly get length
 uint8_t firstByte = buffer[0];
@@ -405,6 +419,7 @@ len++;
 ```
 
 ### Pitfall 2: Buffer Overflow in Streaming
+
 ```c
 // WRONG: Not checking stream bounds
 uint64_t value;
@@ -417,6 +432,7 @@ if (offset + 9 <= bufferSize) {  // Max 9 bytes
 ```
 
 ### Pitfall 3: Mixing Chained Variants
+
 ```c
 // WRONG: Encoding with one variant, decoding with another
 varintChainedPutVarint(buffer, value);           // SQLite3 variant
@@ -461,10 +477,12 @@ void migrateChainedToTagged(uint8_t *data, size_t dataSize) {
 ## Implementation Details
 
 ### Source Files
+
 - **SQLite3 variant**: `src/varintChained.h` / `src/varintChained.c`
 - **LevelDB variant**: `src/varintChainedSimple.h` / `src/varintChainedSimple.c`
 
 ### Encoding Algorithm
+
 ```
 For each 7-bit chunk of value (low to high):
   byte = (chunk & 0x7F) | continuation_bit
@@ -473,6 +491,7 @@ For each 7-bit chunk of value (low to high):
 ```
 
 ### Decoding Algorithm
+
 ```
 result = 0
 shift = 0

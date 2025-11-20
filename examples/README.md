@@ -51,72 +51,87 @@ examples/
 ## Standalone Examples
 
 Each standalone example demonstrates a single varint type with:
+
 - Basic encode/decode operations
 - Boundary value testing
 - Common use patterns
 - Error handling
 
-| Example | Module | Description |
-|---------|--------|-------------|
-| `example_tagged.c` | varintTagged | Sortable database keys |
-| `example_external.c` | varintExternal | Zero-overhead encoding |
-| `example_split.c` | varintSplit | Three-level encoding |
-| `example_chained.c` | varintChained | Legacy Protocol Buffers format |
-| `example_packed.c` | varintPacked | Fixed-width bit-packed arrays |
-| `example_dimension.c` | varintDimension | Matrix storage |
-| `example_bitstream.c` | varintBitstream | Bit-level operations |
-| `rle_codec.c` | varintExternal | Run-length encoding (11x-2560x compression) |
-| `example_delta.c` **[NEW]** | varintDelta | Delta encoding with ZigZag (70-90% compression) |
-| `example_for.c` **[NEW]** | varintFOR | Frame-of-Reference (2-7.5x compression) |
-| `example_group.c` **[NEW]** | varintGroup | Shared metadata encoding (30-40% savings) |
-| `example_pfor.c` **[NEW]** | varintPFOR | Patched FOR with exceptions (57-83% compression) |
-| `example_dict.c` **[NEW]** | varintDict | Dictionary encoding (83-87% compression, 8x) |
-| `example_bitmap.c` **[NEW]** | varintBitmap | Hybrid dense/sparse (Roaring-style) |
-| `example_adaptive.c` **[NEW]** | varintAdaptive | Automatic encoding selection (1.35x-6.45x compression) |
-| `example_float.c` **[NEW]** | varintFloat | Variable-precision floating point (1.5x-4.0x compression) |
+| Example                        | Module          | Description                                               |
+| ------------------------------ | --------------- | --------------------------------------------------------- |
+| `example_tagged.c`             | varintTagged    | Sortable database keys                                    |
+| `example_external.c`           | varintExternal  | Zero-overhead encoding                                    |
+| `example_split.c`              | varintSplit     | Three-level encoding                                      |
+| `example_chained.c`            | varintChained   | Legacy Protocol Buffers format                            |
+| `example_packed.c`             | varintPacked    | Fixed-width bit-packed arrays                             |
+| `example_dimension.c`          | varintDimension | Matrix storage                                            |
+| `example_bitstream.c`          | varintBitstream | Bit-level operations                                      |
+| `rle_codec.c`                  | varintExternal  | Run-length encoding (11x-2560x compression)               |
+| `example_delta.c` **[NEW]**    | varintDelta     | Delta encoding with ZigZag (70-90% compression)           |
+| `example_for.c` **[NEW]**      | varintFOR       | Frame-of-Reference (2-7.5x compression)                   |
+| `example_group.c` **[NEW]**    | varintGroup     | Shared metadata encoding (30-40% savings)                 |
+| `example_pfor.c` **[NEW]**     | varintPFOR      | Patched FOR with exceptions (57-83% compression)          |
+| `example_dict.c` **[NEW]**     | varintDict      | Dictionary encoding (83-87% compression, 8x)              |
+| `example_bitmap.c` **[NEW]**   | varintBitmap    | Hybrid dense/sparse (Roaring-style)                       |
+| `example_adaptive.c` **[NEW]** | varintAdaptive  | Automatic encoding selection (1.35x-6.45x compression)    |
+| `example_float.c` **[NEW]**    | varintFloat     | Variable-precision floating point (1.5x-4.0x compression) |
 
 ## Integration Examples
 
 Real-world scenarios combining multiple varint types:
 
 ### database_system.c
+
 **Combines**: varintTagged (keys) + varintExternal (values) + varintPacked (indexes)
+
 - B-tree implementation with sortable varint keys
 - Column store with external metadata
 - Packed integer indexes
 
 ### network_protocol.c
+
 **Combines**: varintBitstream (headers) + varintChained (Protocol Buffers compatibility)
+
 - Custom protocol with bit-packed headers
 - Protocol Buffers wire format encoding
 - Message framing
 
 ### column_store.c
+
 **Combines**: varintExternal (columns) + varintDimension (metadata)
+
 - Columnar data storage
 - Schema-driven encoding
 - Efficient compression
 
 ### game_engine.c
+
 **Combines**: varintPacked (coordinates) + varintBitstream (flags)
+
 - Entity position storage (12-bit coordinates)
 - Compact state flags
 - Network synchronization
 
 ### sensor_network.c
+
 **Combines**: varintExternal (timestamps) + varintPacked (readings)
+
 - Time-series data storage
 - Multi-sensor reading arrays
 - Delta encoding
 
 ### ml_features.c
+
 **Combines**: varintDimension (sparse matrices) + varintExternal (values)
+
 - Sparse feature matrices
 - Variable-width feature IDs
 - Efficient storage for ML datasets
 
 ### vector_clock.c **[NEW]**
+
 **Combines**: varintTagged (actor-counter pairs)
+
 - Distributed event ordering and causal consistency
 - Sparse clock representation (87.5% compression for 4 nodes)
 - 923x compression for 1000-node systems
@@ -124,14 +139,18 @@ Real-world scenarios combining multiple varint types:
 - Applications: Dynamo, Cassandra, Riak, CouchDB
 
 ### delta_compression.c **[NEW]**
+
 **Combines**: varintExternal (delta encoding) + ZigZag (signed deltas)
+
 - Facebook Gorilla-style time series compression
 - Delta-of-delta encoding (7.6-7.9x compression)
 - 76-100% of deltas fit in 1 byte
 - Applications: Prometheus, InfluxDB, monitoring systems
 
 ### sparse_matrix_csr.c **[NEW]**
+
 **Combines**: varintExternal (indices) + varintDimension (metadata)
+
 - Compressed Sparse Row format for scientific computing
 - 77.67x compression (1000×1000 @ 1% density)
 - 16.9% additional savings with varint vs fixed-width
@@ -143,7 +162,9 @@ Real-world scenarios combining multiple varint types:
 Complete, production-ready implementations:
 
 ### kv_store.c
+
 **Full key-value store** with:
+
 - varintTagged keys (sortable, memcmp-friendly)
 - varintExternal values (space-efficient)
 - varintPacked indexes (B-tree node arrays)
@@ -151,14 +172,18 @@ Complete, production-ready implementations:
 - Persistence layer
 
 ### timeseries_db.c
+
 **Time-series database** with:
+
 - varintExternal timestamps (40-bit unix time)
 - varintPacked sensor readings (14-bit values)
 - Compression and downsampling
 - Range queries
 
 ### graph_database.c
+
 **Graph storage system** with:
+
 - varintDimension adjacency matrices (bit matrices)
 - varintTagged node IDs (sortable)
 - varintExternal edge weights
@@ -169,6 +194,7 @@ Complete, production-ready implementations:
 Production-quality real-world systems with comprehensive benchmarks. See [advanced/README.md](advanced/README.md) for full details.
 
 **Highlights:**
+
 - **blockchain_ledger.c** - Cryptocurrency transactions (10x compression)
 - **dns_server.c** - DNS packet encoding (1M+ queries/sec)
 - **game_replay_system.c** - Delta compression (100:1 ratio)
@@ -232,21 +258,25 @@ int main() {
 ## Learning Path
 
 ### Beginners
+
 1. Start with `example_tagged.c` - simplest self-describing format
 2. Try `example_external.c` - understand external metadata
 3. Explore `example_packed.c` - fixed-width arrays
 
 ### Intermediate
+
 1. Study `database_system.c` - see how types combine
 2. Examine `network_protocol.c` - bit-level efficiency
 3. Review `column_store.c` - schema-driven design
 
 ### Advanced
+
 1. Implement `kv_store.c` modifications
 2. Extend `timeseries_db.c` with new features
 3. Optimize `graph_database.c` for your use case
 
 ### Expert
+
 1. Study production systems in `advanced/` directory
 2. Start with `bytecode_vm.c` for fundamental patterns
 3. Progress to `trie_pattern_matcher.c` for data structures
@@ -257,12 +287,14 @@ int main() {
 ## Testing
 
 All examples include:
+
 - ✅ Assertions for correctness
 - ✅ Boundary value tests
 - ✅ Round-trip encode/decode verification
 - ✅ Memory leak checks (use valgrind)
 
 Run with valgrind:
+
 ```bash
 valgrind --leak-check=full ./build/examples/kv_store
 ```
@@ -279,6 +311,7 @@ Compare varint types for your workload:
 ## Contributing Examples
 
 To add a new example:
+
 1. Choose appropriate directory (standalone/integration/reference)
 2. Follow the example template
 3. Include comprehensive comments

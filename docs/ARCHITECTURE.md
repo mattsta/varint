@@ -45,13 +45,13 @@ High-level abstractions built on varint primitives:
 
 ## Quick Comparison Matrix
 
-| Type | Metadata Location | Encoding | Max Bytes | 1-Byte Max | Sortable | Speed | Best For |
-|------|------------------|----------|-----------|------------|----------|-------|----------|
-| **Tagged** | First byte | Big-endian | 9 | 240 | Yes | Fast | Database keys, sorted data |
-| **External** | External | Little-endian | 8 | 255 | No | Fastest | Compact storage, metadata elsewhere |
-| **Split** | First byte | Hybrid | 9 | 63 | No | Fast | Known bit boundaries, packing |
-| **Chained** | Continuation bits | Variable | 9 | 127 | No | Slowest | Legacy compatibility |
-| **Packed** | N/A | Bit-level | N/A | Configurable | Yes | Fast | Fixed-width integer arrays |
+| Type         | Metadata Location | Encoding      | Max Bytes | 1-Byte Max   | Sortable | Speed   | Best For                            |
+| ------------ | ----------------- | ------------- | --------- | ------------ | -------- | ------- | ----------------------------------- |
+| **Tagged**   | First byte        | Big-endian    | 9         | 240          | Yes      | Fast    | Database keys, sorted data          |
+| **External** | External          | Little-endian | 8         | 255          | No       | Fastest | Compact storage, metadata elsewhere |
+| **Split**    | First byte        | Hybrid        | 9         | 63           | No       | Fast    | Known bit boundaries, packing       |
+| **Chained**  | Continuation bits | Variable      | 9         | 127          | No       | Slowest | Legacy compatibility                |
+| **Packed**   | N/A               | Bit-level     | N/A       | Configurable | Yes      | Fast    | Fixed-width integer arrays          |
 
 ## Performance Characteristics
 
@@ -59,24 +59,24 @@ High-level abstractions built on varint primitives:
 
 For storing 1 million integers with typical distributions:
 
-| Value Range | Tagged | External | Split | Chained |
-|-------------|--------|----------|-------|---------|
-| 0-240 | 1 MB | 1 MB | 1 MB | 1 MB |
-| 0-65535 | ~2-3 MB | 2 MB | 2-3 MB | 2-3 MB |
-| 0-16777215 | ~3-4 MB | 3 MB | 3-4 MB | 3-4 MB |
-| Random 64-bit | ~9 MB | 8 MB | 9 MB | 9 MB |
+| Value Range   | Tagged  | External | Split  | Chained |
+| ------------- | ------- | -------- | ------ | ------- |
+| 0-240         | 1 MB    | 1 MB     | 1 MB   | 1 MB    |
+| 0-65535       | ~2-3 MB | 2 MB     | 2-3 MB | 2-3 MB  |
+| 0-16777215    | ~3-4 MB | 3 MB     | 3-4 MB | 3-4 MB  |
+| Random 64-bit | ~9 MB   | 8 MB     | 9 MB   | 9 MB    |
 
 External is always most space-efficient (no metadata overhead), but requires external width tracking.
 
 ### Time Complexity
 
-| Operation | Tagged | External | Split | Chained |
-|-----------|--------|----------|-------|---------|
-| Encode | O(1) | O(1) | O(1) | O(w) |
-| Decode | O(1) | O(1) | O(1) | O(w) |
-| Get Length | O(1) | External | O(1) | O(w) |
+| Operation  | Tagged | External | Split | Chained |
+| ---------- | ------ | -------- | ----- | ------- |
+| Encode     | O(1)   | O(1)     | O(1)  | O(w)    |
+| Decode     | O(1)   | O(1)     | O(1)  | O(w)    |
+| Get Length | O(1)   | External | O(1)  | O(w)    |
 
-*w = width in bytes (typically 1-9)*
+_w = width in bytes (typically 1-9)_
 
 Chained requires byte-by-byte traversal until finding the continuation bit, making it O(w) instead of O(1).
 
@@ -85,12 +85,14 @@ Chained requires byte-by-byte traversal until finding the continuation bit, maki
 ### Header-Only vs. Compiled
 
 **Header-Only Templates** (Macro-based):
+
 - `varintPacked.h` - Define `PACK_STORAGE_BITS` to generate custom bit-width functions
 - `varintSplit.h` - Macro-based split encoding
 - `varintSplitFull*.h` - Split variant implementations
 - `varintBitstream.h` - Bit-level operations
 
 **Compiled Modules** (.c + .h):
+
 - `varintTagged.c/.h` - Performance-critical tagged encoding
 - `varintExternal.c/.h` - External encoding with endian variants
 - `varintChained.c/.h` - Legacy chained encoding
@@ -122,43 +124,56 @@ build/src/
 ## Real-World Use Cases
 
 ### Database Storage
+
 Use **varintTagged** for sortable keys that need to support both small and large IDs:
+
 - User IDs (typically small, but can grow)
 - Timestamps (growing monotonically)
 - Auto-increment keys
 
 ### Network Protocols
+
 Use **varintChained** for legacy compatibility with:
+
 - Protocol Buffers
 - SQLite3 database format
 - LevelDB key-value store
 
 ### In-Memory Compression
+
 Use **varintExternal** when you maintain metadata separately:
+
 - Column stores with type metadata
 - Arrays with known element widths
 - Cache structures with external size tracking
 
 ### Bit-Packed Arrays
+
 Use **varintPacked** for massive arrays of bounded integers:
+
 - 8000 integers at 14 bits each (saves 25% over 16-bit storage)
 - IP address components (0-255 needs 8 bits, not 16 or 32)
 - Game world coordinates with known bounds
 
 ### Sparse Matrices
+
 Use **varintDimension** for:
+
 - Machine learning feature matrices
 - Graph adjacency matrices with small node IDs
 - Scientific computing with sparse data
 
 ### Pattern Matching & Routing
+
 Use **varintBitstream** + **varintExternal** for:
+
 - AMQP-style message broker routing with wildcard patterns
 - Trie data structures with compact node encoding
 - API gateway path matching with hierarchical patterns
 - Event routing systems with prefix sharing
 
 **Example**: AMQP-style pattern matching trie (see `examples/advanced/trie_pattern_matcher.c`)
+
 - varintBitstream: 3-bit node flags (terminal, wildcard type)
 - varintExternal: Variable-width subscriber IDs and segment lengths
 - Achieves 0.7 bytes/pattern at 1M scale through prefix sharing
@@ -192,6 +207,7 @@ varint.h (common types)
 ### Consistent Naming
 
 All modules follow consistent naming:
+
 - `varint{Type}Put*` - Encode value
 - `varint{Type}Get*` - Decode value
 - `varint{Type}Len*` - Get/calculate length
@@ -228,7 +244,9 @@ assert(len == width);
 ## Testing & Benchmarking
 
 ### varintCompare.c
+
 Comprehensive performance benchmark testing 20+ varint implementations with 134 million random numbers:
+
 - Baseline overhead measurement
 - Cycles per operation
 - Operations per second
@@ -236,18 +254,22 @@ Comprehensive performance benchmark testing 20+ varint implementations with 134 
 - Reversed encoding tests
 
 ### varintPackedTest.c
+
 Tests bit-packed arrays at multiple widths:
+
 - 12-bit, 13-bit, 14-bit packing
 - Sorted insertion
 - Binary search membership
 - Deletion operations
 
 ### varintDimensionTest.c
+
 Matrix dimension storage and retrieval validation.
 
 ## Error Handling
 
 The library uses assertions and compile-time checks:
+
 - `assert()` for value range validation
 - Compile-time `#error` for invalid configurations
 - No runtime exceptions (C99 compliance)
@@ -271,6 +293,7 @@ All functions are thread-safe for read-only operations. Concurrent writes to the
 ## Contributing
 
 When adding new varint types:
+
 1. Follow existing naming conventions
 2. Provide both macro and function implementations where appropriate
 3. Add comprehensive tests to `varintCompare.c`

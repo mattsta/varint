@@ -5,6 +5,7 @@
 ✅ **ALL MEMORY SAFETY TESTS PASSED**
 
 The trie server/client system has been tested with multiple modern memory safety tools:
+
 - **AddressSanitizer (ASan)** - Detects memory errors
 - **UndefinedBehaviorSanitizer (UBSan)** - Detects undefined behavior
 - **Valgrind with full leak checking** - Traditional memory analysis
@@ -27,11 +28,13 @@ Direct leak of 17512 byte(s) in 1 object(s) allocated from:
 ```
 
 **Root Cause**:
+
 - `trieInit()` allocates trie root node
 - If `bind()`, `listen()`, or `epoll_create1()` failed, function returned without calling `trieFree()`
 - Also leaked `authToken` and `saveFilePath` strings
 
 **Fix**: Added proper cleanup to ALL 5 error paths in `serverInit()`:
+
 1. `socket()` failure → cleanup trie, authToken, saveFilePath
 2. `bind()` failure → cleanup all resources
 3. `listen()` failure → cleanup all resources
@@ -47,12 +50,14 @@ Direct leak of 17512 byte(s) in 1 object(s) allocated from:
 **Configuration**: `-fsanitize=address -fno-omit-frame-pointer`
 
 **Detects**:
+
 - Buffer overflows (heap, stack, global)
 - Use-after-free
 - Double-free
 - Memory leaks
 
 **Commands Tested**:
+
 ```
 ✓ PING        - No errors
 ✓ ADD         - No errors
@@ -73,6 +78,7 @@ Direct leak of 17512 byte(s) in 1 object(s) allocated from:
 **Configuration**: `-fsanitize=undefined -fno-omit-frame-pointer`
 
 **Detects**:
+
 - Signed integer overflow
 - Null pointer dereference
 - Misaligned memory access
@@ -80,6 +86,7 @@ Direct leak of 17512 byte(s) in 1 object(s) allocated from:
 - Shift operations on invalid values
 
 **Commands Tested**:
+
 ```
 ✓ PING  - No undefined behavior
 ✓ ADD   - No undefined behavior
@@ -97,6 +104,7 @@ Direct leak of 17512 byte(s) in 1 object(s) allocated from:
 **Purpose**: Maximum runtime safety checking
 
 **Commands Tested**:
+
 ```
 ✓ PING  - All checks passed
 ✓ ADD   - All checks passed
@@ -110,6 +118,7 @@ Direct leak of 17512 byte(s) in 1 object(s) allocated from:
 ### 4. Valgrind Full Leak Check
 
 **Configuration**:
+
 ```bash
 --leak-check=full
 --show-leak-kinds=all
@@ -118,6 +127,7 @@ Direct leak of 17512 byte(s) in 1 object(s) allocated from:
 ```
 
 **Commands Tested**:
+
 ```
 ✓ PING        - 0 memory leaks
 ✓ ADD         - 0 memory leaks
@@ -147,14 +157,14 @@ Direct leak of 17512 byte(s) in 1 object(s) allocated from:
 
 ## Comparison: Sanitizers vs Valgrind
 
-| Feature | Sanitizers (ASan/UBSan) | Valgrind |
-|---------|-------------------------|----------|
-| **Detection** | Compile-time instrumentation | Runtime binary analysis |
-| **Speed** | 2-5x slowdown | 10-50x slowdown |
-| **Accuracy** | Very high | Very high |
-| **Recompilation** | Required | Not required |
-| **Error Detection** | Immediate, precise | Comprehensive |
-| **Best For** | Fast iteration | Final verification |
+| Feature             | Sanitizers (ASan/UBSan)      | Valgrind                |
+| ------------------- | ---------------------------- | ----------------------- |
+| **Detection**       | Compile-time instrumentation | Runtime binary analysis |
+| **Speed**           | 2-5x slowdown                | 10-50x slowdown         |
+| **Accuracy**        | Very high                    | Very high               |
+| **Recompilation**   | Required                     | Not required            |
+| **Error Detection** | Immediate, precise           | Comprehensive           |
+| **Best For**        | Fast iteration               | Final verification      |
 
 **Recommendation**: Use BOTH for maximum confidence (as we do here!)
 
@@ -176,16 +186,19 @@ The leak occurred on the **error path** when `bind()` failed:
 Three automated test suites ensure continuous memory safety:
 
 ### test_trie_fast.sh (11 tests, ~5 seconds)
+
 - Fast comprehensive functional testing
 - No sanitizers (for speed)
 - All 10 commands tested end-to-end
 
 ### test_trie_memory_safety.sh (8 tests with Valgrind)
+
 - Full Valgrind leak checking
 - All client commands tested
 - Essential for production validation
 
 ### test_trie_sanitizers.sh (4 test suites)
+
 - AddressSanitizer testing
 - UndefinedBehaviorSanitizer testing
 - Combined ASan+UBSan testing
@@ -208,12 +221,12 @@ After comprehensive testing, the trie server/client provides:
 
 ## Performance Impact
 
-| Build Type | Overhead | Use Case |
-|------------|----------|----------|
-| Production | 0% | No sanitizers, maximum performance |
-| Testing (ASan) | ~2x slowdown | Development, CI/CD |
-| Testing (Valgrind) | ~20x slowdown | Final validation |
-| Testing (UBSan) | ~1.5x slowdown | Development, CI/CD |
+| Build Type         | Overhead       | Use Case                           |
+| ------------------ | -------------- | ---------------------------------- |
+| Production         | 0%             | No sanitizers, maximum performance |
+| Testing (ASan)     | ~2x slowdown   | Development, CI/CD                 |
+| Testing (Valgrind) | ~20x slowdown  | Final validation                   |
+| Testing (UBSan)    | ~1.5x slowdown | Development, CI/CD                 |
 
 **Note**: Sanitizers only add overhead during testing. Production builds have zero overhead.
 

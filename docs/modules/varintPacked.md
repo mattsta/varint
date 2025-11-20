@@ -8,13 +8,13 @@
 
 ## Key Characteristics
 
-| Property | Value |
-|----------|-------|
-| Implementation | Header-only template (macro-based) |
-| Bit Widths | 1-64 bits (arbitrary) |
-| Features | Set, Get, Binary Search, Sorted Insert, Delete |
-| Optimization | Inline expansion, zero function call overhead |
-| Use Case | Large arrays of bounded integers |
+| Property       | Value                                          |
+| -------------- | ---------------------------------------------- |
+| Implementation | Header-only template (macro-based)             |
+| Bit Widths     | 1-64 bits (arbitrary)                          |
+| Features       | Set, Get, Binary Search, Sorted Insert, Delete |
+| Optimization   | Inline expansion, zero function call overhead  |
+| Use Case       | Large arrays of bounded integers               |
 
 ## Quick Example
 
@@ -347,20 +347,22 @@ void demonstrateMultipleWidths() {
 
 ### Time Complexity
 
-| Operation | Complexity | Notes |
-|-----------|-----------|-------|
-| Set/Get | O(1) | Constant time bit operations |
-| InsertSorted | O(n) | Binary search O(log n) + shift O(n) |
-| Member | O(log n) | Binary search |
-| Delete | O(n) | Shift elements |
+| Operation    | Complexity | Notes                               |
+| ------------ | ---------- | ----------------------------------- |
+| Set/Get      | O(1)       | Constant time bit operations        |
+| InsertSorted | O(n)       | Binary search O(log n) + shift O(n) |
+| Member       | O(log n)   | Binary search                       |
+| Delete       | O(n)       | Shift elements                      |
 
 ### Space Efficiency
 
 For N elements with B bits each:
+
 - **Storage**: ⌈(N × B) / 8⌉ bytes
 - **Overhead**: At most 7 bits (< 1 byte) total
 
 **Example**: 10,000 elements at 13 bits each:
+
 - Calculation: (10,000 × 13) / 8 = 16,250 bytes
 - vs uint16_t: 10,000 × 2 = 20,000 bytes
 - Savings: 18.75%
@@ -368,6 +370,7 @@ For N elements with B bits each:
 ### CPU Performance
 
 Inlined macro expansion provides:
+
 - **Set**: ~5-10 cycles
 - **Get**: ~5-10 cycles
 - **Binary search**: ~8-12 cycles per iteration
@@ -391,6 +394,7 @@ Slot 1: [00000000000000000000000000001111]
 ## When to Use varintPacked
 
 ### Use When:
+
 - Storing **large arrays** (1000+ elements) of bounded integers
 - Bit width is **not a power of 2** (12, 13, 14, 20, etc.)
 - Need **sorted** data structures with binary search
@@ -398,6 +402,7 @@ Slot 1: [00000000000000000000000000001111]
 - Values have **known maximum** bounds
 
 ### Don't Use When:
+
 - Values are **variable width** (use varints instead)
 - Bit width is **native** (8/16/32/64 - use normal arrays)
 - Array is **small** (< 100 elements - overhead not worth it)
@@ -406,6 +411,7 @@ Slot 1: [00000000000000000000000000001111]
 ## Common Pitfalls
 
 ### Pitfall 1: Value Overflow
+
 ```c
 #define PACK_STORAGE_BITS 10
 #include "varintPacked.h"
@@ -419,6 +425,7 @@ assert(value < (1 << 10));  // Check before setting
 ```
 
 ### Pitfall 2: Incorrect Storage Allocation
+
 ```c
 #define PACK_STORAGE_BITS 12
 #include "varintPacked.h"
@@ -434,6 +441,7 @@ uint8_t *array = malloc(bytesNeeded);  // 1500 bytes
 ```
 
 ### Pitfall 3: Template Pollution
+
 ```c
 // WRONG: Forgetting to #undef
 #define PACK_STORAGE_BITS 12
@@ -450,15 +458,19 @@ uint8_t *array = malloc(bytesNeeded);  // 1500 bytes
 ## Implementation Details
 
 ### Source Files
+
 - **Header-only**: `src/varintPacked.h`
 
 ### Macro Mechanism
+
 - Generates functions using token pasting (`##`)
 - Function names: `PACK_FUNCTION_PREFIX` + `PACK_STORAGE_BITS` + operation
 - Inline expansion for zero-overhead abstraction
 
 ### Value Types
+
 Automatically selected based on bit width:
+
 - 1-8 bits: `uint8_t`
 - 9-16 bits: `uint16_t`
 - 17-32 bits: `uint32_t`

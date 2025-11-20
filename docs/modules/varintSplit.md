@@ -10,19 +10,20 @@
 
 ## Key Characteristics
 
-| Property | Value |
-|----------|-------|
-| Metadata Storage | First byte (2-bit prefix) |
-| Endianness | Big-endian type, little-endian payload |
-| Size Range | 1-9 bytes |
-| 1-Byte Maximum | 63 |
-| Sortable | No |
-| Performance | Fast (O(1), macro-based) |
-| Unique Feature | Known bit boundaries per level |
+| Property         | Value                                  |
+| ---------------- | -------------------------------------- |
+| Metadata Storage | First byte (2-bit prefix)              |
+| Endianness       | Big-endian type, little-endian payload |
+| Size Range       | 1-9 bytes                              |
+| 1-Byte Maximum   | 63                                     |
+| Sortable         | No                                     |
+| Performance      | Fast (O(1), macro-based)               |
+| Unique Feature   | Known bit boundaries per level         |
 
 ## Three-Level Encoding
 
 ### Level 1: 6-Bit Embedded (1 byte total)
+
 ```
 Prefix: 00
 Format: [00pppppp]
@@ -31,6 +32,7 @@ Bytes:  1
 ```
 
 ### Level 2: 14-Bit Embedded (2 bytes total)
+
 ```
 Prefix: 01
 Format: [01pppppp][qqqqqqqq]
@@ -39,6 +41,7 @@ Bytes:  2
 ```
 
 ### Level 3: External varint (2-9 bytes total)
+
 ```
 Prefix: 10
 Format: [10000xxx][external varint: 1-8 bytes]
@@ -56,18 +59,18 @@ Bytes:  2-9 (1 type byte + 1-8 data bytes)
 
 ## Byte-Width Maximums
 
-| Bytes | Level | Maximum Value | Calculation |
-|-------|-------|---------------|-------------|
-| 1 | 1 | 63 | 2^6 - 1 |
-| 2 | 2 | 16,446 | 63 + (2^14 - 1) |
-| 2 | 3 | 16,701 | 16,446 + 2^8 |
-| 3 | 3 | 81,982 | 16,446 + 2^16 |
-| 4 | 3 | 16,793,661 | 16,446 + 2^24 |
-| 5 | 3 | 4,294,983,741 | 16,446 + 2^32 |
-| 6 | 3 | 1,099,511,644,221 | 16,446 + 2^40 |
-| 7 | 3 | 281,474,976,727,101 | 16,446 + 2^48 |
-| 8 | 3 | 72,057,594,037,944,381 | 16,446 + 2^56 |
-| 9 | 3 | 2^64 - 1 | 16,446 + (2^64 - 16,447) |
+| Bytes | Level | Maximum Value          | Calculation              |
+| ----- | ----- | ---------------------- | ------------------------ |
+| 1     | 1     | 63                     | 2^6 - 1                  |
+| 2     | 2     | 16,446                 | 63 + (2^14 - 1)          |
+| 2     | 3     | 16,701                 | 16,446 + 2^8             |
+| 3     | 3     | 81,982                 | 16,446 + 2^16            |
+| 4     | 3     | 16,793,661             | 16,446 + 2^24            |
+| 5     | 3     | 4,294,983,741          | 16,446 + 2^32            |
+| 6     | 3     | 1,099,511,644,221      | 16,446 + 2^40            |
+| 7     | 3     | 281,474,976,727,101    | 16,446 + 2^48            |
+| 8     | 3     | 72,057,594,037,944,381 | 16,446 + 2^56            |
+| 9     | 3     | 2^64 - 1               | 16,446 + (2^64 - 16,447) |
 
 ## API Reference (Macro-Based)
 
@@ -78,14 +81,17 @@ All varintSplit operations are **macros**, not functions. This enables inline ex
 ```c
 varintSplitPut_(buffer, encodedLen, value)
 ```
+
 Encodes `value` into `buffer`. Sets `encodedLen` to bytes used (1-9).
 
 **Parameters:**
+
 - `buffer`: uint8_t array (min 9 bytes)
 - `encodedLen`: varintWidth variable (output)
 - `value`: uint64_t to encode
 
 **Example:**
+
 ```c
 uint8_t buf[9];
 varintWidth len;
@@ -98,14 +104,17 @@ varintSplitPut_(buf, len, 1000);
 ```c
 varintSplitGet_(buffer, valsize, val)
 ```
+
 Decodes from `buffer`. Sets `valsize` to bytes consumed and `val` to the value.
 
 **Parameters:**
-- `buffer`: const uint8_t* to encoded data
+
+- `buffer`: const uint8_t\* to encoded data
 - `valsize`: varintWidth variable (output)
 - `val`: uint64_t variable (output)
 
 **Example:**
+
 ```c
 const uint8_t *buf = ...;
 varintWidth size;
@@ -119,16 +128,19 @@ varintSplitGet_(buf, size, value);
 ```c
 varintSplitLength_(encodedLen, value)
 ```
+
 Calculates encoding length without encoding.
 
 ```c
 varintSplitGetLen_(buffer, valsize)
 ```
+
 Gets length of encoded varint from buffer.
 
 ```c
 varintSplitGetLenQuick_(buffer)
 ```
+
 Fast inline macro to get length (returns varintWidth).
 
 ## Reversed Split Varints
@@ -136,25 +148,31 @@ Fast inline macro to get length (returns varintWidth).
 For **reverse traversal** (scanning backwards through arrays), use reversed split:
 
 ### Reversed Put (Grows Backwards)
+
 ```c
 varintSplitReversedPutReversed_(buffer, encodedLen, value)
 ```
+
 Writes type byte at `buffer[0]`, data bytes at negative offsets.
 
 **Use when:** Building arrays from end to beginning.
 
 ### Forward Put (Type at End)
+
 ```c
 varintSplitReversedPutForward_(buffer, encodedLen, value)
 ```
+
 Writes data bytes forward, type byte at end.
 
 **Use when:** Type byte must be last for reverse scanning.
 
 ### Reversed Get
+
 ```c
 varintSplitReversedGet_(buffer, valsize, val)
 ```
+
 Decodes reversed split varint (type byte at `buffer[0]`, data at negative offsets).
 
 ## Real-World Examples
@@ -482,23 +500,24 @@ Starts at **16-bit minimum** (no 1-byte encoding):
 
 ### Space Efficiency
 
-| Value Distribution | Avg Bytes | Savings vs uint64_t |
-|-------------------|-----------|---------------------|
-| 90% ≤ 63, 10% ≤ 16,446 | 1.1 | 86% |
-| Uniform 0-10,000 | 2.0 | 75% |
-| Uniform 0-100,000 | 3.0 | 62.5% |
+| Value Distribution     | Avg Bytes | Savings vs uint64_t |
+| ---------------------- | --------- | ------------------- |
+| 90% ≤ 63, 10% ≤ 16,446 | 1.1       | 86%                 |
+| Uniform 0-10,000       | 2.0       | 75%                 |
+| Uniform 0-100,000      | 3.0       | 62.5%               |
 
 ### Time Complexity
 
-| Operation | Complexity | Notes |
-|-----------|-----------|-------|
-| Encode | O(1) | Macro expands inline |
-| Decode | O(1) | Macro expands inline |
-| Get Length | O(1) | Read first byte only |
+| Operation  | Complexity | Notes                |
+| ---------- | ---------- | -------------------- |
+| Encode     | O(1)       | Macro expands inline |
+| Decode     | O(1)       | Macro expands inline |
+| Get Length | O(1)       | Read first byte only |
 
 ### CPU Performance
 
 Macros expand inline, eliminating function call overhead:
+
 - **Encode**: ~2-4 cycles (inline)
 - **Decode**: ~2-4 cycles (inline)
 - **Length**: ~1 cycle (bit mask + shift)
@@ -506,6 +525,7 @@ Macros expand inline, eliminating function call overhead:
 ## When to Use varintSplit
 
 ### Use When:
+
 - You need **known bit boundaries** for custom packing
 - Building **hybrid encodings** (varint + fixed data)
 - Want to **reserve prefix values** for custom use
@@ -513,6 +533,7 @@ Macros expand inline, eliminating function call overhead:
 - Values cluster in 0-63 or 64-16,446 ranges
 
 ### Don't Use When:
+
 - You need **sortable** encodings (use varintTagged)
 - **Maximum space efficiency** required (use varintExternal)
 - Values are uniformly large (overhead hurts)
@@ -521,6 +542,7 @@ Macros expand inline, eliminating function call overhead:
 ## Common Pitfalls
 
 ### Pitfall 1: Macro Argument Side Effects
+
 ```c
 // WRONG: Macro evaluates arguments multiple times
 varintSplitPut_(buf, len, getNextValue());  // getNextValue() called multiple times!
@@ -531,6 +553,7 @@ varintSplitPut_(buf, len, value);
 ```
 
 ### Pitfall 2: Prefix Collision
+
 ```c
 // WRONG: Using reserved 11xxxxxx prefix without checking
 buf[0] = 0xC0 | someValue;  // Collides with SplitFull!
@@ -539,6 +562,7 @@ buf[0] = 0xC0 | someValue;  // Collides with SplitFull!
 ```
 
 ### Pitfall 3: Forgetting Cumulative Offsets
+
 ```c
 // WRONG: Expecting value 16,000 in 2 bytes
 // It's in level 2 which includes offset of 63, so max is 16,446
@@ -556,10 +580,12 @@ if (value <= 63) {
 ## Implementation Details
 
 ### Source Files
+
 - **Header**: `src/varintSplit.h` - Macro implementations
 - **No .c file**: Fully macro-based, header-only
 
 ### Key Macros
+
 ```c
 VARINT_SPLIT_MASK       // 0xC0 (top 2 bits)
 VARINT_SPLIT_6_MASK     // 0x3F (bottom 6 bits)
@@ -568,6 +594,7 @@ VARINT_SPLIT_MAX_14     // 16,446
 ```
 
 ### Encoding Tags
+
 ```c
 typedef enum varintSplitTag {
     VARINT_SPLIT_6 = 0x00,    // 00xxxxxx

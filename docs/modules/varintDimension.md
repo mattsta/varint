@@ -8,19 +8,20 @@
 
 ## Key Characteristics
 
-| Property | Value |
-|----------|-------|
-| Implementation | Header (.h) + Compiled (.c) |
-| Dimension Widths | 1-8 bytes per axis (row/column) |
+| Property              | Value                                               |
+| --------------------- | --------------------------------------------------- |
+| Implementation        | Header (.h) + Compiled (.c)                         |
+| Dimension Widths      | 1-8 bytes per axis (row/column)                     |
 | Encoding Combinations | 144 (9 row widths × 8 col widths × 2 density modes) |
-| Density Modes | Dense and Sparse |
-| Use Case | Matrices with bounded dimensions |
+| Density Modes         | Dense and Sparse                                    |
+| Use Case              | Matrices with bounded dimensions                    |
 
 ## Matrix Encoding System
 
 ### Dimension Pairs
 
 Matrices are described by `varintDimensionPair` enum values encoding:
+
 - **Row width**: 0-8 bytes (0 = vector/1D array)
 - **Column width**: 1-8 bytes
 - **Density**: Dense or Sparse
@@ -28,6 +29,7 @@ Matrices are described by `varintDimensionPair` enum values encoding:
 **Format**: `VARINT_DIMENSION_PAIR_[DENSE|SPRSE]_R_C`
 
 Examples:
+
 ```c
 VARINT_DIMENSION_PAIR_DENSE_2_2  // 2-byte rows × 2-byte cols, dense
 VARINT_DIMENSION_PAIR_SPRSE_4_1  // 4-byte rows × 1-byte cols, sparse
@@ -53,6 +55,7 @@ varintDimensionPair pair = VARINT_DIMENSION_PAIR_PAIR(rowBytes, colBytes, isSpar
 ### Packed Dimensions
 
 For matrices where both dimensions fit in a single byte:
+
 ```c
 typedef enum varintDimensionPacked {
     VARINT_DIMENSION_PACKED_1,  // up to 15 × 15
@@ -332,20 +335,22 @@ Dimension metadata is **1 byte** (varintDimensionPair enum).
 **Savings** depend on actual dimensions vs. worst-case:
 
 | Matrix Size | Standard (4B×4B) | Optimal Encoding | Savings |
-|-------------|------------------|------------------|---------|
-| 100×100 | 40 KB | 10 KB (1B×1B) | 75% |
-| 1000×1000 | 4 MB | 1 MB (2B×2B) | 75% |
-| 10000×100 | 4 MB | 200 KB (2B×1B) | 95% |
+| ----------- | ---------------- | ---------------- | ------- |
+| 100×100     | 40 KB            | 10 KB (1B×1B)    | 75%     |
+| 1000×1000   | 4 MB             | 1 MB (2B×2B)     | 75%     |
+| 10000×100   | 4 MB             | 200 KB (2B×1B)   | 95%     |
 
 ### Time Complexity
 
 Same as underlying storage:
+
 - **Dense**: O(1) access
 - **Sparse**: O(n) search or O(log n) with sorted entries
 
 ## When to Use varintDimension
 
 ### Use When:
+
 - Matrix dimensions are **bounded** and known
 - Dimensions are **small** relative to pointer size (e.g., 16-bit vs 64-bit)
 - Need to encode **dimension metadata** compactly
@@ -353,6 +358,7 @@ Same as underlying storage:
 - Building **sparse matrix** representations
 
 ### Don't Use When:
+
 - Dimensions are **unbounded** or unpredictable
 - Matrix is **very large** (dimensions close to uint64_t max)
 - Standard arrays are sufficient
@@ -361,6 +367,7 @@ Same as underlying storage:
 ## Implementation Details
 
 ### Source Files
+
 - **Header**: `src/varintDimension.h` - Enums and macros
 - **Implementation**: `src/varintDimension.c` - Matrix operations
 

@@ -40,6 +40,7 @@ cd tools/
 ```
 
 This will show:
+
 - DWARF-based struct layout from `pahole`
 - Padding waste analysis
 - Cache line boundary crossings
@@ -54,6 +55,7 @@ gcc -I../src -o struct_size_check struct_size_check.c
 ```
 
 Expected output:
+
 ```
 varintFORMeta                 :  48 bytes (expected <=  48) ✓
 varintPFORMeta                :  40 bytes (expected <=  48) ✓
@@ -68,6 +70,7 @@ Total bytes saved:         8 (2.1% reduction)
 ### 1. `pahole` - DWARF Debug Info Analyzer
 
 **Installation:**
+
 ```bash
 # Debian/Ubuntu
 sudo apt-get install dwarves
@@ -77,6 +80,7 @@ sudo yum install dwarves
 ```
 
 **Basic Usage:**
+
 ```bash
 # Compile with debug symbols
 gcc -g3 -O0 -I../src -o struct_audit_dwarf struct_audit.c -lm
@@ -86,6 +90,7 @@ pahole -C varintPFORMeta struct_audit_dwarf
 ```
 
 **Output Example:**
+
 ```
 struct varintPFORMeta {
 	uint64_t                   min;                  /*     0     8 */
@@ -102,12 +107,14 @@ struct varintPFORMeta {
 ```
 
 **Key Features:**
+
 - Shows exact byte offsets and sizes
 - Identifies padding bytes
 - Shows cache line boundaries (`/* --- cacheline 1 boundary (64 bytes) --- */`)
 - Calculates total size and cacheline count
 
 **Advanced Commands:**
+
 ```bash
 # Show automatic reorganization suggestions
 pahole --reorganize struct_audit_dwarf
@@ -127,6 +134,7 @@ pahole --sizes struct_audit_dwarf | grep varint
 **Location:** `tools/struct_pahole_analyzer.sh`
 
 **Features:**
+
 - Analyzes all varint structs automatically
 - Color-coded output (green = good, yellow = warning, red = needs attention)
 - Cache line analysis with boundary detection
@@ -134,6 +142,7 @@ pahole --sizes struct_audit_dwarf | grep varint
 - Actionable recommendations
 
 **Usage:**
+
 ```bash
 cd tools/
 ./struct_pahole_analyzer.sh
@@ -144,6 +153,7 @@ cd tools/
 **Location:** `tools/struct_audit.c`
 
 **Compile & Run:**
+
 ```bash
 cd tools/
 gcc -g -I../src -o struct_audit struct_audit.c -lm
@@ -151,6 +161,7 @@ gcc -g -I../src -o struct_audit struct_audit.c -lm
 ```
 
 **Features:**
+
 - Uses `offsetof()` and `sizeof()` for field-by-field analysis
 - Visual field layout tables
 - Optimization recommendations based on field sizes
@@ -163,6 +174,7 @@ gcc -g -I../src -o struct_audit struct_audit.c -lm
 **Purpose:** Verify struct sizes haven't regressed after optimization
 
 **Compile & Run:**
+
 ```bash
 cd tools/
 gcc -I../src -o struct_size_check struct_size_check.c
@@ -175,16 +187,16 @@ gcc -I../src -o struct_size_check struct_size_check.c
 
 ### Optimization Summary
 
-| Struct | Before | After | Savings | Cache Lines | Efficiency |
-|--------|--------|-------|---------|-------------|------------|
-| `varintFORMeta` | 48 | 48 | 0 | 1 | 91.7% |
-| `varintPFORMeta` | 48 | 40 | **8** | 1 | **100%** ✓ |
-| `varintFloatMeta` | 48 | 48 | 0 | 1 | 87.5% |
-| `varintAdaptiveDataStats` | 80 | 80 | 0 | 2 | 93.8% |
-| `varintAdaptiveMeta` | 72 | 72 | 0 | 2 | 94.4% |
-| `varintDictStats` | 56 | 56 | 0 | 1 | **100%** ✓ |
-| `varintBitmapStats` | 24 | 24 | 0 | 1 | 83.3% |
-| **TOTAL** | **376** | **368** | **8** | - | **97.9%** |
+| Struct                    | Before  | After   | Savings | Cache Lines | Efficiency |
+| ------------------------- | ------- | ------- | ------- | ----------- | ---------- |
+| `varintFORMeta`           | 48      | 48      | 0       | 1           | 91.7%      |
+| `varintPFORMeta`          | 48      | 40      | **8**   | 1           | **100%** ✓ |
+| `varintFloatMeta`         | 48      | 48      | 0       | 1           | 87.5%      |
+| `varintAdaptiveDataStats` | 80      | 80      | 0       | 2           | 93.8%      |
+| `varintAdaptiveMeta`      | 72      | 72      | 0       | 2           | 94.4%      |
+| `varintDictStats`         | 56      | 56      | 0       | 1           | **100%** ✓ |
+| `varintBitmapStats`       | 24      | 24      | 0       | 1           | 83.3%      |
+| **TOTAL**                 | **376** | **368** | **8**   | -           | **97.9%**  |
 
 ### Key Achievements
 
@@ -242,6 +254,7 @@ Cacheline 2 (bytes 64-71): Read once at decode
 ### Example: Before vs After
 
 **BEFORE** (inefficient):
+
 ```c
 typedef struct {
     uint64_t minValue;       /*  0 -  7 */
@@ -253,6 +266,7 @@ typedef struct {
 ```
 
 **AFTER** (optimized):
+
 ```c
 typedef struct {
     uint64_t minValue;       /*  0 -  7 */
@@ -292,6 +306,7 @@ typedef struct StructName {
 ### Cache Line Basics
 
 Modern x86-64 CPUs use **64-byte cache lines**:
+
 - Data is loaded from RAM in 64-byte chunks
 - Cache miss penalty: ~100 cycles (L1) to ~300 cycles (RAM)
 - Cache hit: ~4 cycles
@@ -307,6 +322,7 @@ Modern x86-64 CPUs use **64-byte cache lines**:
    - Rarely-used fields can cross cache line boundary
 
 3. **Align critical structs to cache lines**
+
    ```c
    struct HotStruct {
        // ...
@@ -324,6 +340,7 @@ pahole -C StructName binary | grep "cacheline.*boundary"
 ```
 
 If you see:
+
 ```
 /* --- cacheline 1 boundary (64 bytes) --- */
 ```
@@ -351,6 +368,7 @@ _Static_assert(sizeof(varintPFORMeta) <= 64,
 ```
 
 **Benefits:**
+
 - **Compile-time verification** - Catches regressions immediately
 - **Self-documenting** - Error messages explain the expected layout
 - **Cache line awareness** - Second assertion enforces single-cacheline requirement
@@ -359,6 +377,7 @@ _Static_assert(sizeof(varintPFORMeta) <= 64,
 Place `_Static_assert` statements immediately after the struct definition, before any function declarations.
 
 **All assertions are in place for:**
+
 - ✅ varintFORMeta (48 bytes)
 - ✅ varintPFORMeta (40 bytes) - 100% efficient
 - ✅ varintFloatMeta (48 bytes)
@@ -368,6 +387,7 @@ Place `_Static_assert` statements immediately after the struct definition, befor
 - ✅ varintBitmapStats (24 bytes)
 
 **What happens if you break it:**
+
 ```c
 // If you accidentally add a field incorrectly:
 typedef struct varintPFORMeta {
@@ -439,12 +459,14 @@ After:  44 bytes (100% efficient)
 ### Understanding Alignment
 
 Compilers align fields to their natural boundary:
+
 - `uint64_t` aligns to 8-byte boundary (offset must be multiple of 8)
 - `uint32_t` aligns to 4-byte boundary (offset must be multiple of 4)
 - `uint16_t` aligns to 2-byte boundary
 - `uint8_t` has no alignment requirement
 
 **Example:**
+
 ```c
 struct Example {
     uint8_t a;      /* offset 0, size 1 */
@@ -458,6 +480,7 @@ struct Example {
 ### Struct Size Rounding
 
 Total struct size is rounded up to the largest field alignment:
+
 - Struct with `uint64_t` → size rounded to multiple of 8
 - Struct with only `uint32_t` → size rounded to multiple of 4
 
@@ -488,10 +511,12 @@ struct BitFieldExample {
 ```
 
 **Pros:**
+
 - Space-efficient for flags
 - Good for hardware register mapping
 
 **Cons:**
+
 - Slower access (bit masking/shifting)
 - Non-portable across compilers
 - Can't take address of bit field
@@ -518,10 +543,10 @@ struct BitFieldExample {
 ## Changelog
 
 ### 2024-11-19: Initial Optimization
+
 - Optimized 6 metadata structs
 - Saved 8 bytes total (2.1% reduction)
 - varintPFORMeta: 48 → 40 bytes (100% efficient)
 - varintDictStats: Already perfect (100% efficient)
 - Added pahole-based analysis tools
 - Created comprehensive documentation
-

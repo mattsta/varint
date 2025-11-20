@@ -9,16 +9,19 @@ This directory contains tools for analyzing and optimizing the varint library's 
 **Purpose:** Comprehensive struct layout analysis using DWARF debug information
 
 **Requirements:**
+
 ```bash
 sudo apt-get install dwarves  # Provides pahole
 ```
 
 **Usage:**
+
 ```bash
 ./struct_pahole_analyzer.sh
 ```
 
 **Output:**
+
 - Detailed struct layouts with byte offsets
 - Padding analysis
 - Cache line boundary detection
@@ -26,6 +29,7 @@ sudo apt-get install dwarves  # Provides pahole
 - Actionable optimization recommendations
 
 **Example Output:**
+
 ```
 struct varintPFORMeta {
 	uint64_t                   min;                  /*     0     8 */
@@ -55,22 +59,26 @@ struct varintPFORMeta {
 **Purpose:** Detailed field analysis using C compiler introspection
 
 **Compile:**
+
 ```bash
 gcc -g -I../src -o struct_audit struct_audit.c -lm
 ```
 
 **Run:**
+
 ```bash
 ./struct_audit
 ```
 
 **Features:**
+
 - Uses `offsetof()` and `sizeof()` for exact field positions
 - Visual table layout of all fields
 - Padding calculation between fields
 - Optimization suggestions based on field sizes
 
 **When to use:**
+
 - When `pahole` is not available
 - For portable analysis (works on any platform)
 - To understand compiler behavior
@@ -82,16 +90,19 @@ gcc -g -I../src -o struct_audit struct_audit.c -lm
 **Purpose:** Quick verification that struct sizes haven't regressed
 
 **Compile:**
+
 ```bash
 gcc -I../src -o struct_size_check struct_size_check.c
 ```
 
 **Run:**
+
 ```bash
 ./struct_size_check
 ```
 
 **Output:**
+
 ```
 varintFORMeta                 :  48 bytes (expected <=  48) ✓
 varintPFORMeta                :  40 bytes (expected <=  48) ✓
@@ -103,6 +114,7 @@ Bytes saved:         8 (2.1% reduction)
 ```
 
 **Use in CI/CD:**
+
 ```bash
 # Add to your test suite
 ./struct_size_check
@@ -129,6 +141,7 @@ fi
 ### Adding a New Struct
 
 1. **Define struct** in appropriate header file following conventions:
+
    ```c
    /* Brief description
     * Fields ordered by size (8-byte → 4-byte → 1-byte) to eliminate padding */
@@ -146,17 +159,20 @@ fi
    ```
 
 2. **Add to analyzer script**:
+
    ```bash
    vim struct_pahole_analyzer.sh
    # Add "MyNewStruct" to STRUCTS array
    ```
 
 3. **Run analysis**:
+
    ```bash
    ./struct_pahole_analyzer.sh | grep -A30 "MyNewStruct"
    ```
 
 4. **Add size check**:
+
    ```bash
    vim struct_size_check.c
    # Add: CHECK_SIZE(MyNewStruct, expected_size, "MyNewStruct");
@@ -171,6 +187,7 @@ fi
 ### Optimizing an Existing Struct
 
 1. **Analyze current layout**:
+
    ```bash
    pahole -C StructName struct_audit_dwarf
    ```
@@ -186,11 +203,13 @@ fi
    - Then 1-byte fields
 
 4. **Document the change**:
+
    ```c
    /* Fields ordered by size (8-byte → 4-byte → 1-byte) to eliminate padding */
    ```
 
 5. **Verify improvement**:
+
    ```bash
    ./struct_pahole_analyzer.sh | grep -A30 "StructName"
    ```
@@ -251,6 +270,7 @@ struct Example {
 ```
 
 **Key indicators:**
+
 - `padding: N` → N bytes wasted
 - `cacheline X boundary` → Struct crosses cache line
 - `size: X` → Total struct size
@@ -310,6 +330,7 @@ _Static_assert(sizeof(StructName) <= 48,
 **Cause:** Struct not compiled with debug symbols, or optimized out
 
 **Solution:**
+
 ```bash
 gcc -g3 -O0 -I../src -o struct_audit_dwarf struct_audit.c -lm
 ```
@@ -317,6 +338,7 @@ gcc -g3 -O0 -I../src -o struct_audit_dwarf struct_audit.c -lm
 ### pahole command not found
 
 **Solution:**
+
 ```bash
 sudo apt-get install dwarves
 ```
@@ -326,6 +348,7 @@ sudo apt-get install dwarves
 **Cause:** Compiler padding rules, alignment requirements
 
 **Debug:**
+
 ```bash
 pahole -C StructName binary
 # Look for padding and alignment
@@ -344,6 +367,7 @@ pahole -C StructName binary
 ## Changelog
 
 ### 2024-11-19
+
 - Added `struct_pahole_analyzer.sh` - Primary analysis tool using DWARF
 - Added `struct_size_check.c` - Regression testing tool
 - Optimized 6 metadata structs (8 bytes saved)

@@ -41,19 +41,20 @@ Fixed bit-width arrays? ──────> varintPacked (any bit width 1-64)
 
 ## Core Encodings Comparison
 
-| Type | Best For | 1-Byte Max | Overhead | Speed | Sortable |
-|------|----------|------------|----------|-------|----------|
-| **Tagged** | DB keys, indexes | 240 | Low | Fast | ✓ |
-| **External** | Compact storage | 255 | None | Fastest | ✗ |
-| **Split** | Known boundaries | 63 | Low | Fast | ✗ |
-| **Chained** | Legacy protocols | 127 | High | Slow | ✗ |
-| **Packed** | Fixed-width arrays | Custom | None | Fast | ✓ |
+| Type         | Best For           | 1-Byte Max | Overhead | Speed   | Sortable |
+| ------------ | ------------------ | ---------- | -------- | ------- | -------- |
+| **Tagged**   | DB keys, indexes   | 240        | Low      | Fast    | ✓        |
+| **External** | Compact storage    | 255        | None     | Fastest | ✗        |
+| **Split**    | Known boundaries   | 63         | Low      | Fast    | ✗        |
+| **Chained**  | Legacy protocols   | 127        | High     | Slow    | ✗        |
+| **Packed**   | Fixed-width arrays | Custom     | None     | Fast    | ✓        |
 
 ---
 
 ## Common Patterns
 
 ### Pattern 1: Tagged (Sortable Keys)
+
 ```c
 // Database primary keys, sorted indexes
 uint8_t key[9];
@@ -62,6 +63,7 @@ varintWidth keyLen = varintTaggedPut64(key, userID);
 ```
 
 ### Pattern 2: External (Maximum Compression)
+
 ```c
 // When you store width separately (e.g., array metadata)
 varintWidth width = varintExternalPut(buf, value);
@@ -69,6 +71,7 @@ varintWidth width = varintExternalPut(buf, value);
 ```
 
 ### Pattern 3: Packed Arrays (Fixed-Width)
+
 ```c
 // 1000 integers, 12 bits each
 #define PACK_STORAGE_BITS 12
@@ -80,6 +83,7 @@ uint16_t v = varintPacked12Get(array, index);
 ```
 
 ### Pattern 4: Adaptive (Auto-Selection)
+
 ```c
 // Let the library choose best encoding
 #include "varintAdaptive.h"
@@ -94,18 +98,21 @@ varintAdaptiveChooseBest(&adaptive, data, count);
 ## API Patterns
 
 ### Encoding Pattern
+
 ```c
 varintWidth varint<Type>Put(uint8_t *dst, uint64_t value);
 // Returns: bytes written (1-9), or 0 on error
 ```
 
 ### Decoding Pattern
+
 ```c
 varintWidth varint<Type>Get(const uint8_t *src, uint64_t *result);
 // Returns: bytes read (1-9), or 0 on error
 ```
 
 ### Length Calculation
+
 ```c
 varintWidth varint<Type>Length(uint64_t value);
 // Returns: bytes needed to encode value (1-9)
@@ -115,15 +122,15 @@ varintWidth varint<Type>Length(uint64_t value);
 
 ## Space Usage Examples
 
-| Value Range | Tagged | External | Split | Native uint64_t |
-|-------------|--------|----------|-------|-----------------|
-| 0-240 | 1 byte | 1 byte | 1 byte | 8 bytes |
-| 1,000 | 2 bytes | 2 bytes | 2 bytes | 8 bytes |
-| 65,535 | 3 bytes | 2 bytes | 2 bytes | 8 bytes |
-| 1,000,000 | 4 bytes | 3 bytes | 3-4 bytes | 8 bytes |
-| 2^32-1 | 5 bytes | 4 bytes | 5 bytes | 8 bytes |
-| 2^48-1 | 7 bytes | 6 bytes | 7 bytes | 8 bytes |
-| 2^63-1 | 9 bytes | 8 bytes | 9 bytes | 8 bytes |
+| Value Range | Tagged  | External | Split     | Native uint64_t |
+| ----------- | ------- | -------- | --------- | --------------- |
+| 0-240       | 1 byte  | 1 byte   | 1 byte    | 8 bytes         |
+| 1,000       | 2 bytes | 2 bytes  | 2 bytes   | 8 bytes         |
+| 65,535      | 3 bytes | 2 bytes  | 2 bytes   | 8 bytes         |
+| 1,000,000   | 4 bytes | 3 bytes  | 3-4 bytes | 8 bytes         |
+| 2^32-1      | 5 bytes | 4 bytes  | 5 bytes   | 8 bytes         |
+| 2^48-1      | 7 bytes | 6 bytes  | 7 bytes   | 8 bytes         |
+| 2^63-1      | 9 bytes | 8 bytes  | 9 bytes   | 8 bytes         |
 
 **Savings**: Typically 50-75% for datasets with small-to-medium values
 
@@ -132,6 +139,7 @@ varintWidth varint<Type>Length(uint64_t value);
 ## Common Use Cases
 
 ### Time Series Database
+
 ```c
 // Timestamps typically delta-encoded
 #include "varintDelta.h"
@@ -144,6 +152,7 @@ varintDeltaEncode(compressed, timestamps, count);
 ```
 
 ### Network Protocol
+
 ```c
 // Message length + data
 uint8_t buf[MAX_SIZE];
@@ -153,6 +162,7 @@ memcpy(buf + lenBytes, data, dataLength);
 ```
 
 ### Sparse Matrix (CSR Format)
+
 ```c
 // Column indices (typically < 10,000)
 #include "varintPacked.h"
@@ -164,6 +174,7 @@ varintPacked14Set(colIndices, i, colIdx);
 ```
 
 ### Key-Value Store
+
 ```c
 // Sortable keys for B-tree
 varintWidth keyLen = varintTaggedPut64(key, userId);
@@ -175,6 +186,7 @@ varintWidth keyLen = varintTaggedPut64(key, userId);
 ## Performance Tips
 
 ### ✅ DO
+
 - Use **External** for maximum compression (when width is stored elsewhere)
 - Use **Tagged** for database keys (sortable)
 - Use **Packed** for large arrays of similar-sized integers
@@ -182,6 +194,7 @@ varintWidth keyLen = varintTaggedPut64(key, userId);
 - Use stack buffers (varint max is 9 bytes)
 
 ### ❌ DON'T
+
 - Don't use varints for random-access hot paths (unless packed)
 - Don't use Chained (slowest, legacy only)
 - Don't allocate dynamically (zero-copy design)
@@ -212,10 +225,12 @@ if (len == 0) {
 ## Thread Safety
 
 **Thread-Safe** (pure functions, no state):
+
 - ✅ varintTagged, varintExternal, varintSplit, varintChained
 - ✅ varintPacked (if buffers not shared)
 
 **Not Thread-Safe** (mutable state):
+
 - ⚠️ varintDict, varintBitmap, varintAdaptive
 - Requires external synchronization (mutex/RWlock)
 
@@ -224,12 +239,14 @@ if (len == 0) {
 ## Build Integration
 
 ### CMake
+
 ```cmake
 add_subdirectory(path/to/varint)
 target_link_libraries(myapp varint)
 ```
 
 ### Header-Only (Packed Arrays)
+
 ```c
 #define PACK_STORAGE_BITS 12
 #include "varintPacked.h"
@@ -237,6 +254,7 @@ target_link_libraries(myapp varint)
 ```
 
 ### Manual Compilation
+
 ```bash
 gcc -I./varint/src myapp.c varint/src/varintTagged.c -o myapp
 ```
@@ -297,14 +315,14 @@ gcc -fsanitize=address,undefined myapp.c ...
 
 ## Quick Benchmark (Intel x86_64)
 
-| Operation | Cycles | ns @ 3GHz | Throughput |
-|-----------|--------|-----------|------------|
-| Tagged Encode | ~10 | ~3.3 | 300 M/s |
-| Tagged Decode | ~8 | ~2.7 | 370 M/s |
-| External Encode | ~8 | ~2.7 | 370 M/s |
-| External Decode | ~6 | ~2.0 | 500 M/s |
-| Packed Get | ~3 | ~1.0 | 1 B/s |
-| Packed Set | ~4 | ~1.3 | 750 M/s |
+| Operation       | Cycles | ns @ 3GHz | Throughput |
+| --------------- | ------ | --------- | ---------- |
+| Tagged Encode   | ~10    | ~3.3      | 300 M/s    |
+| Tagged Decode   | ~8     | ~2.7      | 370 M/s    |
+| External Encode | ~8     | ~2.7      | 370 M/s    |
+| External Decode | ~6     | ~2.0      | 500 M/s    |
+| Packed Get      | ~3     | ~1.0      | 1 B/s      |
+| Packed Set      | ~4     | ~1.3      | 750 M/s    |
 
 **Note**: Actual performance depends on value distribution and cache effects.
 
@@ -313,23 +331,29 @@ gcc -fsanitize=address,undefined myapp.c ...
 ## Common Pitfalls
 
 ### ❌ Pitfall 1: Not checking buffer size
+
 ```c
 uint8_t buf[2];  // Too small!
 varintTaggedPut64(buf, 1000000);  // Buffer overflow!
 ```
+
 ✅ **Fix**: Always allocate at least 9 bytes for varints
 
 ### ❌ Pitfall 2: Mixing encoding types
+
 ```c
 varintTaggedPut64(buf, value);
 varintExternalGet(buf, width);  // Wrong decoder!
 ```
+
 ✅ **Fix**: Match encoder/decoder types
 
 ### ❌ Pitfall 3: Assuming width
+
 ```c
 memcpy(dst, src, 8);  // Assumes 8-byte varint
 ```
+
 ✅ **Fix**: Use returned width or varint<Type>Length()
 
 ---

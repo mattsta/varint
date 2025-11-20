@@ -8,13 +8,13 @@
 
 ## Key Characteristics
 
-| Property | Value |
-|----------|-------|
+| Property       | Value                                 |
+| -------------- | ------------------------------------- |
 | Implementation | Header-only (static inline functions) |
-| Positioning | Bit-level offsets |
-| Bit Widths | 1-64 bits (arbitrary) |
-| Slot Types | Configurable (uint64_t default) |
-| Signed Support | Yes (via prepare/restore macros) |
+| Positioning    | Bit-level offsets                     |
+| Bit Widths     | 1-64 bits (arbitrary)                 |
+| Slot Types     | Configurable (uint64_t default)       |
+| Signed Support | Yes (via prepare/restore macros)      |
 
 ## API Reference
 
@@ -24,12 +24,14 @@
 void varintBitstreamSet(vbits *buffer, size_t startBitOffset,
                         size_t bitsPerValue, vbitsVal value);
 ```
+
 Write `value` (of `bitsPerValue` bits) at `startBitOffset` in `buffer`.
 
 ```c
 vbitsVal varintBitstreamGet(const vbits *buffer, size_t startBitOffset,
                             size_t bitsPerValue);
 ```
+
 Read `bitsPerValue` bits starting at `startBitOffset` from `buffer`.
 
 ### Type Configuration
@@ -340,10 +342,10 @@ void demonstrateCustomSlots() {
 
 ### Time Complexity
 
-| Operation | Complexity | Notes |
-|-----------|-----------|-------|
-| Set | O(1) | May touch 1-2 slots |
-| Get | O(1) | May read from 1-2 slots |
+| Operation | Complexity | Notes                   |
+| --------- | ---------- | ----------------------- |
+| Set       | O(1)       | May touch 1-2 slots     |
+| Get       | O(1)       | May read from 1-2 slots |
 
 ### Bit Boundary Handling
 
@@ -357,6 +359,7 @@ void demonstrateCustomSlots() {
 ## When to Use varintBitstream
 
 ### Use When:
+
 - Need **arbitrary bit offsets** (not just array indices)
 - Building **custom protocols** with mixed-width fields
 - **Bit-level compression** required
@@ -364,6 +367,7 @@ void demonstrateCustomSlots() {
 - Need to pack **sub-byte values** tightly
 
 ### Don't Use When:
+
 - All values have **same bit width** (use varintPacked instead)
 - Working with **array indices** (use varintPacked instead)
 - Byte-aligned access is sufficient
@@ -371,17 +375,18 @@ void demonstrateCustomSlots() {
 
 ## Comparison: varintBitstream vs varintPacked
 
-| Feature | varintBitstream | varintPacked |
-|---------|----------------|--------------|
-| Positioning | Bit offsets | Array indices |
-| Bit Width | Variable per value | Fixed per array |
-| Use Case | Protocols, streams | Arrays, sets |
-| Complexity | Lower-level | Higher-level |
-| Performance | Slightly slower | Optimized for fixed width |
+| Feature     | varintBitstream    | varintPacked              |
+| ----------- | ------------------ | ------------------------- |
+| Positioning | Bit offsets        | Array indices             |
+| Bit Width   | Variable per value | Fixed per array           |
+| Use Case    | Protocols, streams | Arrays, sets              |
+| Complexity  | Lower-level        | Higher-level              |
+| Performance | Slightly slower    | Optimized for fixed width |
 
 ## Common Pitfalls
 
 ### Pitfall 1: Bit Offset Arithmetic
+
 ```c
 // WRONG: Forgetting to advance offset
 varintBitstreamSet(buffer, 0, 10, value1);
@@ -396,6 +401,7 @@ offset += 10;
 ```
 
 ### Pitfall 2: Buffer Overflow
+
 ```c
 // WRONG: Not allocating enough slots
 uint64_t buffer[1];  // Only 64 bits
@@ -408,6 +414,7 @@ uint64_t *buffer = calloc(slotsNeeded, sizeof(uint64_t));
 ```
 
 ### Pitfall 3: Value Too Large
+
 ```c
 // WRONG: Value doesn't fit in bit width
 varintBitstreamSet(buffer, 0, 8, 300);  // 300 > 255 (8-bit max) - ASSERT!
@@ -422,14 +429,18 @@ varintBitstreamSet(buffer, 0, bits, value);
 ## Implementation Details
 
 ### Source Files
+
 - **Header-only**: `src/varintBitstream.h`
 - All functions are `static inline`
 
 ### Bit Layout
+
 Values are stored **high-to-low** within slots (similar to varintPacked).
 
 ### Slot Spanning
+
 When a value crosses a slot boundary:
+
 1. Calculate bits in current slot vs next slot
 2. Split value into high/low parts
 3. Write each part with appropriate masking

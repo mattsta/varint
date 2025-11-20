@@ -8,30 +8,30 @@
 
 ## Key Characteristics
 
-| Property | Value |
-|----------|-------|
-| Metadata Storage | First byte |
-| Endianness | Big-endian |
-| Size Range | 1-9 bytes |
-| 1-Byte Maximum | 240 |
-| Sortable | Yes (memcmp) |
-| Performance | Fast (O(1) operations) |
+| Property         | Value                  |
+| ---------------- | ---------------------- |
+| Metadata Storage | First byte             |
+| Endianness       | Big-endian             |
+| Size Range       | 1-9 bytes              |
+| 1-Byte Maximum   | 240                    |
+| Sortable         | Yes (memcmp)           |
+| Performance      | Fast (O(1) operations) |
 
 ## Encoding Format
 
 ### Byte-Width Maximums
 
-| Bytes | Maximum Value | Percentage of uint64_t |
-|-------|---------------|------------------------|
-| 1 | 240 | 0.0000013% |
-| 2 | 2,287 | 0.000012% |
-| 3 | 67,823 | 0.00037% |
-| 4 | 16,777,215 (2^24-1) | 0.09% |
-| 5 | 4,294,967,295 (2^32-1) | 23% |
-| 6 | 1,099,511,627,775 (2^40-1) | 5,960% |
-| 7 | 281,474,976,710,655 (2^48-1) | 1,527,099% |
-| 8 | 72,057,594,037,927,935 (2^56-1) | 390,937,991% |
-| 9 | 18,446,744,073,709,551,615 (2^64-1) | 100% |
+| Bytes | Maximum Value                       | Percentage of uint64_t |
+| ----- | ----------------------------------- | ---------------------- |
+| 1     | 240                                 | 0.0000013%             |
+| 2     | 2,287                               | 0.000012%              |
+| 3     | 67,823                              | 0.00037%               |
+| 4     | 16,777,215 (2^24-1)                 | 0.09%                  |
+| 5     | 4,294,967,295 (2^32-1)              | 23%                    |
+| 6     | 1,099,511,627,775 (2^40-1)          | 5,960%                 |
+| 7     | 281,474,976,710,655 (2^48-1)        | 1,527,099%             |
+| 8     | 72,057,594,037,927,935 (2^56-1)     | 390,937,991%           |
+| 9     | 18,446,744,073,709,551,615 (2^64-1) | 100%                   |
 
 ### Encoding Rules
 
@@ -53,16 +53,19 @@
 ```c
 varintWidth varintTaggedPut64(uint8_t *buffer, uint64_t value);
 ```
+
 Encodes a 64-bit unsigned integer. Returns the number of bytes used (1-9).
 
 ```c
 varintWidth varintTaggedPut64FixedWidth(uint8_t *buffer, uint64_t value, varintWidth width);
 ```
+
 Encodes at a specific width (useful for maintaining alignment or fixed-size slots).
 
 ```c
 varintWidth varintTaggedPut32(uint8_t *buffer, uint32_t value);
 ```
+
 Optimized encoder for 32-bit values (max 5 bytes).
 
 ### Decoding Functions
@@ -70,16 +73,19 @@ Optimized encoder for 32-bit values (max 5 bytes).
 ```c
 varintWidth varintTaggedGet64(const uint8_t *buffer, uint64_t *result);
 ```
+
 Decodes a tagged varint, returning the width and storing the value in `result`.
 
 ```c
 uint64_t varintTaggedGet64ReturnValue(const uint8_t *buffer);
 ```
+
 Decodes and directly returns the value (convenience function).
 
 ```c
 varintWidth varintTaggedGet32(const uint8_t *buffer, uint32_t *result);
 ```
+
 Decodes to 32-bit value.
 
 ### Utility Functions
@@ -87,21 +93,25 @@ Decodes to 32-bit value.
 ```c
 varintWidth varintTaggedLen(uint64_t value);
 ```
+
 Calculates how many bytes would be needed to encode a value WITHOUT encoding it.
 
 ```c
 varintWidth varintTaggedGetLen(const uint8_t *buffer);
 ```
+
 Gets the length of an already-encoded varint by reading just the first byte.
 
 ```c
 #define varintTaggedLenQuick(value)
 ```
+
 Macro for fast length calculation for values ≤ 16,777,215 (4 bytes).
 
 ```c
 #define varintTaggedGetLenQuick_(buffer)
 ```
+
 Macro for fast length extraction from encoded buffer.
 
 ### Arithmetic Functions
@@ -109,11 +119,13 @@ Macro for fast length extraction from encoded buffer.
 ```c
 varintWidth varintTaggedAddNoGrow(uint8_t *buffer, int64_t add);
 ```
+
 Adds `add` to the encoded value in-place. Returns new width. **Asserts if result would grow beyond original width.**
 
 ```c
 varintWidth varintTaggedAddGrow(uint8_t *buffer, int64_t add);
 ```
+
 Adds `add` to the encoded value, allowing the encoding to grow if needed.
 
 ## Real-World Examples
@@ -346,26 +358,27 @@ void deposit(BankAccount *account, uint64_t amount) {
 
 Typical distributions:
 
-| Value Distribution | Avg Bytes | Savings vs uint64_t |
-|-------------------|-----------|---------------------|
-| 90% ≤ 240, 10% ≤ 65535 | 1.1 | 86% |
-| Uniform 0-1000 | 2.0 | 75% |
-| Auto-increment IDs (millions) | 3-4 | 50-62% |
-| Timestamps (current) | 5 | 37% |
-| Random 64-bit | 9 | -12% (overhead) |
+| Value Distribution            | Avg Bytes | Savings vs uint64_t |
+| ----------------------------- | --------- | ------------------- |
+| 90% ≤ 240, 10% ≤ 65535        | 1.1       | 86%                 |
+| Uniform 0-1000                | 2.0       | 75%                 |
+| Auto-increment IDs (millions) | 3-4       | 50-62%              |
+| Timestamps (current)          | 5         | 37%                 |
+| Random 64-bit                 | 9         | -12% (overhead)     |
 
 ### Time Complexity
 
-| Operation | Complexity | Notes |
-|-----------|-----------|-------|
-| Encode | O(1) | Constant time for all values |
-| Decode | O(1) | Reads only needed bytes |
-| Get Length | O(1) | Reads only first byte |
-| Compare | O(min(w1,w2)) | Byte-by-byte comparison |
+| Operation  | Complexity    | Notes                        |
+| ---------- | ------------- | ---------------------------- |
+| Encode     | O(1)          | Constant time for all values |
+| Decode     | O(1)          | Reads only needed bytes      |
+| Get Length | O(1)          | Reads only first byte        |
+| Compare    | O(min(w1,w2)) | Byte-by-byte comparison      |
 
 ### CPU Performance
 
 From `varintCompare` benchmarks on modern x86_64:
+
 - **Encode**: ~3-5 cycles per operation
 - **Decode**: ~3-5 cycles per operation
 - **Quick macro encode**: ~2-3 cycles (small values)
@@ -373,6 +386,7 @@ From `varintCompare` benchmarks on modern x86_64:
 ## When to Use varintTagged
 
 ### Use When:
+
 - You need **sortable keys** (database indexes, B-trees)
 - Values are typically **small but unbounded**
 - **Big-endian ordering** is beneficial
@@ -380,6 +394,7 @@ From `varintCompare` benchmarks on modern x86_64:
 - Compatibility with SQLite4-style storage
 
 ### Don't Use When:
+
 - All values are similar size (use fixed width)
 - You need maximum space efficiency (use varintExternal)
 - Little-endian is required for system compatibility
@@ -388,6 +403,7 @@ From `varintCompare` benchmarks on modern x86_64:
 ## Common Pitfalls
 
 ### Pitfall 1: Treating as Little-Endian
+
 ```c
 // WRONG: Don't treat as native integer
 uint64_t *badPtr = (uint64_t*)buffer;
@@ -399,6 +415,7 @@ varintTaggedGet64(buffer, &correct);
 ```
 
 ### Pitfall 2: Buffer Overflow
+
 ```c
 // WRONG: Buffer too small
 uint8_t buffer[4];
@@ -410,6 +427,7 @@ varintTaggedPut64(buffer, UINT64_MAX);  // Safe
 ```
 
 ### Pitfall 3: Signed Values
+
 ```c
 // varintTagged stores unsigned values only
 int64_t signedValue = -100;
@@ -464,15 +482,18 @@ int main() {
 ## Implementation Details
 
 ### Source Files
+
 - **Header**: `src/varintTagged.h` - API declarations and macros
 - **Implementation**: `src/varintTagged.c` - Full encode/decode logic
 
 ### Macros vs Functions
+
 - Use `varintTaggedPut64()` for general encoding
 - Use `varintTaggedPut64FixedWidthQuick_()` macro for small values when you know the width
 - Use `varintTaggedGet64Quick_()` macro for inline decoding of small values
 
 ### Maximum Values Constants
+
 ```c
 VARINT_TAGGED_MAX_1  // 240
 VARINT_TAGGED_MAX_2  // 2,287
