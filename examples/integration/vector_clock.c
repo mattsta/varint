@@ -21,6 +21,7 @@
 
 #include "varintTagged.h"
 #include <assert.h>
+#include <inttypes.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -337,7 +338,7 @@ void vcPrint(const VectorClock *vc, const char *prefix) {
         if (i > 0) {
             printf(", ");
         }
-        printf("N%u:%lu", vc->actorIds[i], vc->counters[i]);
+        printf("N%u:%" PRIu64, vc->actorIds[i], vc->counters[i]);
     }
     printf("}");
 }

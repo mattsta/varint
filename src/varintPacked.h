@@ -378,8 +378,9 @@ PACKED_STATIC void PACKED_ARRAY_SET_INCR(void *_dst,
         const VALUE_TYPE current =
             (MICRO_PROMOTION_TYPE_CAST(slot) >> startBit) & VALUE_MASK;
         VALUE_TYPE val = (VALUE_TYPE)(current + incrBy);
-        val =
-            val >= (1 << BITS_PER_VALUE) ? (VALUE_TYPE)(current - incrBy) : val;
+        /* Detect overflow: if result is less than operand, wraparound occurred
+         */
+        val = (val < current) ? (VALUE_TYPE)(current - incrBy) : val;
         slot =
             (SLOT_STORAGE_TYPE)((slot & ~((uint64_t)VALUE_MASK << startBit)) |
                                 ((uint64_t)MICRO_PROMOTION_TYPE_CAST(val)
@@ -402,8 +403,9 @@ PACKED_STATIC void PACKED_ARRAY_SET_INCR(void *_dst,
             (VALUE_TYPE)(low | (high & (((uint64_t)VALUE_MASK >> bitsAvailable)
                                         << bitsAvailable)));
         VALUE_TYPE val = (VALUE_TYPE)(current + incrBy);
-        val =
-            val >= (1 << BITS_PER_VALUE) ? (VALUE_TYPE)(current - incrBy) : val;
+        /* Detect overflow: if result is less than operand, wraparound occurred
+         */
+        val = (val < current) ? (VALUE_TYPE)(current - incrBy) : val;
 
         /* SET */
         low = (uint64_t)MICRO_PROMOTION_TYPE_CAST(val) << startBit;

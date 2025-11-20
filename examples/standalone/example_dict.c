@@ -17,6 +17,7 @@
 
 #include "varintDict.h"
 #include <assert.h>
+#include <inttypes.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -33,7 +34,7 @@ void example_basic() {
 
     printf("Original values: ");
     for (size_t i = 0; i < count; i++) {
-        printf("%lu ", values[i]);
+        printf("%" PRIu64 " ", values[i]);
     }
     printf("\n");
 
@@ -50,7 +51,7 @@ void example_basic() {
 
     printf("Decoded values: ");
     for (size_t i = 0; i < decodedCount; i++) {
-        printf("%lu ", decoded[i]);
+        printf("%" PRIu64 " ", decoded[i]);
         assert(decoded[i] == values[i]);
     }
     printf("\n");
@@ -160,7 +161,7 @@ void example_status_codes() {
     printf("Unique status codes: %u\n", dict->size);
     printf("Status code dictionary: ");
     for (uint32_t i = 0; i < dict->size; i++) {
-        printf("%lu ", dict->values[i]);
+        printf("%" PRIu64 " ", dict->values[i]);
     }
     printf("\n");
     printf("Index width: %d byte(s)\n", dict->indexWidth);
@@ -271,7 +272,7 @@ void example_shared_dictionary() {
     printf("Shared dictionary has %u unique values\n", sharedDict->size);
     printf("Dictionary values: ");
     for (uint32_t i = 0; i < sharedDict->size; i++) {
-        printf("%lu ", sharedDict->values[i]);
+        printf("%" PRIu64 " ", sharedDict->values[i]);
     }
     printf("\n");
 
@@ -332,7 +333,7 @@ void example_lookup() {
 
     printf("Dictionary contents:\n");
     for (uint32_t i = 0; i < dict->size; i++) {
-        printf("  Index %u -> Value %lu\n", i, dict->values[i]);
+        printf("  Index %u -> Value %" PRIu64 "\n", i, dict->values[i]);
     }
 
     /* Find indices for values */
@@ -341,9 +342,9 @@ void example_lookup() {
     for (size_t i = 0; i < 4; i++) {
         int32_t index = varintDictFind(dict, testValues[i]);
         if (index >= 0) {
-            printf("  Value %lu -> Index %d\n", testValues[i], index);
+            printf("  Value %" PRIu64 " -> Index %d\n", testValues[i], index);
         } else {
-            printf("  Value %lu -> Not found\n", testValues[i]);
+            printf("  Value %" PRIu64 " -> Not found\n", testValues[i]);
         }
     }
 
@@ -351,7 +352,7 @@ void example_lookup() {
     printf("\nIndex -> Value lookups:\n");
     for (uint32_t i = 0; i < dict->size; i++) {
         uint64_t value = varintDictLookup(dict, i);
-        printf("  Index %u -> Value %lu\n", i, value);
+        printf("  Index %u -> Value %" PRIu64 "\n", i, value);
     }
 
     varintDictFree(dict);

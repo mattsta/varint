@@ -16,6 +16,7 @@
 
 #include "varintBitstream.h"
 #include <assert.h>
+#include <inttypes.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -46,9 +47,9 @@ void example_basic() {
     vbitsVal val3 = varintBitstreamGet(buffer, 8, 7);
 
     printf("\nRead back:\n");
-    printf("  Offset 0 (3 bits): %lu (expected 5)\n", val1);
-    printf("  Offset 3 (5 bits): %lu (expected 17)\n", val2);
-    printf("  Offset 8 (7 bits): %lu (expected 100)\n", val3);
+    printf("  Offset 0 (3 bits): %" PRIu64 " (expected 5)\n", val1);
+    printf("  Offset 3 (5 bits): %" PRIu64 " (expected 17)\n", val2);
+    printf("  Offset 8 (7 bits): %" PRIu64 " (expected 100)\n", val3);
 
     assert(val1 == 5);
     assert(val2 == 17);
@@ -82,16 +83,16 @@ void example_bit_offsets() {
     for (size_t i = 0; i < sizeof(writes) / sizeof(writes[0]); i++) {
         varintBitstreamSet(buffer, writes[i].offset, writes[i].bits,
                            writes[i].value);
-        printf("  Offset %2zu, %2zu bits: value %lu\n", writes[i].offset,
-               writes[i].bits, writes[i].value);
+        printf("  Offset %2zu, %2zu bits: value %" PRIu64 "\n",
+               writes[i].offset, writes[i].bits, writes[i].value);
     }
 
     printf("\nReading back:\n");
     for (size_t i = 0; i < sizeof(writes) / sizeof(writes[0]); i++) {
         vbitsVal value =
             varintBitstreamGet(buffer, writes[i].offset, writes[i].bits);
-        printf("  Offset %2zu, %2zu bits: value %lu ", writes[i].offset,
-               writes[i].bits, value);
+        printf("  Offset %2zu, %2zu bits: value %" PRIu64 "\n",
+               writes[i].offset, writes[i].bits, value);
 
         assert(value == writes[i].value);
         printf("✓\n");
@@ -112,14 +113,14 @@ void example_cross_slot() {
 
     printf("Slot size: %zu bits\n", BITS_PER_SLOT);
     printf("Writing %zu-bit value at offset %zu (spans slots)\n", bits, offset);
-    printf("Value: %lu\n", value);
+    printf("Value: %" PRIu64 "\n", value);
 
     varintBitstreamSet(buffer, offset, bits, value);
 
     // Read back
     vbitsVal retrieved = varintBitstreamGet(buffer, offset, bits);
 
-    printf("Retrieved: %lu\n", retrieved);
+    printf("Retrieved: %" PRIu64 "\n", retrieved);
     assert(retrieved == value);
 
     printf("✓ Cross-slot values work correctly\n");
@@ -228,7 +229,7 @@ void example_signed_values() {
         }
 
         varintBitstreamSet(buffer, offset, bitsPerValue, prepared);
-        printf("  Offset %2zu: %5ld\n", offset, original);
+        printf("  Offset %2zu: %5" PRId64 "\n", offset, original);
 
         offset += bitsPerValue;
     }
@@ -245,7 +246,7 @@ void example_signed_values() {
         _varintBitstreamRestoreSigned(retrieved, bitsPerValue);
         int64_t value = (int64_t)retrieved;
 
-        printf("  Offset %2zu: %5ld ", offset, value);
+        printf("  Offset %2zu: %5" PRId64 " ", offset, value);
         assert(value == signedValues[i]);
         printf("✓\n");
 

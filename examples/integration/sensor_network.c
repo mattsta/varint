@@ -19,6 +19,7 @@
 
 #include "varintExternal.h"
 #include <assert.h>
+#include <inttypes.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -329,7 +330,7 @@ void demonstrateSensorNetwork() {
         Timestamp decoded =
             decodeTimestamp(tsBuffer, timestamps[i].resolution, width);
 
-        printf("   Timestamp %zu = %lu (%s): %d bytes\n", i,
+        printf("   Timestamp %zu = %" PRIu64 " (%s): %d bytes\n", i,
                timestamps[i].value,
                timestamps[i].resolution == TIME_RES_MILLISECOND ? "ms"
                : timestamps[i].resolution == TIME_RES_SECOND    ? "sec"
@@ -356,8 +357,8 @@ void demonstrateSensorNetwork() {
         SensorReading decoded = decodeSensorReading(
             readingBuffer, readings[i].type, readings[i].width);
 
-        printf("   Reading %zu = %lu (%d bytes): ", i, readings[i].value,
-               readings[i].width);
+        printf("   Reading %zu = %" PRIu64 " (%d bytes): ", i,
+               readings[i].value, readings[i].width);
         printf("%s\n", readings[i].type == SENSOR_TYPE_TEMPERATURE
                            ? "temperature"
                        : readings[i].type == SENSOR_TYPE_HUMIDITY ? "humidity"
@@ -382,7 +383,7 @@ void demonstrateSensorNetwork() {
     }
 
     printf("   Added %zu temperature readings\n", tempSeries.count);
-    printf("   Base timestamp: %lu\n", tempSeries.baseTimestamp);
+    printf("   Base timestamp: %" PRIu64 "\n", tempSeries.baseTimestamp);
     printf("   Deltas: ");
     for (size_t i = 0; i < tempSeries.count; i++) {
         printf("%u ", tempSeries.deltaTimestamps[i]);

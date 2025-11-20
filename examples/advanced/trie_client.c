@@ -7,6 +7,7 @@
 #define _POSIX_C_SOURCE 200809L
 
 #include <arpa/inet.h>
+#include <inttypes.h>
 #include <netinet/in.h>
 #include <stdbool.h>
 #include <stdint.h>
@@ -176,7 +177,7 @@ bool receiveResponse(TrieClient *client, StatusCode *status, uint8_t *data,
     }
 
     if (messageLen == 0 || messageLen > MAX_RESPONSE_SIZE) {
-        fprintf(stderr, "Invalid message length: %lu\n", messageLen);
+        fprintf(stderr, "Invalid message length: %" PRIu64 "\n", messageLen);
         return false;
     }
 
@@ -299,12 +300,12 @@ bool cmdStats(TrieClient *client) {
     offset += varintTaggedGetLen(data + offset);
 
     printf("\nServer Statistics:\n");
-    printf("  Patterns:     %lu\n", patterns);
-    printf("  Subscribers:  %lu\n", subscribers);
-    printf("  Nodes:        %lu\n", nodes);
-    printf("  Connections:  %lu\n", connections);
-    printf("  Commands:     %lu\n", commands);
-    printf("  Uptime:       %lu seconds\n", uptime);
+    printf("  Patterns:     %" PRIu64 "\n", patterns);
+    printf("  Subscribers:  %" PRIu64 "\n", subscribers);
+    printf("  Nodes:        %" PRIu64 "\n", nodes);
+    printf("  Connections:  %" PRIu64 "\n", connections);
+    printf("  Commands:     %" PRIu64 "\n", commands);
+    printf("  Uptime:       %" PRIu64 " seconds\n", uptime);
 
     free(data);
     return true;
@@ -461,7 +462,7 @@ bool cmdMatch(TrieClient *client, const char *input) {
     varintTaggedGet64(data + respOffset, &count);
     respOffset += varintTaggedGetLen(data + respOffset);
 
-    printf("\nMatches found: %lu\n", count);
+    printf("\nMatches found: %" PRIu64 "\n", count);
     for (uint64_t i = 0; i < count; i++) {
         uint64_t subscriberId;
         varintTaggedGet64(data + respOffset, &subscriberId);
@@ -476,7 +477,8 @@ bool cmdMatch(TrieClient *client, const char *input) {
         name[nameLen] = '\0';
         respOffset += nameLen;
 
-        printf("  [%lu] ID=%lu Name='%s'\n", i + 1, subscriberId, name);
+        printf("  [%" PRIu64 "] ID=%" PRIu64 " Name='%s'\n", i + 1,
+               subscriberId, name);
     }
 
     free(data);
@@ -516,7 +518,7 @@ bool cmdList(TrieClient *client) {
     varintTaggedGet64(data + respOffset, &count);
     respOffset += varintTaggedGetLen(data + respOffset);
 
-    printf("\nPatterns (%lu total):\n", count);
+    printf("\nPatterns (%" PRIu64 " total):\n", count);
     for (uint64_t i = 0; i < count; i++) {
         uint64_t patternLen;
         varintTaggedGet64(data + respOffset, &patternLen);
@@ -527,7 +529,7 @@ bool cmdList(TrieClient *client) {
         pattern[patternLen] = '\0';
         respOffset += patternLen;
 
-        printf("  %lu. %s\n", i + 1, pattern);
+        printf("  %" PRIu64 ". %s\n", i + 1, pattern);
     }
 
     free(data);

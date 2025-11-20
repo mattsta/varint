@@ -16,6 +16,7 @@
 #include "varintDimension.h"
 #include "varintExternal.h"
 #include <assert.h>
+#include <inttypes.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -73,7 +74,7 @@ void example_basic_matrix() {
         for (size_t c = 0; c < cols; c++) {
             uint64_t value = varintDimensionPairEntryGetUnsigned(
                 matrix, r, c, entryWidth, dim);
-            printf("%3lu", value);
+            printf("%3" PRIu64, value);
             if (c < cols - 1) {
                 printf(", ");
             }
@@ -121,7 +122,7 @@ void example_vector() {
     for (size_t i = 0; i < length; i++) {
         uint64_t value =
             varintDimensionPairEntryGetUnsigned(vector, 0, i, entryWidth, dim);
-        printf("%lu", value);
+        printf("%" PRIu64, value);
         if (i < length - 1) {
             printf(", ");
         }
@@ -317,7 +318,7 @@ void example_dynamic_dimensions() {
     varintExternalUnsignedEncoding(maxValue, entryWidth);
 
     printf("Dataset: %zu values\n", count);
-    printf("Max value: %lu\n", maxValue);
+    printf("Max value: %" PRIu64 "\n", maxValue);
     printf("Entry width: %d bytes\n", entryWidth);
 
     // Create matrix
@@ -343,7 +344,7 @@ void example_dynamic_dimensions() {
         for (size_t c = 0; c < cols; c++) {
             uint64_t value = varintDimensionPairEntryGetUnsigned(
                 matrix, r, c, entryWidth, dim);
-            printf("%3lu", value);
+            printf("%3" PRIu64, value);
             if (c < cols - 1) {
                 printf(", ");
             }

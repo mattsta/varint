@@ -26,6 +26,7 @@
 #include "varintChained.h"
 #include "varintExternal.h"
 #include <assert.h>
+#include <inttypes.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -546,7 +547,8 @@ void demonstrateTimeSeriesDB() {
     printf("   Found %zu data points in range\n", queryResult.count);
     printf("   First 5 points:\n");
     for (size_t i = 0; i < 5 && i < queryResult.count; i++) {
-        printf("   - Time %lu (+%lu min): CPU = %lu%%\n",
+        printf("   - Time %" PRIu64 " (+%" PRIu64 " min): CPU = %" PRIu64
+               "%%\n",
                queryResult.points[i].timestamp,
                (queryResult.points[i].timestamp - baseTime) / 60,
                queryResult.points[i].value);
@@ -566,7 +568,8 @@ void demonstrateTimeSeriesDB() {
     printf("   First 5 buckets (5-min averages):\n");
     for (size_t i = 0; i < 5 && i < downsample.count; i++) {
         if (downsample.points[i].count > 0) {
-            printf("   - Bucket %zu (time +%lu min): Avg CPU = %lu%% (%zu "
+            printf("   - Bucket %zu (time +%" PRIu64 " min): Avg CPU = %" PRIu64
+                   "%% (%zu "
                    "points)\n",
                    i, (downsample.points[i].timestamp - baseTime) / 60,
                    downsample.points[i].value, downsample.points[i].count);
@@ -594,8 +597,8 @@ void demonstrateTimeSeriesDB() {
             }
         }
 
-        printf("   %s (10-min buckets): First bucket = %lu\n", aggNames[i],
-               firstValue);
+        printf("   %s (10-min buckets): First bucket = %" PRIu64 "\n",
+               aggNames[i], firstValue);
         downsampleResultFree(&result);
     }
 
@@ -656,10 +659,13 @@ void demonstrateTimeSeriesDB() {
         TimeSeries *ts = &db.series[i];
         printf("   Metric: %s\n", ts->metricName);
         printf("   - Data points: %zu\n", ts->count);
-        printf("   - Time range: %lu - %lu (%lu seconds)\n", ts->baseTimestamp,
+        printf("   - Time range: %" PRIu64 " - %" PRIu64 " (%" PRIu64
+               " seconds)\n",
+               ts->baseTimestamp,
                ts->baseTimestamp + ts->deltaTimestamps[ts->count - 1],
                (uint64_t)ts->deltaTimestamps[ts->count - 1]);
-        printf("   - Value range: %lu - %lu\n", ts->minValue, ts->maxValue);
+        printf("   - Value range: %" PRIu64 " - %" PRIu64 "\n", ts->minValue,
+               ts->maxValue);
     }
 
     timeSeriesDBFree(&db);

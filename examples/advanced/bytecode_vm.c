@@ -27,6 +27,7 @@
 #include "varintExternal.h"
 #include "varintTagged.h"
 #include <assert.h>
+#include <inttypes.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -256,7 +257,7 @@ void vmExecute(VM *vm) {
         }
 
         case OP_PRINT: {
-            printf("%ld\n", vmPeek(vm));
+            printf("%" PRId64 "\n", vmPeek(vm));
             break;
         }
 
@@ -373,7 +374,7 @@ void demonstrateBytecodeVM() {
     vmInit(&vm1, arithProgram.code, arithProgram.size);
     vmExecute(&vm1);
 
-    printf("   Stack top: %ld\n", vmPeek(&vm1));
+    printf("   Stack top: %" PRId64 "\n", vmPeek(&vm1));
     printf("   Expected: 20\n");
 
     // 3. Analyze instruction encoding

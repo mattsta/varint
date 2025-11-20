@@ -15,6 +15,7 @@
 
 #include "varintChained.h"
 #include <assert.h>
+#include <inttypes.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -28,7 +29,7 @@ void example_basic() {
 
     // Encode
     varintWidth width = varintChainedPutVarint(buffer, original);
-    printf("Encoded %lu in %d bytes\n", original, width);
+    printf("Encoded %" PRIu64 " in %d bytes\n", original, width);
 
     // Show the encoded bytes
     printf("Encoded bytes: ");
@@ -44,7 +45,7 @@ void example_basic() {
     uint64_t decoded;
     varintWidth decodedWidth = varintChainedGetVarint(buffer, &decoded);
 
-    printf("Decoded: %lu (%d bytes)\n", decoded, decodedWidth);
+    printf("Decoded: %" PRIu64 " (%d bytes)\n", decoded, decodedWidth);
 
     assert(original == decoded);
     assert(width == decodedWidth);
@@ -77,7 +78,7 @@ void example_continuation_bits() {
         uint8_t buffer[9];
         varintWidth width = varintChainedPutVarint(buffer, tests[i].value);
 
-        printf("%-20s: %20lu -> %d bytes ", tests[i].description,
+        printf("%-20s: %20" PRIu64 " -> %d bytes ", tests[i].description,
                tests[i].value, width);
 
         // Show continuation bits
@@ -126,7 +127,7 @@ void example_sqlite3_format() {
         uint8_t buffer[9];
         varintWidth width = varintChainedPutVarint(buffer, tests[i].value);
 
-        printf("Value %lu:\n", tests[i].value);
+        printf("Value %" PRIu64 ":\n", tests[i].value);
         printf("  Expected: ");
         for (int j = 0; j < tests[i].expectedLen; j++) {
             printf("%02x ", tests[i].expected[j]);
@@ -157,8 +158,8 @@ void example_stream_decoding() {
     printf("Encoding stream:\n");
     for (size_t i = 0; i < count; i++) {
         varintWidth width = varintChainedPutVarint(stream + offset, values[i]);
-        printf("  Value %lu at offset %zu (width %d)\n", values[i], offset,
-               width);
+        printf("  Value %" PRIu64 " at offset %zu (width %d)\n", values[i],
+               offset, width);
         offset += width;
     }
 
@@ -170,7 +171,8 @@ void example_stream_decoding() {
     for (size_t i = 0; i < count; i++) {
         uint64_t decoded;
         varintWidth width = varintChainedGetVarint(stream + offset, &decoded);
-        printf("  Offset %zu: %lu (width %d)\n", offset, decoded, width);
+        printf("  Offset %zu: %" PRIu64 " (width %d)\n", offset, decoded,
+               width);
         assert(decoded == values[i]);
         offset += width;
     }
@@ -199,7 +201,7 @@ void example_length_detection() {
             }
         }
 
-        printf("  Value %lu: detected %d bytes, actual %d bytes ",
+        printf("  Value %" PRIu64 ": detected %d bytes, actual %d bytes ",
                testValues[i], detectedWidth, actualWidth);
 
         assert(detectedWidth == actualWidth);
@@ -224,7 +226,7 @@ void example_nine_bytes() {
         uint8_t buffer[9];
         varintWidth width = varintChainedPutVarint(buffer, largeValues[i]);
 
-        printf("  Value 0x%016lx -> %d bytes\n", largeValues[i], width);
+        printf("  Value 0x%016" PRIx64 " -> %d bytes\n", largeValues[i], width);
 
         if (width == 9) {
             printf("    9th byte: 0x%02x (all 8 bits used, can be 0x00)\n",
@@ -253,8 +255,8 @@ void example_performance() {
         varintWidth width = varintChainedPutVarint(buffer, testValues[i]);
         float savings = ((8.0 - width) / 8.0) * 100.0;
 
-        printf("%10lu | %2d      | 8        | %5.1f%%\n", testValues[i], width,
-               savings);
+        printf("%10" PRIu64 " | %2d      | 8        | %5.1f%%\n", testValues[i],
+               width, savings);
     }
 }
 
@@ -268,7 +270,7 @@ void example_format_comparison() {
     uint8_t buffer[9];
     varintWidth width = varintChainedPutVarint(buffer, value);
 
-    printf("Value: %lu (binary: ", value);
+    printf("Value: %" PRIu64 " (binary: ", value);
     for (int i = 13; i >= 0; i--) {
         printf("%d", (int)((value >> i) & 1));
         if (i == 7) {
@@ -307,7 +309,7 @@ void example_format_comparison() {
             printf(" ");
         }
     }
-    printf(" = %lu\n", extracted);
+    printf(" = %" PRIu64 "\n", extracted);
 
     assert(extracted == value);
     printf("\n✓ Continuation bit encoding explained\n");

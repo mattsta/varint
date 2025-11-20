@@ -42,6 +42,7 @@
 #include <ctype.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <inttypes.h>
 #include <netinet/in.h>
 #include <signal.h>
 #include <stdbool.h>
@@ -1238,7 +1239,8 @@ bool trieLoad(PatternTrie *trie, const char *filename) {
     fseek(file, 0, SEEK_SET);
 
     if (fileSize <= 0 || fileSize > 16 * 1024 * 1024) {
-        fprintf(stderr, "Error: Invalid file size: %ld bytes\n", fileSize);
+        fprintf(stderr, "Error: Invalid file size: %" PRId64 " bytes\n",
+                (int64_t)fileSize);
         fclose(file);
         return false;
     }
@@ -1559,7 +1561,7 @@ void serverRun(TrieServer *server) {
                         } else {
                             server->totalConnections++;
                             printf("New connection from %s (slot %d, total "
-                                   "connections: %lu)\n",
+                                   "connections: %" PRIu64 ")\n",
                                    inet_ntoa(clientAddr.sin_addr), slot,
                                    server->totalConnections);
                         }
@@ -1661,7 +1663,8 @@ void serverRun(TrieServer *server) {
             }
 
             if (shouldSave && server->commandsSinceLastSave > 0) {
-                printf("Auto-saving trie (%lu commands since last save)...\n",
+                printf("Auto-saving trie (%" PRIu64
+                       " commands since last save)...\n",
                        server->commandsSinceLastSave);
                 if (trieSave(&server->trie, server->saveFilePath)) {
                     server->lastSaveTime = now;
@@ -1707,10 +1710,11 @@ void serverShutdown(TrieServer *server) {
 
     printf("Server shutdown complete.\n");
     printf("Statistics:\n");
-    printf("  Total connections: %lu\n", server->totalConnections);
-    printf("  Total commands: %lu\n", server->totalCommands);
-    printf("  Total errors: %lu\n", server->totalErrors);
-    printf("  Uptime: %ld seconds\n", time(NULL) - server->startTime);
+    printf("  Total connections: %" PRIu64 "\n", server->totalConnections);
+    printf("  Total commands: %" PRIu64 "\n", server->totalCommands);
+    printf("  Total errors: %" PRIu64 "\n", server->totalErrors);
+    printf("  Uptime: %" PRId64 " seconds\n",
+           (int64_t)(time(NULL) - server->startTime));
 }
 
 // ============================================================================
@@ -2218,7 +2222,8 @@ void handleClient(TrieServer *server, ClientConnection *client) {
                 uint64_t msgLen;
                 size_t varintLen =
                     varintTaggedGet64(client->readBuffer, &msgLen);
-                DEBUG_LOG("varintTaggedGet64 returned %zu, msgLen=%lu\n",
+                DEBUG_LOG("varintTaggedGet64 returned %zu, msgLen=%" PRIu64
+                          "\n",
                           varintLen, msgLen);
                 if (varintLen == 0) {
                     // Not enough bytes yet for complete varint

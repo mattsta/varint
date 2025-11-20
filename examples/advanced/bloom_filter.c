@@ -33,6 +33,7 @@
  */
 
 #include <assert.h>
+#include <inttypes.h>
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -643,7 +644,7 @@ void demonstrateLSMTree() {
 
     printf("SSTable configuration:\n");
     for (int i = 0; i < 3; i++) {
-        printf("  SSTable %d (Level %u, File %lu):\n", i, sst[i].level,
+        printf("  SSTable %d (Level %u, File %" PRIu64 "):\n", i, sst[i].level,
                sst[i].fileId);
         printf("    Entries: %zu\n", sst[i].entryCount);
         printf("    Bloom filter: %u bits (%u KB)\n", sst[i].filter->m,
@@ -690,7 +691,7 @@ void demonstrateLSMTree() {
                     sstableGet(&sst[i], queryKeys[q], &actuallyFound);
 
                 if (actuallyFound) {
-                    printf("      -> FOUND: value=%lu\n", entry->value);
+                    printf("      -> FOUND: value=%" PRIu64 "\n", entry->value);
                     found = true;
                     break;
                 } else {
@@ -706,10 +707,11 @@ void demonstrateLSMTree() {
     }
 
     printf("Performance summary:\n");
-    printf("  Total SSTable checks: %lu\n", bloomFilterSaves + diskReads);
-    printf("  Bloom filter saves: %lu (%.1f%%)\n", bloomFilterSaves,
+    printf("  Total SSTable checks: %" PRIu64 "\n",
+           bloomFilterSaves + diskReads);
+    printf("  Bloom filter saves: %" PRIu64 " (%.1f%%)\n", bloomFilterSaves,
            100.0 * bloomFilterSaves / (bloomFilterSaves + diskReads));
-    printf("  Disk I/Os required: %lu (%.1f%%)\n", diskReads,
+    printf("  Disk I/Os required: %" PRIu64 " (%.1f%%)\n", diskReads,
            100.0 * diskReads / (bloomFilterSaves + diskReads));
 
     for (int i = 0; i < 3; i++) {

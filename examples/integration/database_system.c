@@ -19,6 +19,7 @@
 #include "varintExternal.h"
 #include "varintTagged.h"
 #include <assert.h>
+#include <inttypes.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -258,8 +259,8 @@ void demonstrateDatabase() {
     for (size_t i = 0; i < table.rowCount; i++) {
         Row row;
         tableGet(&table, i, &row);
-        printf("   %6lu | %3u | %5u | %lu\n", row.userId, row.age, row.score,
-               row.timestamp);
+        printf("   %6" PRIu64 " | %3u | %5u | %" PRIu64 "\n", row.userId,
+               row.age, row.score, row.timestamp);
     }
 
     // 4. Sort by primary key
@@ -287,8 +288,8 @@ void demonstrateDatabase() {
     for (size_t i = 0; i < table.rowCount; i++) {
         Row row;
         tableGet(&table, indices[i], &row);
-        printf("   %6lu | %3u | %5u | %lu\n", row.userId, row.age, row.score,
-               row.timestamp);
+        printf("   %6" PRIu64 " | %3u | %5u | %" PRIu64 "\n", row.userId,
+               row.age, row.score, row.timestamp);
     }
 
     free(indices);
@@ -304,8 +305,8 @@ void demonstrateDatabase() {
         tableGet(&table, i, &row);
         if (row.score > 90) {
             indexAdd(&scoreIndex, i);
-            printf("   Added row %zu (userID=%lu, score=%u) to index\n", i,
-                   row.userId, row.score);
+            printf("   Added row %zu (userID=%" PRIu64 ", score=%u) to index\n",
+                   i, row.userId, row.score);
         }
     }
 
@@ -318,7 +319,7 @@ void demonstrateDatabase() {
         uint16_t rowIdx = varintPacked13Get(scoreIndex.packed, i);
         Row row;
         tableGet(&table, rowIdx, &row);
-        printf("   UserID %lu: score=%u\n", row.userId, row.score);
+        printf("   UserID %" PRIu64 ": score=%u\n", row.userId, row.score);
     }
 
     // 7. Space analysis

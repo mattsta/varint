@@ -21,6 +21,7 @@
 #include "varintDimension.h"
 #include "varintExternal.h"
 #include <assert.h>
+#include <inttypes.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -448,11 +449,12 @@ void demonstrateColumnStore() {
             balanceIsNull ? 0 : columnStoreGetInt64(&store, row, 2);
         double score = columnStoreGetDouble(&store, row, 3);
 
-        printf("   Row %zu: user_id=%lu, age=%s, balance=%s, score=%.1f\n", row,
-               userId, ageIsNull ? "NULL" : (char[]){(char)('0' + age), '\0'},
-               balanceIsNull ? "NULL"
-                             : (char[]){(char)('0' + (balance / 1000)), '\0'},
-               score);
+        printf(
+            "   Row %zu: user_id=%" PRIu64 ", age=%s, balance=%s, score=%.1f\n",
+            row, userId, ageIsNull ? "NULL" : (char[]){(char)('0' + age), '\0'},
+            balanceIsNull ? "NULL"
+                          : (char[]){(char)('0' + (balance / 1000)), '\0'},
+            score);
     }
 
     // 5. Aggregate operations
@@ -462,9 +464,9 @@ void demonstrateColumnStore() {
     double avgScore = columnStoreAverage(&store, 3);
     uint64_t maxAge = columnStoreMax(&store, 1);
 
-    printf("   Total users: %lu\n", totalUsers);
+    printf("   Total users: %" PRIu64 "\n", totalUsers);
     printf("   Average score: %.2f\n", avgScore);
-    printf("   Maximum age: %lu\n", maxAge);
+    printf("   Maximum age: %" PRIu64 "\n", maxAge);
 
     // 6. Space efficiency analysis
     printf("\n6. Space efficiency analysis:\n");

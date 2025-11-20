@@ -27,6 +27,7 @@
 #include "varintExternal.h"
 #include "varintTagged.h"
 #include <assert.h>
+#include <inttypes.h>
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -366,8 +367,8 @@ void demonstrateBlockchain() {
     printf("1. Initializing blockchain...\n");
     Blockchain chain;
     blockchainInit(&chain);
-    printf("   Genesis hash: 0x%016lx%016lx...\n", chain.genesisHash.hash[0],
-           chain.genesisHash.hash[1]);
+    printf("   Genesis hash: 0x%016" PRIx64 "%016" PRIx64 "...\n",
+           chain.genesisHash.hash[0], chain.genesisHash.hash[1]);
 
     // 2. Create transactions
     printf("\n2. Creating transactions with variable amounts...\n");
@@ -402,7 +403,8 @@ void demonstrateBlockchain() {
         size_t txSize = serializeTransaction(&txs[i], txBuffer);
         txs[i].signature = simpleHash(txBuffer, txSize - sizeof(Hash256));
 
-        printf("   TX %lu: %lu satoshis (", txs[i].txId, txAmounts[i]);
+        printf("   TX %" PRIu64 ": %" PRIu64 " satoshis (", txs[i].txId,
+               txAmounts[i]);
         varintWidth amountWidth = varintExternalLen(txAmounts[i]);
         printf("%d bytes)\n", amountWidth);
     }
@@ -414,8 +416,8 @@ void demonstrateBlockchain() {
     merkleTreeInit(&merkleTree, 5);
     merkleTreeBuild(&merkleTree, txs, 5);
 
-    printf("   Merkle root: 0x%016lx%016lx...\n", merkleTree.root.hash[0],
-           merkleTree.root.hash[1]);
+    printf("   Merkle root: 0x%016" PRIx64 "%016" PRIx64 "...\n",
+           merkleTree.root.hash[0], merkleTree.root.hash[1]);
 
     // 4. Create and mine block
     printf("\n4. Mining block (Proof of Work)...\n");
@@ -502,7 +504,7 @@ void demonstrateBlockchain() {
     for (size_t i = 0; i < utxoSet.count; i++) {
         totalValue += utxoSet.utxos[i].output.amount;
     }
-    printf("%lu satoshis\n", totalValue);
+    printf("%" PRIu64 " satoshis\n", totalValue);
 
     // 8. Transaction throughput analysis
     printf("\n8. Performance analysis...\n");
@@ -528,15 +530,15 @@ void demonstrateBlockchain() {
     printf("   Transaction ID encoding (varintTagged):\n");
     for (size_t i = 0; i < 3; i++) {
         varintWidth width = varintTaggedLen(txs[i].txId);
-        printf("   - TX %lu: %d bytes (vs 8 bytes fixed)\n", txs[i].txId,
-               width);
+        printf("   - TX %" PRIu64 ": %d bytes (vs 8 bytes fixed)\n",
+               txs[i].txId, width);
     }
 
     printf("\n   Amount encoding (varintExternal):\n");
     for (size_t i = 0; i < 5; i++) {
         varintWidth width = varintExternalLen(txAmounts[i]);
-        printf("   - %lu satoshis: %d bytes (vs 8 bytes fixed)\n", txAmounts[i],
-               width);
+        printf("   - %" PRIu64 " satoshis: %d bytes (vs 8 bytes fixed)\n",
+               txAmounts[i], width);
     }
 
     printf("\n   Transaction count (varintChained):\n");

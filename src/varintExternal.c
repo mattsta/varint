@@ -16,8 +16,10 @@
  * positive for __uint128_t case (16 bytes from 8-byte pointer) */
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Warray-bounds"
+#if defined(__GNUC__) && !defined(__clang__)
 #pragma GCC diagnostic ignored "-Wstringop-overflow"
 #pragma GCC diagnostic ignored "-Wstringop-overread"
+#endif
 static void
 varintExternalCopyToEncodingLittleEndian_(uint8_t *restrict dst,
                                           const uint8_t *restrict src,

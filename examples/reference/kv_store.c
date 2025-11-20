@@ -23,6 +23,7 @@
 
 #include "varintTagged.h"
 #include <assert.h>
+#include <inttypes.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -382,7 +383,8 @@ void kvStoreGetStats(const KVStore *store, KVStoreStats *stats) {
 void printValue(uint64_t key, const void *value, size_t valueLen,
                 void *userData) {
     (void)userData; // Unused
-    printf("   %lu: \"%.*s\"\n", key, (int)valueLen, (const char *)value);
+    printf("   %" PRIu64 ": \"%.*s\"\n", key, (int)valueLen,
+           (const char *)value);
 }
 
 void demonstrateKVStore() {
@@ -420,10 +422,10 @@ void demonstrateKVStore() {
         void *value;
         size_t valueLen;
         if (kvStoreGet(&store, testKeys[i], &value, &valueLen)) {
-            printf("   Key %lu: \"%.*s\"\n", testKeys[i], (int)valueLen,
+            printf("   Key %" PRIu64 ": \"%.*s\"\n", testKeys[i], (int)valueLen,
                    (char *)value);
         } else {
-            printf("   Key %lu: NOT FOUND\n", testKeys[i]);
+            printf("   Key %" PRIu64 ": NOT FOUND\n", testKeys[i]);
         }
     }
 
@@ -506,7 +508,7 @@ void demonstrateKVStore() {
     for (size_t i = 0; i < store.count; i++) {
         uint64_t key;
         varintTaggedGet64(store.entries[i].key, &key);
-        printf("   Entry %zu: Key %lu = \"%.*s\"\n", i, key,
+        printf("   Entry %zu: Key %" PRIu64 " = \"%.*s\"\n", i, key,
                (int)store.entries[i].valueLen, (char *)store.entries[i].value);
     }
 

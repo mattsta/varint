@@ -36,6 +36,7 @@
 #include "varintDimension.h"
 #include "varintExternal.h"
 #include <assert.h>
+#include <inttypes.h>
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -415,7 +416,7 @@ void demonstrateGraphAdjacency() {
         uint64_t rowEnd = csrMatrixGetRowPointer(&graph, user + 1);
         for (uint64_t i = rowStart; i < rowEnd; i++) {
             uint64_t followed = csrMatrixGetColumnIndex(&graph, i);
-            printf("%lu ", followed);
+            printf("%" PRIu64 " ", followed);
         }
         printf("\n");
     }
@@ -557,7 +558,7 @@ void demonstrateDocumentTermMatrix() {
         uint64_t rowEnd = csrMatrixGetRowPointer(&docTerm, doc + 1);
         for (uint64_t i = rowStart; i < rowEnd; i++) {
             uint64_t term = csrMatrixGetColumnIndex(&docTerm, i);
-            printf("term%lu(%.0f) ", term, docTerm.values[i]);
+            printf("term%" PRIu64 "(%.0f) ", term, docTerm.values[i]);
         }
         printf("\n");
     }
@@ -577,7 +578,7 @@ void demonstrateDocumentTermMatrix() {
         uint64_t rowEnd = csrMatrixGetRowPointer(&invertedIndex, term + 1);
         for (uint64_t i = rowStart; i < rowEnd; i++) {
             uint64_t doc = csrMatrixGetColumnIndex(&invertedIndex, i);
-            printf("%lu(%.0f) ", doc, invertedIndex.values[i]);
+            printf("%" PRIu64 "(%.0f) ", doc, invertedIndex.values[i]);
         }
         printf("\n");
     }
@@ -786,7 +787,7 @@ void demonstrateRecommenderSystem() {
         uint64_t rowEnd = csrMatrixGetRowPointer(&ratings, user + 1);
         for (uint64_t i = rowStart; i < rowEnd; i++) {
             uint64_t item = csrMatrixGetColumnIndex(&ratings, i);
-            printf("item%lu(%.1f*) ", item, ratings.values[i]);
+            printf("item%" PRIu64 "(%.1f*) ", item, ratings.values[i]);
         }
         printf("\n");
     }

@@ -10,6 +10,7 @@
 
 #include "varintTagged.h"
 #include <assert.h>
+#include <inttypes.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -23,12 +24,12 @@ void example_basic() {
 
     // Encode
     varintWidth width = varintTaggedPut64(buffer, original);
-    printf("Encoded %lu in %d bytes\n", original, width);
+    printf("Encoded %" PRIu64 " in %d bytes\n", original, width);
 
     // Decode
     uint64_t decoded;
     varintTaggedGet64(buffer, &decoded);
-    printf("Decoded: %lu\n", decoded);
+    printf("Decoded: %" PRIu64 "\n", decoded);
 
     assert(original == decoded);
     printf("✓ Round-trip successful\n");
@@ -58,7 +59,7 @@ void example_boundaries() {
         uint8_t buffer[9];
         varintWidth width = varintTaggedPut64(buffer, tests[i].value);
 
-        printf("%-20s: %10lu -> %d bytes ", tests[i].description,
+        printf("%-20s: %10" PRIu64 " -> %d bytes ", tests[i].description,
                tests[i].value, width);
 
         assert(width == tests[i].expectedWidth);
@@ -82,7 +83,7 @@ void example_sortable() {
     printf("Original order: ");
     for (int i = 0; i < 5; i++) {
         varintTaggedPut64(encoded[i], keys[i]);
-        printf("%lu ", keys[i]);
+        printf("%" PRIu64 " ", keys[i]);
     }
     printf("\n");
 
@@ -103,7 +104,7 @@ void example_sortable() {
     for (int i = 0; i < 5; i++) {
         uint64_t value;
         varintTaggedGet64(encoded[i], &value);
-        printf("%lu ", value);
+        printf("%" PRIu64 " ", value);
     }
     printf("\n✓ memcmp sorting works!\n");
 }
@@ -139,8 +140,9 @@ void example_composite_key() {
     for (int i = 0; i < 3; i++) {
         uint64_t tableId, rowId;
         decodeCompositeKey(&keys[i], &tableId, &rowId);
-        printf("  Key %d: table=%lu, row=%lu (size=%zu bytes)\n", i, tableId,
-               rowId, keys[i].totalLen);
+        printf("  Key %d: table=%" PRIu64 ", row=%" PRIu64
+               " (size=%zu bytes)\n",
+               i, tableId, rowId, keys[i].totalLen);
     }
 
     // Sort composite keys (maintains table, row order)
@@ -163,7 +165,8 @@ void example_composite_key() {
     for (int i = 0; i < 3; i++) {
         uint64_t tableId, rowId;
         decodeCompositeKey(&keys[i], &tableId, &rowId);
-        printf("  Key %d: table=%lu, row=%lu\n", i, tableId, rowId);
+        printf("  Key %d: table=%" PRIu64 ", row=%" PRIu64 "\n", i, tableId,
+               rowId);
     }
     printf("✓ Composite keys sorted correctly\n");
 }
@@ -185,19 +188,19 @@ void example_arithmetic() {
 
     uint64_t result;
     varintTaggedGet64(counter, &result);
-    printf("After 10 increments: %lu\n", result);
+    printf("After 10 increments: %" PRIu64 "\n", result);
     assert(result == 10);
 
     // Add 230 more (crosses 240 boundary)
     varintTaggedAddGrow(counter, 230);
     varintTaggedGet64(counter, &result);
-    printf("After adding 230: %lu (now uses 2 bytes)\n", result);
+    printf("After adding 230: %" PRIu64 " (now uses 2 bytes)\n", result);
     assert(result == 240);
 
     // Add 1 more (grows to 2 bytes)
     varintTaggedAddGrow(counter, 1);
     varintTaggedGet64(counter, &result);
-    printf("After adding 1: %lu (uses 2 bytes)\n", result);
+    printf("After adding 1: %" PRIu64 " (uses 2 bytes)\n", result);
     assert(result == 241);
 
     printf("✓ In-place arithmetic works\n");
@@ -214,12 +217,12 @@ void example_fixed_width() {
 
     uint64_t value;
     varintTaggedGet64(slot, &value);
-    printf("Value 10 stored in 5 bytes: %lu\n", value);
+    printf("Value 10 stored in 5 bytes: %" PRIu64 "\n", value);
 
     // Can now update to larger values without reallocation
     varintTaggedPut64FixedWidth(slot, 1000000, 5);
     varintTaggedGet64(slot, &value);
-    printf("Updated to 1000000 (still 5 bytes): %lu\n", value);
+    printf("Updated to 1000000 (still 5 bytes): %" PRIu64 "\n", value);
 
     printf("✓ Fixed-width encoding for update-in-place\n");
 }
@@ -238,8 +241,8 @@ void example_performance() {
         varintWidth width = varintTaggedPut64(buffer, testValues[i]);
         float savings = ((8.0 - width) / 8.0) * 100.0;
 
-        printf("%10lu | %2d     | 8        | %5.1f%%\n", testValues[i], width,
-               savings);
+        printf("%10" PRIu64 " | %2d     | 8        | %5.1f%%\n", testValues[i],
+               width, savings);
     }
 }
 

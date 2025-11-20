@@ -11,6 +11,7 @@
 
 #include "varintGroup.h"
 #include <assert.h>
+#include <inttypes.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -26,7 +27,8 @@ void example_basic() {
     // Encode group
     size_t encoded = varintGroupEncode(buffer, values, fieldCount);
     printf("Encoded %d fields in %zu bytes\n", fieldCount, encoded);
-    printf("  Fields: [%lu, %lu, %lu]\n", values[0], values[1], values[2]);
+    printf("  Fields: [%" PRIu64 ", %" PRIu64 ", %" PRIu64 "]\n", values[0],
+           values[1], values[2]);
 
     // Show encoding breakdown
     printf("  Breakdown:\n");
@@ -42,7 +44,8 @@ void example_basic() {
     size_t consumed = varintGroupDecode(buffer, decoded, &decodedCount, 3);
 
     printf("Decoded %d fields (%zu bytes consumed)\n", decodedCount, consumed);
-    printf("  Fields: [%lu, %lu, %lu]\n", decoded[0], decoded[1], decoded[2]);
+    printf("  Fields: [%" PRIu64 ", %" PRIu64 ", %" PRIu64 "]\n", decoded[0],
+           decoded[1], decoded[2]);
 
     assert(consumed == encoded);
     assert(decodedCount == fieldCount);
@@ -100,8 +103,9 @@ void example_struct_encoding() {
         size_t size;
         encodePersonRecord(buffer, &people[i], &size);
 
-        printf("  Record %zu: age=%lu, salary=%lu, zip=%lu, time=%lu\n", i,
-               people[i].age, people[i].salary, people[i].zipcode,
+        printf("  Record %zu: age=%" PRIu64 ", salary=%" PRIu64 ", zip=%" PRIu64
+               ", time=%" PRIu64 "\n",
+               i, people[i].age, people[i].salary, people[i].zipcode,
                people[i].timestamp);
         printf("    Encoded: %zu bytes (vs %zu native)\n", size,
                sizeof(PersonRecord));
@@ -150,8 +154,9 @@ void example_table_rows() {
         sizes[i] = varintGroupEncode(encoded[i], rows[i], colCount);
         totalSize += sizes[i];
 
-        printf("  Row %zu: [%lu, %lu, %lu, %lu] -> %zu bytes\n", i, rows[i][0],
-               rows[i][1], rows[i][2], rows[i][3], sizes[i]);
+        printf("  Row %zu: [%" PRIu64 ", %" PRIu64 ", %" PRIu64 ", %" PRIu64
+               "] -> %zu bytes\n",
+               i, rows[i][0], rows[i][1], rows[i][2], rows[i][3], sizes[i]);
     }
 
     printf("\nTotal size: %zu bytes\n", totalSize);
@@ -225,7 +230,8 @@ void example_network_packets() {
         size_t size;
         encodePacketHeader(buffer, &packets[i], &size);
 
-        printf("  Packet %zu: ver=%lu, type=%lu, id=%lu, time=%lu, len=%lu\n",
+        printf("  Packet %zu: ver=%" PRIu64 ", type=%" PRIu64 ", id=%" PRIu64
+               ", time=%" PRIu64 ", len=%" PRIu64 "\n",
                i, packets[i].version, packets[i].msgType, packets[i].msgId,
                packets[i].timestamp, packets[i].payloadLen);
         printf("    Size: %zu bytes (vs %zu fixed)\n", size,
@@ -269,7 +275,8 @@ void example_field_extraction() {
         uint64_t value;
         size_t consumed = varintGroupGetField(buffer, i, &value);
 
-        printf("  Field %d: %lu (accessed %zu bytes)\n", i, value, consumed);
+        printf("  Field %d: %" PRIu64 " (accessed %zu bytes)\n", i, value,
+               consumed);
         assert(value == values[i]);
     }
 
@@ -296,7 +303,7 @@ void example_size_calculation() {
 
         printf("Group %zu: ", i);
         for (int j = 0; j < 5; j++) {
-            printf("%lu ", testGroups[i][j]);
+            printf("%" PRIu64 " ", testGroups[i][j]);
         }
         printf("\n");
         printf("  Predicted: %zu bytes\n", predictedSize);
@@ -397,7 +404,7 @@ void example_boundaries() {
         size_t size = varintGroupEncode(buffer, values, 1);
         varintWidth width = varintGroupGetFieldWidth(buffer, 0);
 
-        printf("%-15s: %20lu -> width=%d, total=%zu bytes\n",
+        printf("%-15s: %20" PRIu64 " -> width=%d, total=%zu bytes\n",
                boundaries[i].description, boundaries[i].value, width, size);
 
         // Verify

@@ -52,6 +52,7 @@
 #include "varintExternal.h"
 #include <assert.h>
 #include <float.h>
+#include <inttypes.h>
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -782,7 +783,7 @@ void demonstratePointCloudCompression() {
     printf("   First point: (%.3f, %.3f, %.3f)\n", building.points[0].x,
            building.points[0].y, building.points[0].z);
     printf("   Quantized: (%u, %u, %u)\n", qp.x, qp.y, qp.z);
-    printf("   Morton code: 0x%016lx\n", morton);
+    printf("   Morton code: 0x%016" PRIx64 "\n", morton);
 
     uint32_t dx, dy, dz;
     decodeMorton(morton, &dx, &dy, &dz);
@@ -889,7 +890,7 @@ void demonstratePointCloudCompression() {
     printf("   Morton code encoding:\n");
     printf("   - 3D coords → 1D Morton code (spatial locality)\n");
     printf("   - Sorted Morton codes cluster nearby points\n");
-    printf("   - Example delta: 0x%016lx\n", morton);
+    printf("   - Example delta: 0x%016" PRIx64 "\n", morton);
 
     varintWidth mortonWidth = varintExternalLen(morton);
     printf("   - Typical Morton code: %d bytes (vs 24 bytes raw coords)\n",

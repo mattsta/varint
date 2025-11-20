@@ -35,6 +35,7 @@ financial_orderbook -lm
 #include "varintExternal.h"
 #include "varintTagged.h"
 #include <assert.h>
+#include <inttypes.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -359,7 +360,7 @@ void demonstrateOrderBook() {
 
         addOrderToBook(&book, buyOrders[i]);
 
-        printf("   Order %lu: BUY %u @ $%.2f\n", buyOrders[i]->orderId,
+        printf("   Order %" PRIu64 ": BUY %u @ $%.2f\n", buyOrders[i]->orderId,
                buyOrders[i]->quantity, decodePrice(buyOrders[i]->price));
     }
 
@@ -385,8 +386,9 @@ void demonstrateOrderBook() {
 
         addOrderToBook(&book, sellOrders[i]);
 
-        printf("   Order %lu: SELL %u @ $%.2f\n", sellOrders[i]->orderId,
-               sellOrders[i]->quantity, decodePrice(sellOrders[i]->price));
+        printf("   Order %" PRIu64 ": SELL %u @ $%.2f\n",
+               sellOrders[i]->orderId, sellOrders[i]->quantity,
+               decodePrice(sellOrders[i]->price));
     }
 
     // 4. Display order book
@@ -396,7 +398,7 @@ void demonstrateOrderBook() {
     printf("   --- ASKS (Sell Orders) ---\n");
     BookLevel *level = book.asks;
     while (level) {
-        printf("   $%.2f: %lu shares\n", decodePrice(level->price),
+        printf("   $%.2f: %" PRIu64 " shares\n", decodePrice(level->price),
                level->totalQuantity);
         level = level->next;
     }
@@ -409,7 +411,7 @@ void demonstrateOrderBook() {
     printf("   --- BIDS (Buy Orders) ---\n");
     level = book.bids;
     while (level) {
-        printf("   $%.2f: %lu shares\n", decodePrice(level->price),
+        printf("   $%.2f: %" PRIu64 " shares\n", decodePrice(level->price),
                level->totalQuantity);
         level = level->next;
     }
@@ -439,11 +441,11 @@ void demonstrateOrderBook() {
     trade.sellOrderId = 2000;
 
     printf("   Trade executed:\n");
-    printf("   - Trade ID: %lu\n", trade.tradeId);
+    printf("   - Trade ID: %" PRIu64 "\n", trade.tradeId);
     printf("   - Price: $%.2f\n", decodePrice(trade.price));
     printf("   - Quantity: %u shares\n", trade.quantity);
-    printf("   - Buy Order: %lu\n", trade.buyOrderId);
-    printf("   - Sell Order: %lu\n", trade.sellOrderId);
+    printf("   - Buy Order: %" PRIu64 "\n", trade.buyOrderId);
+    printf("   - Sell Order: %" PRIu64 "\n", trade.sellOrderId);
 
     // Serialize trade
     uint8_t tradeBuffer[256];
@@ -471,8 +473,8 @@ void demonstrateOrderBook() {
     uint64_t orderIds[] = {1, 100, 10000, 1000000};
     for (size_t i = 0; i < 4; i++) {
         varintWidth width = varintTaggedLen(orderIds[i]);
-        printf("   Order %lu: %d bytes (vs 8 bytes fixed)\n", orderIds[i],
-               width);
+        printf("   Order %" PRIu64 ": %d bytes (vs 8 bytes fixed)\n",
+               orderIds[i], width);
     }
 
     printf("\n   Benefits of sortable encoding:\n");

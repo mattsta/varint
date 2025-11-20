@@ -11,6 +11,7 @@
 
 #include "varintExternal.h"
 #include <assert.h>
+#include <inttypes.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -35,7 +36,7 @@ void example_basic() {
     // Determine width needed
     varintWidth width;
     varintExternalUnsignedEncoding(original, width);
-    printf("Value %lu requires %d bytes\n", original, width);
+    printf("Value %" PRIu64 " requires %d bytes\n", original, width);
 
     // Encode
     varintExternalPutFixedWidthQuick_(buffer, original, width);
@@ -44,7 +45,7 @@ void example_basic() {
     // Decode
     uint64_t decoded;
     varintExternalGetQuick_(buffer, width, decoded);
-    printf("Decoded: %lu\n", decoded);
+    printf("Decoded: %" PRIu64 "\n", decoded);
 
     assert(original == decoded);
     printf("✓ Round-trip successful\n");
@@ -76,7 +77,7 @@ void example_width_detection() {
         varintWidth width;
         varintExternalUnsignedEncoding(tests[i].value, width);
 
-        printf("%-25s: %20lu -> %d bytes ", tests[i].description,
+        printf("%-25s: %20" PRIu64 " -> %d bytes ", tests[i].description,
                tests[i].value, width);
 
         assert(width == tests[i].expectedWidth);
@@ -252,7 +253,7 @@ void example_endianness() {
 
     varintExternalPutFixedWidthQuick_(buffer, value, 8);
 
-    printf("Value: 0x%016lx\n", value);
+    printf("Value: 0x%016" PRIx64 "\n", value);
     printf("Encoded bytes (little-endian on this system): ");
     for (int i = 0; i < 8; i++) {
         printf("%02x ", buffer[i]);
@@ -286,7 +287,7 @@ void example_signed() {
         uint64_t decoded;
         varintExternalGetQuick_(buffer, width, decoded);
 
-        printf("  %10ld -> %d bytes\n", signedValues[i], width);
+        printf("  %10" PRId64 " -> %d bytes\n", signedValues[i], width);
         assert((int64_t)decoded == signedValues[i]);
     }
 
@@ -307,8 +308,8 @@ void example_performance() {
         varintExternalUnsignedEncoding(testValues[i], width);
         float savings = ((8.0 - width) / 8.0) * 100.0;
 
-        printf("%10lu | %2d       | 8        | %5.1f%%\n", testValues[i], width,
-               savings);
+        printf("%10" PRIu64 " | %2d       | 8        | %5.1f%%\n",
+               testValues[i], width, savings);
     }
 }
 

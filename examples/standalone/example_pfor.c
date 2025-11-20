@@ -12,6 +12,7 @@
 
 #include "varintPFOR.h"
 #include <assert.h>
+#include <inttypes.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -26,7 +27,7 @@ void example_basic() {
 
     printf("Original values: ");
     for (uint32_t i = 0; i < count; i++) {
-        printf("%lu ", values[i]);
+        printf("%" PRIu64 " ", values[i]);
     }
     printf("\n");
 
@@ -37,8 +38,8 @@ void example_basic() {
                                           VARINT_PFOR_THRESHOLD_95, &meta);
 
     printf("Encoded in %zu bytes\n", encodedSize);
-    printf("Metadata: min=%lu, width=%d, exceptions=%u\n", meta.min, meta.width,
-           meta.exceptionCount);
+    printf("Metadata: min=%" PRIu64 ", width=%d, exceptions=%u\n", meta.min,
+           meta.width, meta.exceptionCount);
 
     /* Decode */
     uint64_t decoded[8];
@@ -47,7 +48,7 @@ void example_basic() {
 
     printf("Decoded %u values: ", decodedCount);
     for (uint32_t i = 0; i < decodedCount; i++) {
-        printf("%lu ", decoded[i]);
+        printf("%" PRIu64 " ", decoded[i]);
     }
     printf("\n");
 
@@ -78,7 +79,7 @@ void example_stock_prices() {
 
     printf("Stock prices (cents): ");
     for (uint32_t i = 0; i < count && i < 10; i++) {
-        printf("%lu ", prices[i]);
+        printf("%" PRIu64 " ", prices[i]);
     }
     printf("... (%u total)\n", count);
 
@@ -88,8 +89,8 @@ void example_stock_prices() {
     size_t encodedSize = varintPFOREncode(buffer, prices, count,
                                           VARINT_PFOR_THRESHOLD_95, &meta);
 
-    printf("Encoded in %zu bytes (min=%lu, width=%d bytes)\n", encodedSize,
-           meta.min, meta.width);
+    printf("Encoded in %zu bytes (min=%" PRIu64 ", width=%d bytes)\n",
+           encodedSize, meta.min, meta.width);
     printf("Exceptions: %u out of %u values (%.1f%%)\n", meta.exceptionCount,
            count, ((float)meta.exceptionCount / count) * 100);
 
@@ -184,7 +185,7 @@ void example_random_access() {
     for (size_t i = 0; i < sizeof(testIndices) / sizeof(testIndices[0]); i++) {
         uint32_t idx = testIndices[i];
         uint64_t value = varintPFORGetAt(buffer, idx, &meta);
-        printf("  Index %2u: %lu°C ", idx, value);
+        printf("  Index %2u: %" PRIu64 "°C ", idx, value);
 
         assert(value == temperatures[idx]);
         printf("✓\n");
@@ -294,7 +295,8 @@ void example_network_latency() {
                                           VARINT_PFOR_THRESHOLD_95, &meta);
 
     printf("Encoded in %zu bytes\n", encodedSize);
-    printf("Range: min=%lu ms, marker=%lu\n", meta.min, meta.exceptionMarker);
+    printf("Range: min=%" PRIu64 " ms, marker=%" PRIu64 "\n", meta.min,
+           meta.exceptionMarker);
     printf("Frame width: %d byte(s)\n", meta.width);
     printf("Anomalies detected: %u (%.1f%%)\n", meta.exceptionCount,
            ((float)meta.exceptionCount / count) * 100);
@@ -330,7 +332,7 @@ void example_size_calculation() {
     varintPFORComputeThreshold(values, count, VARINT_PFOR_THRESHOLD_95, &meta);
 
     printf("Metadata computed:\n");
-    printf("  Min: %lu\n", meta.min);
+    printf("  Min: %" PRIu64 "\n", meta.min);
     printf("  Width: %d bytes\n", meta.width);
     printf("  Count: %u\n", meta.count);
     printf("  Exceptions: %u\n", meta.exceptionCount);

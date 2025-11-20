@@ -28,6 +28,7 @@
 
 #include "varintExternal.h"
 #include <assert.h>
+#include <inttypes.h>
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -445,7 +446,7 @@ void demonstrateSensorReadings() {
         if (encoded.timeDeltaOfDelta[i] == 0) {
             zeroCount++;
         }
-        if (abs(encoded.valueDeltaOfDelta[i]) <= 100) {
+        if (llabs(encoded.valueDeltaOfDelta[i]) <= 100) {
             smallCount++;
         }
     }
@@ -509,10 +510,10 @@ void demonstrateStockPrices() {
     printf("\nDelta-of-delta analysis:\n");
     size_t smallTimeDelta = 0, smallValueDelta = 0;
     for (size_t i = 0; i < encoded.deltaCount; i++) {
-        if (abs(encoded.timeDeltaOfDelta[i]) <= 5) {
+        if (llabs(encoded.timeDeltaOfDelta[i]) <= 5) {
             smallTimeDelta++;
         }
-        if (abs(encoded.valueDeltaOfDelta[i]) <= 5) {
+        if (llabs(encoded.valueDeltaOfDelta[i]) <= 5) {
             smallValueDelta++;
         }
     }
@@ -576,7 +577,7 @@ void demonstrateCounterMetrics() {
         if (encoded.timeDeltaOfDelta[i] == 0) {
             zeroTimeDelta++;
         }
-        if (abs(encoded.valueDeltaOfDelta[i]) <= 100) {
+        if (llabs(encoded.valueDeltaOfDelta[i]) <= 100) {
             smallValueDelta++;
         }
     }
@@ -643,7 +644,7 @@ void demonstrateTemperatureData() {
         if (encoded.timeDeltaOfDelta[i] == 0) {
             zeroTimeDelta++;
         }
-        if (abs(encoded.valueDeltaOfDelta[i]) <= 200) {
+        if (llabs(encoded.valueDeltaOfDelta[i]) <= 200) {
             smallValueDelta++;
         }
     }

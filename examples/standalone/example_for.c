@@ -13,6 +13,7 @@
 
 #include "varintFOR.h"
 #include <assert.h>
+#include <inttypes.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -40,12 +41,12 @@ void example_basic() {
 
     printf("Values: ");
     for (size_t i = 0; i < count; i++) {
-        printf("%lu ", values[i]);
+        printf("%" PRIu64 " ", values[i]);
     }
     printf("\n");
 
-    printf("Min: %lu, Max: %lu, Range: %lu\n", meta.minValue, meta.maxValue,
-           meta.range);
+    printf("Min: %" PRIu64 ", Max: %" PRIu64 ", Range: %" PRIu64 "\n",
+           meta.minValue, meta.maxValue, meta.range);
     printf("Offset width: %d bytes\n", meta.offsetWidth);
     printf("Encoded size: %zu bytes\n", meta.encodedSize);
     printf("vs uint64_t array: %zu bytes\n", count * 8);
@@ -54,14 +55,14 @@ void example_basic() {
 
     // Encode
     uint8_t *encoded = malloc(meta.encodedSize);
-    CHECK_ALLOC(ptr_placeholder);
+    CHECK_ALLOC(encoded);
     size_t encodedLen = varintFOREncode(encoded, values, count, &meta);
     assert(encodedLen == meta.encodedSize);
     printf("Encoded %zu values in %zu bytes\n", count, encodedLen);
 
     // Decode
     uint64_t *decoded = malloc(count * sizeof(uint64_t));
-    CHECK_ALLOC(ptr_placeholder);
+    CHECK_ALLOC(decoded);
     size_t decodedCount = varintFORDecode(encoded, decoded, count);
     assert(decodedCount == count);
 
@@ -98,14 +99,15 @@ void example_timestamps() {
     varintFORAnalyze(timestamps, count, &meta);
 
     printf("Timestamps in 24-hour window:\n");
-    printf("  Min: %lu, Max: %lu\n", meta.minValue, meta.maxValue);
-    printf("  Range: %lu seconds (%.1f hours)\n", meta.range,
+    printf("  Min: %" PRIu64 ", Max: %" PRIu64 "\n", meta.minValue,
+           meta.maxValue);
+    printf("  Range: %" PRIu64 " seconds (%.1f hours)\n", meta.range,
            meta.range / 3600.0);
     printf("  Offset width: %d bytes (range fits in %d bytes)\n",
            meta.offsetWidth, meta.offsetWidth);
 
     uint8_t *encoded = malloc(meta.encodedSize);
-    CHECK_ALLOC(ptr_placeholder);
+    CHECK_ALLOC(encoded);
     varintFOREncode(encoded, timestamps, count, &meta);
 
     printf("Storage:\n");
@@ -137,12 +139,12 @@ void example_sequential_ids() {
     varintFORAnalyze(ids, 100, &meta);
 
     printf("100 sequential IDs (100000-100099):\n");
-    printf("  Min: %lu, Max: %lu, Range: %lu\n", meta.minValue, meta.maxValue,
-           meta.range);
+    printf("  Min: %" PRIu64 ", Max: %" PRIu64 ", Range: %" PRIu64 "\n",
+           meta.minValue, meta.maxValue, meta.range);
     printf("  Offset width: %d byte(s)\n", meta.offsetWidth);
 
     uint8_t *encoded = malloc(meta.encodedSize);
-    CHECK_ALLOC(ptr_placeholder);
+    CHECK_ALLOC(encoded);
     varintFOREncode(encoded, ids, 100, &meta);
 
     printf("Storage comparison:\n");
@@ -179,11 +181,11 @@ void example_prices() {
 
     printf("Price range: $%.2f - $%.2f\n", meta.minValue / 100.0,
            meta.maxValue / 100.0);
-    printf("Range in cents: %lu (fits in %d byte%s)\n", meta.range,
+    printf("Range in cents: %" PRIu64 " (fits in %d byte%s)\n", meta.range,
            meta.offsetWidth, meta.offsetWidth == 1 ? "" : "s");
 
     uint8_t *encoded = malloc(meta.encodedSize);
-    CHECK_ALLOC(ptr_placeholder);
+    CHECK_ALLOC(encoded);
     varintFOREncode(encoded, prices, count, &meta);
 
     printf("Storage: %zu bytes vs %zu bytes (uint64_t)\n", meta.encodedSize,
@@ -193,7 +195,7 @@ void example_prices() {
 
     // Decode and verify
     uint64_t *decoded = malloc(count * sizeof(uint64_t));
-    CHECK_ALLOC(ptr_placeholder);
+    CHECK_ALLOC(encoded);
     varintFORDecode(encoded, decoded, count);
 
     printf("Sample decoded prices: ");
@@ -220,7 +222,7 @@ void example_random_access() {
     varintFORAnalyze(values, count, &meta);
 
     uint8_t *encoded = malloc(meta.encodedSize);
-    CHECK_ALLOC(ptr_placeholder);
+    CHECK_ALLOC(encoded);
     varintFOREncode(encoded, values, count, &meta);
 
     printf("Encoded %zu values\n", count);
@@ -231,7 +233,7 @@ void example_random_access() {
     for (size_t i = 0; i < sizeof(indices) / sizeof(indices[0]); i++) {
         size_t idx = indices[i];
         uint64_t value = varintFORGetAt(encoded, idx);
-        printf("  Index %zu: %lu ", idx, value);
+        printf("  Index %zu: %" PRIu64 " ", idx, value);
         assert(value == values[idx]);
         printf("✓\n");
     }
@@ -246,7 +248,7 @@ void example_random_access() {
     assert(offsetWidth == meta.offsetWidth);
 
     printf("Metadata extraction:\n");
-    printf("  Min: %lu ✓\n", minVal);
+    printf("  Min: %" PRIu64 " ✓\n", minVal);
     printf("  Count: %zu ✓\n", storedCount);
     printf("  Offset width: %d ✓\n", offsetWidth);
 
@@ -264,10 +266,10 @@ void example_edge_cases() {
     varintFORMeta meta1;
     varintFORAnalyze(single, 1, &meta1);
     uint8_t *enc1 = malloc(meta1.encodedSize);
-    CHECK_ALLOC(ptr_placeholder);
+    CHECK_ALLOC(enc1);
     varintFOREncode(enc1, single, 1, &meta1);
     assert(varintFORGetAt(enc1, 0) == 42);
-    printf("  Single value (42): range=%lu, width=%d ✓\n", meta1.range,
+    printf("  Single value (42): range=%" PRIu64 ", width=%d ✓\n", meta1.range,
            meta1.offsetWidth);
     free(enc1);
 
@@ -281,7 +283,7 @@ void example_edge_cases() {
     varintFORAnalyze(same, 10, &meta2);
     assert(meta2.range == 0);
     assert(meta2.offsetWidth == 1); // Even 0 range uses 1 byte
-    printf("  All 1000: range=%lu, width=%d ✓\n", meta2.range,
+    printf("  All 1000: range=%" PRIu64 ", width=%d ✓\n", meta2.range,
            meta2.offsetWidth);
 
     // Test 3: Maximum range (requires 8 bytes)
@@ -312,7 +314,7 @@ void example_edge_cases() {
         varintFORMeta meta;
         varintFORAnalyze(vals, 2, &meta);
         assert(meta.offsetWidth == tests[i].expectedWidth);
-        printf("  Range %lu: %d bytes ✓\n", tests[i].max - tests[i].min,
+        printf("  Range %" PRIu64 ": %d bytes ✓\n", tests[i].max - tests[i].min,
                meta.offsetWidth);
     }
 
@@ -332,7 +334,7 @@ void example_performance() {
     // Dataset 1: Tight cluster (1 byte offsets)
     datasets[0].count = 100;
     datasets[0].values = malloc(datasets[0].count * sizeof(uint64_t));
-    CHECK_ALLOC(ptr_placeholder);
+    CHECK_ALLOC(datasets[0].values);
     datasets[0].name = "Tight cluster (range 100)";
     for (size_t i = 0; i < datasets[0].count; i++) {
         datasets[0].values[i] = 1000000 + (i % 100);
@@ -341,7 +343,7 @@ void example_performance() {
     // Dataset 2: Medium cluster (2 byte offsets)
     datasets[1].count = 100;
     datasets[1].values = malloc(datasets[1].count * sizeof(uint64_t));
-    CHECK_ALLOC(ptr_placeholder);
+    CHECK_ALLOC(datasets[1].values);
     datasets[1].name = "Medium cluster (range 10000)";
     for (size_t i = 0; i < datasets[1].count; i++) {
         datasets[1].values[i] = 1000000 + (i * 100);
@@ -350,7 +352,7 @@ void example_performance() {
     // Dataset 3: Wide cluster (4 byte offsets)
     datasets[2].count = 100;
     datasets[2].values = malloc(datasets[2].count * sizeof(uint64_t));
-    CHECK_ALLOC(ptr_placeholder);
+    CHECK_ALLOC(datasets[2].values);
     datasets[2].name = "Wide cluster (range 1000000)";
     for (size_t i = 0; i < datasets[2].count; i++) {
         datasets[2].values[i] = 1000000 + (i * 10000);
@@ -359,7 +361,7 @@ void example_performance() {
     // Dataset 4: Sparse (8 byte offsets)
     datasets[3].count = 10;
     datasets[3].values = malloc(datasets[3].count * sizeof(uint64_t));
-    CHECK_ALLOC(ptr_placeholder);
+    CHECK_ALLOC(datasets[3].values);
     datasets[3].name = "Sparse (large range)";
     for (size_t i = 0; i < datasets[3].count; i++) {
         datasets[3].values[i] = i * 1000000000UL;

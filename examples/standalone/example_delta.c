@@ -63,8 +63,6 @@ void example_basic() {
     /* Decode and verify */
     int64_t *decoded = malloc(count * sizeof(int64_t));
     CHECK_ALLOC(decoded);
-    CHECK_ALLOC(decoded);
-    CHECK_ALLOC(encoded);
     size_t decodedBytes = varintDeltaDecode(encoded, count, decoded);
 
     assert(decodedBytes == encodedSize);
@@ -123,8 +121,6 @@ void example_time_series() {
     /* Decode and verify */
     int64_t *decoded = malloc(count * sizeof(int64_t));
     CHECK_ALLOC(decoded);
-    CHECK_ALLOC(decoded);
-    CHECK_ALLOC(encoded);
     varintDeltaDecode(encoded, count, decoded);
 
     for (size_t i = 0; i < count; i++) {
@@ -208,8 +204,6 @@ void example_mixed_deltas() {
     /* Decode and verify */
     int64_t *decoded = malloc(count * sizeof(int64_t));
     CHECK_ALLOC(decoded);
-    CHECK_ALLOC(decoded);
-    CHECK_ALLOC(encoded);
     varintDeltaDecode(encoded, count, decoded);
 
     for (size_t i = 0; i < count; i++) {
@@ -230,8 +224,6 @@ void example_sorted_compression() {
     size_t count = 1000;
     int64_t *sorted = malloc(count * sizeof(int64_t));
     CHECK_ALLOC(sorted);
-    CHECK_ALLOC(sorted);
-    CHECK_ALLOC(encoded);
     for (size_t i = 0; i < count; i++) {
         sorted[i] = (int64_t)(i + 1);
     }
@@ -260,8 +252,6 @@ void example_sorted_compression() {
     /* Decode and verify sample values */
     int64_t *decoded = malloc(count * sizeof(int64_t));
     CHECK_ALLOC(decoded);
-    CHECK_ALLOC(decoded);
-    CHECK_ALLOC(encoded);
     varintDeltaDecode(encoded, count, decoded);
 
     assert(decoded[0] == 1);
@@ -301,8 +291,6 @@ void example_unsigned() {
     /* Decode and verify */
     uint64_t *decoded = malloc(count * sizeof(uint64_t));
     CHECK_ALLOC(decoded);
-    CHECK_ALLOC(decoded);
-    CHECK_ALLOC(encoded);
     varintDeltaDecodeUnsigned(encoded, count, decoded);
 
     for (size_t i = 0; i < count; i++) {
@@ -329,11 +317,6 @@ void example_space_analysis() {
     size_t count1 = 100;
     int64_t *seq1 = malloc(count1 * sizeof(int64_t));
     CHECK_ALLOC(seq1);
-    CHECK_ALLOC(seq1);
-    CHECK_ALLOC(seq2);
-    CHECK_ALLOC(seq3);
-    CHECK_ALLOC(seq4);
-    CHECK_ALLOC(encoded);
     for (size_t i = 0; i < count1; i++) {
         seq1[i] = (int64_t)i;
     }
@@ -345,11 +328,6 @@ void example_space_analysis() {
     size_t count2 = 100;
     int64_t *seq2 = malloc(count2 * sizeof(int64_t));
     CHECK_ALLOC(seq2);
-    CHECK_ALLOC(seq1);
-    CHECK_ALLOC(seq2);
-    CHECK_ALLOC(seq3);
-    CHECK_ALLOC(seq4);
-    CHECK_ALLOC(encoded);
     for (size_t i = 0; i < count2; i++) {
         seq2[i] = (int64_t)(i * 10);
     }
@@ -361,11 +339,6 @@ void example_space_analysis() {
     size_t count3 = 100;
     int64_t *seq3 = malloc(count3 * sizeof(int64_t));
     CHECK_ALLOC(seq3);
-    CHECK_ALLOC(seq1);
-    CHECK_ALLOC(seq2);
-    CHECK_ALLOC(seq3);
-    CHECK_ALLOC(seq4);
-    CHECK_ALLOC(encoded);
     for (size_t i = 0; i < count3; i++) {
         seq3[i] = 1000000 + (int64_t)i;
     }
@@ -377,11 +350,6 @@ void example_space_analysis() {
     size_t count4 = 100;
     int64_t *seq4 = malloc(count4 * sizeof(int64_t));
     CHECK_ALLOC(seq4);
-    CHECK_ALLOC(seq1);
-    CHECK_ALLOC(seq2);
-    CHECK_ALLOC(seq3);
-    CHECK_ALLOC(seq4);
-    CHECK_ALLOC(encoded);
     for (size_t i = 0; i < count4; i++) {
         seq4[i] = (int64_t)(i * 10 + (i % 2 ? -5 : 5));
     }
@@ -441,8 +409,6 @@ void example_edge_cases() {
 
         int64_t *decoded = malloc(tests[t].count * sizeof(int64_t));
         CHECK_ALLOC(decoded);
-        CHECK_ALLOC(decoded);
-        CHECK_ALLOC(encoded);
         varintDeltaDecode(encoded, tests[t].count, decoded);
 
         /* Verify */

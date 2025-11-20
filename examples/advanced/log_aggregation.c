@@ -26,6 +26,7 @@
 #include "varintChained.h"
 #include "varintExternal.h"
 #include <assert.h>
+#include <inttypes.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -310,7 +311,7 @@ void demonstrateLogAggregation() {
     // 5. Timestamp delta encoding
     printf("\n5. Timestamp delta encoding...\n");
 
-    printf("   Base timestamp: %lu\n", batch.baseTimestamp);
+    printf("   Base timestamp: %" PRIu64 "\n", batch.baseTimestamp);
     printf("   Typical delta (1ms): ");
     // Calculate encoding width for 1000 (1ms in microseconds)
     uint8_t tmpBuf[10];
@@ -347,7 +348,7 @@ void demonstrateLogAggregation() {
     printf("   Expected results: ~1000 logs\n");
     printf("   \n");
     printf("   Optimization:\n");
-    printf("   - Batch has base timestamp: %lu\n", batch.baseTimestamp);
+    printf("   - Batch has base timestamp: %" PRIu64 "\n", batch.baseTimestamp);
     printf("   - All deltas are sorted\n");
     printf("   - Binary search to find range: O(log n)\n");
     printf("   - Scan matching logs: O(k) where k=matches\n");

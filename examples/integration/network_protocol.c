@@ -20,6 +20,7 @@
 #include "varintChained.h"
 #include "varintExternal.h"
 #include <assert.h>
+#include <inttypes.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -297,8 +298,8 @@ void demonstrateProtocol() {
     printf("   Version: %u\n", packet.header.version);
     printf("   Type: %u\n", packet.header.type);
     printf("   Flags: 0x%02X\n", packet.header.flags);
-    printf("   Payload: UserID=%lu, Age=%u, Name=%s\n", packet.payload.userId,
-           packet.payload.age, packet.payload.name);
+    printf("   Payload: UserID=%" PRIu64 ", Age=%u, Name=%s\n",
+           packet.payload.userId, packet.payload.age, packet.payload.name);
 
     uint8_t packetBuffer[512];
     size_t packetLen = encodePacket(packetBuffer, &packet);
@@ -317,8 +318,8 @@ void demonstrateProtocol() {
     printf("   Type: %u\n", decoded.header.type);
     printf("   Flags: 0x%02X\n", decoded.header.flags);
     printf("   Length: %u\n", decoded.header.length);
-    printf("   Payload: UserID=%lu, Age=%u, Name=%s\n", decoded.payload.userId,
-           decoded.payload.age, decoded.payload.name);
+    printf("   Payload: UserID=%" PRIu64 ", Age=%u, Name=%s\n",
+           decoded.payload.userId, decoded.payload.age, decoded.payload.name);
 
     assert(decoded.header.version == packet.header.version);
     assert(decoded.header.type == packet.header.type);
@@ -361,7 +362,7 @@ void demonstrateProtocol() {
     while (streamRead(&stream, &offset, messageBuffer, &messageLen)) {
         Packet pkt;
         decodePacket(messageBuffer, &pkt);
-        printf("   Packet %d: UserID=%lu, Name=%s\n", ++count,
+        printf("   Packet %d: UserID=%" PRIu64 ", Name=%s\n", ++count,
                pkt.payload.userId, pkt.payload.name);
     }
 

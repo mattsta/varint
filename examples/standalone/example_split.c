@@ -12,6 +12,7 @@
 #include "varintExternal.h"
 #include "varintSplit.h"
 #include <assert.h>
+#include <inttypes.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -26,14 +27,14 @@ void example_basic() {
 
     // Encode
     varintSplitPut_(buffer, width, original);
-    printf("Encoded %lu in %d bytes\n", original, width);
+    printf("Encoded %" PRIu64 " in %d bytes\n", original, width);
 
     // Decode
     uint64_t decoded;
     varintWidth decodedWidth;
     varintSplitGet_(buffer, decodedWidth, decoded);
 
-    printf("Decoded: %lu (%d bytes)\n", decoded, decodedWidth);
+    printf("Decoded: %" PRIu64 " (%d bytes)\n", decoded, decodedWidth);
 
     assert(original == decoded);
     assert(width == decodedWidth);
@@ -71,8 +72,8 @@ void example_three_levels() {
 
         varintSplitPut_(buffer, width, tests[i].value);
 
-        printf("%-25s: %10lu -> %d bytes (type: 0x%02x)", tests[i].description,
-               tests[i].value, width,
+        printf("%-25s: %10" PRIu64 " -> %d bytes (type: 0x%02x)",
+               tests[i].description, tests[i].value, width,
                buffer[0] & 0xC0); // Show type bits
 
         assert(width == tests[i].expectedWidth);
@@ -124,7 +125,7 @@ void example_type_detection() {
             typeName = "Unknown";
         }
 
-        printf("Value %10lu -> %s ", tests[i].value, typeName);
+        printf("Value %10" PRIu64 " -> %s ", tests[i].value, typeName);
         assert(strcmp(typeName, tests[i].expectedType) == 0);
         printf("✓\n");
     }
@@ -142,8 +143,8 @@ void example_reversed() {
     for (size_t i = 0; i < 4; i++) {
         varintWidth width;
         varintSplitPut_(buffer + offset, width, values[i]);
-        printf("  Value %lu at offset %zu (width %d)\n", values[i], offset,
-               width);
+        printf("  Value %" PRIu64 " at offset %zu (width %d)\n", values[i],
+               offset, width);
         offset += width;
     }
 
@@ -156,7 +157,7 @@ void example_reversed() {
         uint64_t decoded;
         varintWidth width;
         varintSplitGet_(buffer + offset, width, decoded);
-        printf("  Offset %zu: %lu\n", offset, decoded);
+        printf("  Offset %zu: %" PRIu64 "\n", offset, decoded);
         assert(decoded == values[i]);
         offset += width;
     }
@@ -172,7 +173,8 @@ void example_reversed() {
     for (size_t i = 0; i < 4; i++) {
         varintWidth width;
         varintSplitReversedPutReversed_(reversed + offset, width, values[i]);
-        printf("  Value %lu at position %zu (width %d, type at [%zu])\n",
+        printf("  Value %" PRIu64
+               " at position %zu (width %d, type at [%zu])\n",
                values[i], offset, width, offset);
         offset += 10; // Move to next position
     }
@@ -221,7 +223,7 @@ void example_bitpacking() {
         uint64_t decoded;
         varintWidth width;
         varintSplitGet_(array.data + array.offsets[idx], width, decoded);
-        printf("  Index %zu: %lu\n", idx, decoded);
+        printf("  Index %zu: %" PRIu64 "\n", idx, decoded);
         assert(decoded == values[idx]);
     }
 
@@ -303,7 +305,7 @@ void example_length() {
         varintWidth width;
         varintSplitGet_(buffer + offset, width, decoded);
 
-        printf("  Value: %lu, Length: %d bytes ", decoded, width);
+        printf("  Value: %" PRIu64 ", Length: %d bytes ", decoded, width);
         assert(len == width);
         printf("✓\n");
 
