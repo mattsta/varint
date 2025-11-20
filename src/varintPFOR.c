@@ -117,7 +117,7 @@ size_t varintPFORSize(const varintPFORMeta *meta) {
     size_t size = 0;
 
     /* Header: min (varint) + width (1 byte) + count (varint) */
-    size += varintTaggedLen(meta->min);  /* min value */
+    size += varintTaggedLen(meta->min);   /* min value */
     size += 1;                            /* width byte */
     size += varintTaggedLen(meta->count); /* count */
 
@@ -129,7 +129,7 @@ size_t varintPFORSize(const varintPFORMeta *meta) {
 
     /* Exceptions: each is (index, value) pair */
     for (uint32_t i = 0; i < meta->exceptionCount; i++) {
-        size += varintTaggedLen(i);         /* worst case index */
+        size += varintTaggedLen(i);          /* worst case index */
         size += varintTaggedLen(UINT64_MAX); /* worst case value */
     }
 
@@ -173,7 +173,8 @@ size_t varintPFOREncode(uint8_t *dst, const uint64_t *values, uint32_t count,
 
         if (value > meta->thresholdValue && exceptions) {
             /* Above threshold: store exception marker */
-            varintExternalPutFixedWidth(dst, meta->exceptionMarker, meta->width);
+            varintExternalPutFixedWidth(dst, meta->exceptionMarker,
+                                        meta->width);
             exceptions[exceptionIdx].index = i;
             exceptions[exceptionIdx].value = value;
             exceptionIdx++;

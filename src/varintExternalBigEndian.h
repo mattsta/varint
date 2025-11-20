@@ -34,12 +34,12 @@ uint64_t varintExternalBigEndianGet(const void *p, varintWidth encoding);
             _vimp_dst[0] = (uint8_t)(val);                                     \
             break;                                                             \
         case VARINT_WIDTH_24B:                                                 \
-            _vimp_dst[2] = (uint8_t)((val)&0xff);                              \
+            _vimp_dst[2] = (uint8_t)((val) & 0xff);                            \
             _vimp_dst[1] = (uint8_t)(((val) >> 8) & 0xff);                     \
             _vimp_dst[0] = (uint8_t)(((val) >> 16) & 0xff);                    \
             break;                                                             \
         case VARINT_WIDTH_16B:                                                 \
-            _vimp_dst[1] = (uint8_t)((val)&0xff);                              \
+            _vimp_dst[1] = (uint8_t)((val) & 0xff);                            \
             _vimp_dst[0] = (uint8_t)(((val) >> 8) & 0xff);                     \
             break;                                                             \
         default:                                                               \
@@ -57,10 +57,13 @@ uint64_t varintExternalBigEndianGet(const void *p, varintWidth encoding);
             (result) = (_vimp_src)[0];                                         \
             break;                                                             \
         case VARINT_WIDTH_16B:                                                 \
-            (result) = (uint64_t)(_vimp_src[0]) << 8 | (uint64_t)(_vimp_src[1]); \
+            (result) =                                                         \
+                (uint64_t)(_vimp_src[0]) << 8 | (uint64_t)(_vimp_src[1]);      \
             break;                                                             \
         case VARINT_WIDTH_24B:                                                 \
-            (result) = (uint64_t)(_vimp_src[0]) << 16 | (uint64_t)(_vimp_src[1]) << 8 | (uint64_t)(_vimp_src[2]); \
+            (result) = (uint64_t)(_vimp_src[0]) << 16 |                        \
+                       (uint64_t)(_vimp_src[1]) << 8 |                         \
+                       (uint64_t)(_vimp_src[2]);                               \
             break;                                                             \
         default:                                                               \
             (result) = varintExternalBigEndianGet((src), (width));             \

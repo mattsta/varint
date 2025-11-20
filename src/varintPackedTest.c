@@ -96,7 +96,8 @@ int main(int argc, char *argv[]) {
             }
         }
 
-        PERF_TIMERS_FINISH_PRINT_RESULTS((uint64_t)i * (uint64_t)j, "SET 12 (compact)");
+        PERF_TIMERS_FINISH_PRINT_RESULTS((uint64_t)i * (uint64_t)j,
+                                         "SET 12 (compact)");
     }
 
     for (i = 0; i < 32; i++) {
@@ -108,13 +109,15 @@ int main(int argc, char *argv[]) {
         {
             for (j = 0; j < boosterMultiply; j++) {
                 for (i = 0; i < 4096; i++) {
-                    uint16_t got = varintPackedCompact12Get(holder, (uint32_t)i);
+                    uint16_t got =
+                        varintPackedCompact12Get(holder, (uint32_t)i);
                     assert(got == (uint16_t)i);
                 }
             }
         }
 
-        PERF_TIMERS_FINISH_PRINT_RESULTS((uint64_t)i * (uint64_t)j, "GET 12 (compact)");
+        PERF_TIMERS_FINISH_PRINT_RESULTS((uint64_t)i * (uint64_t)j,
+                                         "GET 12 (compact)");
     }
 
     for (i = 0; i < 32; i++) {
@@ -143,7 +146,8 @@ int main(int argc, char *argv[]) {
         {
             for (j = 0; j < boosterMultiply; j++) {
                 for (i = 0; i < 8192; i++) {
-                    uint16_t got = (uint16_t)varintPacked13Get(holder, (uint32_t)i);
+                    uint16_t got =
+                        (uint16_t)varintPacked13Get(holder, (uint32_t)i);
                     assert(got == (uint16_t)i);
                 }
             }
@@ -178,7 +182,8 @@ int main(int argc, char *argv[]) {
         {
             for (j = 0; j < boosterMultiply / 2; j++) {
                 for (i = 0; i < 16384; i++) {
-                    uint16_t got = (uint16_t)varintPacked14Get(holder, (uint32_t)i);
+                    uint16_t got =
+                        (uint16_t)varintPacked14Get(holder, (uint32_t)i);
                     assert(got == (uint16_t)i);
                 }
             }
@@ -192,12 +197,14 @@ int main(int argc, char *argv[]) {
         {
             for (j = 0; j < boosterMultiply; j++) {
                 for (i = 0; i < 8192; i++) {
-                    varintPacked13InsertSorted(holder, (uint32_t)i, (uint16_t)i);
+                    varintPacked13InsertSorted(holder, (uint32_t)i,
+                                               (uint16_t)i);
                 }
             }
         }
 
-        PERF_TIMERS_FINISH_PRINT_RESULTS((uint64_t)i * (uint64_t)j, "InsertSorted 13");
+        PERF_TIMERS_FINISH_PRINT_RESULTS((uint64_t)i * (uint64_t)j,
+                                         "InsertSorted 13");
     }
 
     for (i = 0; i < 32; i++) {
@@ -209,7 +216,8 @@ int main(int argc, char *argv[]) {
         {
             for (j = 0; j < boosterMultiply; j++) {
                 for (i = 0; i < 8192; i++) {
-                    uint16_t got = (uint16_t)varintPacked13Member(holder, 8192, (uint16_t)i);
+                    uint16_t got = (uint16_t)varintPacked13Member(holder, 8192,
+                                                                  (uint16_t)i);
                     assert(got == (uint16_t)i);
                 }
             }

@@ -22,8 +22,8 @@
  * - Round-trip decode verification
  * - Real-world IoT/monitoring use cases
  *
- * Compile: gcc -I../../src delta_compression.c ../../build/src/libvarint.a -o delta_compression
- * Run: ./delta_compression
+ * Compile: gcc -I../../src delta_compression.c ../../build/src/libvarint.a -o
+ * delta_compression Run: ./delta_compression
  */
 
 #include "varintExternal.h"
@@ -39,8 +39,8 @@
 // ============================================================================
 
 typedef struct {
-    uint64_t timestamp;  // Unix timestamp (seconds or milliseconds)
-    int64_t value;       // Sensor/metric value
+    uint64_t timestamp; // Unix timestamp (seconds or milliseconds)
+    int64_t value;      // Sensor/metric value
 } TimeSeriesPoint;
 
 typedef struct {
@@ -60,9 +60,9 @@ typedef struct {
     int64_t firstValueDelta;
 
     // Delta-of-delta arrays (third point onwards)
-    int64_t *timeDeltaOfDelta;   // timestamp delta-of-deltas
-    int64_t *valueDeltaOfDelta;  // value delta-of-deltas
-    size_t deltaCount;           // Number of delta-of-delta entries
+    int64_t *timeDeltaOfDelta;  // timestamp delta-of-deltas
+    int64_t *valueDeltaOfDelta; // value delta-of-deltas
+    size_t deltaCount;          // Number of delta-of-delta entries
 
     // Serialized buffer
     uint8_t *buffer;
@@ -116,8 +116,9 @@ void deltaEncode(const TimeSeries *ts, DeltaEncoded *delta) {
 
         for (size_t i = 0; i < delta->count; i++) {
             delta->timeDeltas[i] = (int64_t)ts->points[i + 1].timestamp -
-                                    (int64_t)ts->points[i].timestamp;
-            delta->valueDeltas[i] = ts->points[i + 1].value - ts->points[i].value;
+                                   (int64_t)ts->points[i].timestamp;
+            delta->valueDeltas[i] =
+                ts->points[i + 1].value - ts->points[i].value;
         }
     } else {
         delta->timeDeltas = NULL;
@@ -151,8 +152,8 @@ void deltaOfDeltaEncode(const TimeSeries *ts, EncodedTimeSeries *encoded) {
     }
 
     // Store first deltas (second point)
-    encoded->firstTimeDelta = (int64_t)ts->points[1].timestamp -
-                               (int64_t)ts->points[0].timestamp;
+    encoded->firstTimeDelta =
+        (int64_t)ts->points[1].timestamp - (int64_t)ts->points[0].timestamp;
     encoded->firstValueDelta = ts->points[1].value - ts->points[0].value;
 
     if (ts->count == 2) {
@@ -171,12 +172,13 @@ void deltaOfDeltaEncode(const TimeSeries *ts, EncodedTimeSeries *encoded) {
     int64_t prevValueDelta = encoded->firstValueDelta;
 
     for (size_t i = 0; i < encoded->deltaCount; i++) {
-        size_t idx = i + 2;  // Start from third point
+        size_t idx = i + 2; // Start from third point
 
         // Compute current deltas
         int64_t currTimeDelta = (int64_t)ts->points[idx].timestamp -
-                                 (int64_t)ts->points[idx - 1].timestamp;
-        int64_t currValueDelta = ts->points[idx].value - ts->points[idx - 1].value;
+                                (int64_t)ts->points[idx - 1].timestamp;
+        int64_t currValueDelta =
+            ts->points[idx].value - ts->points[idx - 1].value;
 
         // Compute delta-of-deltas
         encoded->timeDeltaOfDelta[i] = currTimeDelta - prevTimeDelta;
@@ -199,53 +201,57 @@ void encodedTimeSeriesFree(EncodedTimeSeries *encoded) {
 
 size_t serializeDeltaOfDelta(EncodedTimeSeries *encoded) {
     // Allocate buffer (worst case: all 8-byte values)
-    size_t maxSize = 8 + 8 + 8 + 8 +  // base + first deltas
-                     (encoded->deltaCount * 8 * 2);  // delta-of-deltas
+    size_t maxSize = 8 + 8 + 8 + 8 +                // base + first deltas
+                     (encoded->deltaCount * 8 * 2); // delta-of-deltas
     encoded->buffer = malloc(maxSize);
     encoded->bufferCapacity = maxSize;
 
     size_t offset = 0;
 
     // Serialize base timestamp (varintExternal adaptive width)
-    varintWidth tsWidth = varintExternalPut(encoded->buffer + offset,
-                                             encoded->baseTimestamp);
+    varintWidth tsWidth =
+        varintExternalPut(encoded->buffer + offset, encoded->baseTimestamp);
     offset += tsWidth;
 
     // Serialize base value (handle signed values using ZigZag encoding)
-    uint64_t zigzagValue = (uint64_t)(encoded->baseValue >= 0 ?
-                                       encoded->baseValue * 2 :
-                                       -encoded->baseValue * 2 - 1);
-    varintWidth valWidth = varintExternalPut(encoded->buffer + offset, zigzagValue);
+    uint64_t zigzagValue =
+        (uint64_t)(encoded->baseValue >= 0 ? encoded->baseValue * 2
+                                           : -encoded->baseValue * 2 - 1);
+    varintWidth valWidth =
+        varintExternalPut(encoded->buffer + offset, zigzagValue);
     offset += valWidth;
 
     // Serialize first time delta
-    zigzagValue = (uint64_t)(encoded->firstTimeDelta >= 0 ?
-                              encoded->firstTimeDelta * 2 :
-                              -encoded->firstTimeDelta * 2 - 1);
-    varintWidth ftdWidth = varintExternalPut(encoded->buffer + offset, zigzagValue);
+    zigzagValue = (uint64_t)(encoded->firstTimeDelta >= 0
+                                 ? encoded->firstTimeDelta * 2
+                                 : -encoded->firstTimeDelta * 2 - 1);
+    varintWidth ftdWidth =
+        varintExternalPut(encoded->buffer + offset, zigzagValue);
     offset += ftdWidth;
 
     // Serialize first value delta
-    zigzagValue = (uint64_t)(encoded->firstValueDelta >= 0 ?
-                              encoded->firstValueDelta * 2 :
-                              -encoded->firstValueDelta * 2 - 1);
-    varintWidth fvdWidth = varintExternalPut(encoded->buffer + offset, zigzagValue);
+    zigzagValue = (uint64_t)(encoded->firstValueDelta >= 0
+                                 ? encoded->firstValueDelta * 2
+                                 : -encoded->firstValueDelta * 2 - 1);
+    varintWidth fvdWidth =
+        varintExternalPut(encoded->buffer + offset, zigzagValue);
     offset += fvdWidth;
 
     // Serialize delta-of-delta arrays
     // The magic of Gorilla: most delta-of-deltas are 0 or very small!
     for (size_t i = 0; i < encoded->deltaCount; i++) {
         // Time delta-of-delta (ZigZag encoded)
-        zigzagValue = (uint64_t)(encoded->timeDeltaOfDelta[i] >= 0 ?
-                                  encoded->timeDeltaOfDelta[i] * 2 :
-                                  -encoded->timeDeltaOfDelta[i] * 2 - 1);
-        varintWidth w = varintExternalPut(encoded->buffer + offset, zigzagValue);
+        zigzagValue = (uint64_t)(encoded->timeDeltaOfDelta[i] >= 0
+                                     ? encoded->timeDeltaOfDelta[i] * 2
+                                     : -encoded->timeDeltaOfDelta[i] * 2 - 1);
+        varintWidth w =
+            varintExternalPut(encoded->buffer + offset, zigzagValue);
         offset += w;
 
         // Value delta-of-delta (ZigZag encoded)
-        zigzagValue = (uint64_t)(encoded->valueDeltaOfDelta[i] >= 0 ?
-                                  encoded->valueDeltaOfDelta[i] * 2 :
-                                  -encoded->valueDeltaOfDelta[i] * 2 - 1);
+        zigzagValue = (uint64_t)(encoded->valueDeltaOfDelta[i] >= 0
+                                     ? encoded->valueDeltaOfDelta[i] * 2
+                                     : -encoded->valueDeltaOfDelta[i] * 2 - 1);
         w = varintExternalPut(encoded->buffer + offset, zigzagValue);
         offset += w;
     }
@@ -269,49 +275,56 @@ int64_t zigzagDecode(uint64_t zigzag) {
 }
 
 void deserializeDeltaOfDelta(const EncodedTimeSeries *encoded, TimeSeries *ts,
-                              size_t expectedCount) {
+                             size_t expectedCount) {
     timeSeriesInit(ts, expectedCount);
 
     size_t offset = 0;
 
     // Deserialize base timestamp
     varintWidth tsWidth = varintExternalLen(encoded->baseTimestamp);
-    uint64_t baseTimestamp = varintExternalGet(encoded->buffer + offset, tsWidth);
+    uint64_t baseTimestamp =
+        varintExternalGet(encoded->buffer + offset, tsWidth);
     offset += tsWidth;
 
     // Deserialize base value
-    varintWidth valWidth = varintExternalLen(encoded->baseValue >= 0 ?
-                                              encoded->baseValue * 2 :
-                                              -encoded->baseValue * 2 - 1);
-    uint64_t zigzagValue = varintExternalGet(encoded->buffer + offset, valWidth);
+    varintWidth valWidth = varintExternalLen(encoded->baseValue >= 0
+                                                 ? encoded->baseValue * 2
+                                                 : -encoded->baseValue * 2 - 1);
+    uint64_t zigzagValue =
+        varintExternalGet(encoded->buffer + offset, valWidth);
     int64_t baseValue = zigzagDecode(zigzagValue);
     offset += valWidth;
 
     // Add first point
     timeSeriesAppend(ts, baseTimestamp, baseValue);
 
-    if (expectedCount == 1) return;
+    if (expectedCount == 1) {
+        return;
+    }
 
     // Deserialize first time delta
-    varintWidth ftdWidth = varintExternalLen(encoded->firstTimeDelta >= 0 ?
-                                              encoded->firstTimeDelta * 2 :
-                                              -encoded->firstTimeDelta * 2 - 1);
+    varintWidth ftdWidth = varintExternalLen(
+        encoded->firstTimeDelta >= 0 ? encoded->firstTimeDelta * 2
+                                     : -encoded->firstTimeDelta * 2 - 1);
     zigzagValue = varintExternalGet(encoded->buffer + offset, ftdWidth);
     int64_t firstTimeDelta = zigzagDecode(zigzagValue);
     offset += ftdWidth;
 
     // Deserialize first value delta
-    varintWidth fvdWidth = varintExternalLen(encoded->firstValueDelta >= 0 ?
-                                              encoded->firstValueDelta * 2 :
-                                              -encoded->firstValueDelta * 2 - 1);
+    varintWidth fvdWidth = varintExternalLen(
+        encoded->firstValueDelta >= 0 ? encoded->firstValueDelta * 2
+                                      : -encoded->firstValueDelta * 2 - 1);
     zigzagValue = varintExternalGet(encoded->buffer + offset, fvdWidth);
     int64_t firstValueDelta = zigzagDecode(zigzagValue);
     offset += fvdWidth;
 
     // Add second point
-    timeSeriesAppend(ts, baseTimestamp + firstTimeDelta, baseValue + firstValueDelta);
+    timeSeriesAppend(ts, baseTimestamp + firstTimeDelta,
+                     baseValue + firstValueDelta);
 
-    if (expectedCount == 2) return;
+    if (expectedCount == 2) {
+        return;
+    }
 
     // Deserialize delta-of-delta arrays and reconstruct original series
     int64_t prevTimeDelta = firstTimeDelta;
@@ -321,17 +334,18 @@ void deserializeDeltaOfDelta(const EncodedTimeSeries *encoded, TimeSeries *ts,
 
     for (size_t i = 0; i < encoded->deltaCount; i++) {
         // Time delta-of-delta
-        varintWidth w = varintExternalLen(encoded->timeDeltaOfDelta[i] >= 0 ?
-                                           encoded->timeDeltaOfDelta[i] * 2 :
-                                           -encoded->timeDeltaOfDelta[i] * 2 - 1);
+        varintWidth w =
+            varintExternalLen(encoded->timeDeltaOfDelta[i] >= 0
+                                  ? encoded->timeDeltaOfDelta[i] * 2
+                                  : -encoded->timeDeltaOfDelta[i] * 2 - 1);
         zigzagValue = varintExternalGet(encoded->buffer + offset, w);
         int64_t timeDeltaOfDelta = zigzagDecode(zigzagValue);
         offset += w;
 
         // Value delta-of-delta
-        w = varintExternalLen(encoded->valueDeltaOfDelta[i] >= 0 ?
-                               encoded->valueDeltaOfDelta[i] * 2 :
-                               -encoded->valueDeltaOfDelta[i] * 2 - 1);
+        w = varintExternalLen(encoded->valueDeltaOfDelta[i] >= 0
+                                  ? encoded->valueDeltaOfDelta[i] * 2
+                                  : -encoded->valueDeltaOfDelta[i] * 2 - 1);
         zigzagValue = varintExternalGet(encoded->buffer + offset, w);
         int64_t valueDeltaOfDelta = zigzagDecode(zigzagValue);
         offset += w;
@@ -365,23 +379,23 @@ void analyzeCompression(const TimeSeries *ts, const EncodedTimeSeries *encoded,
     // Original size (uncompressed)
     size_t originalSize = ts->count * (sizeof(uint64_t) + sizeof(int64_t));
     printf("Data points: %zu\n", ts->count);
-    printf("Original size: %zu bytes (%zu bytes/point)\n",
-           originalSize, originalSize / ts->count);
+    printf("Original size: %zu bytes (%zu bytes/point)\n", originalSize,
+           originalSize / ts->count);
 
     // First-order delta size
     DeltaEncoded delta;
     deltaEncode(ts, &delta);
-    size_t deltaSize = 8 + 8;  // base timestamp + base value
+    size_t deltaSize = 8 + 8; // base timestamp + base value
     for (size_t i = 0; i < delta.count; i++) {
-        deltaSize += varintExternalLen(delta.timeDeltas[i] >= 0 ?
-                                        delta.timeDeltas[i] * 2 :
-                                        -delta.timeDeltas[i] * 2 - 1);
-        deltaSize += varintExternalLen(delta.valueDeltas[i] >= 0 ?
-                                        delta.valueDeltas[i] * 2 :
-                                        -delta.valueDeltas[i] * 2 - 1);
+        deltaSize += varintExternalLen(delta.timeDeltas[i] >= 0
+                                           ? delta.timeDeltas[i] * 2
+                                           : -delta.timeDeltas[i] * 2 - 1);
+        deltaSize += varintExternalLen(delta.valueDeltas[i] >= 0
+                                           ? delta.valueDeltas[i] * 2
+                                           : -delta.valueDeltas[i] * 2 - 1);
     }
-    printf("First-order delta: %zu bytes (%.1fx compression)\n",
-           deltaSize, (double)originalSize / deltaSize);
+    printf("First-order delta: %zu bytes (%.1fx compression)\n", deltaSize,
+           (double)originalSize / deltaSize);
     deltaFree(&delta);
 
     // Second-order delta-of-delta size (our implementation)
@@ -406,11 +420,11 @@ void demonstrateSensorReadings() {
     timeSeriesInit(&ts, 100);
 
     // Simulate temperature sensor: gradual changes, regular 60-second intervals
-    uint64_t baseTime = 1700000000;  // Nov 2023
-    int64_t baseTemp = 20000;         // 20.000°C (millidegrees)
+    uint64_t baseTime = 1700000000; // Nov 2023
+    int64_t baseTemp = 20000;       // 20.000°C (millidegrees)
 
     for (size_t i = 0; i < 100; i++) {
-        uint64_t timestamp = baseTime + i * 60;  // Regular 60-second intervals
+        uint64_t timestamp = baseTime + i * 60; // Regular 60-second intervals
 
         // Smooth temperature variation (sine wave + small noise)
         double variation = 2000.0 * sin(i * 0.1) + (rand() % 100 - 50);
@@ -428,15 +442,20 @@ void demonstrateSensorReadings() {
     printf("\nDelta-of-delta analysis:\n");
     size_t zeroCount = 0, smallCount = 0;
     for (size_t i = 0; i < encoded.deltaCount; i++) {
-        if (encoded.timeDeltaOfDelta[i] == 0) zeroCount++;
-        if (abs(encoded.valueDeltaOfDelta[i]) <= 100) smallCount++;
+        if (encoded.timeDeltaOfDelta[i] == 0) {
+            zeroCount++;
+        }
+        if (abs(encoded.valueDeltaOfDelta[i]) <= 100) {
+            smallCount++;
+        }
     }
-    printf("  Time delta-of-deltas = 0: %zu/%zu (%.1f%%) [regular intervals!]\n",
-           zeroCount, encoded.deltaCount,
-           100.0 * zeroCount / encoded.deltaCount);
-    printf("  Value delta-of-deltas <= 100: %zu/%zu (%.1f%%) [smooth changes!]\n",
-           smallCount, encoded.deltaCount,
-           100.0 * smallCount / encoded.deltaCount);
+    printf(
+        "  Time delta-of-deltas = 0: %zu/%zu (%.1f%%) [regular intervals!]\n",
+        zeroCount, encoded.deltaCount, 100.0 * zeroCount / encoded.deltaCount);
+    printf(
+        "  Value delta-of-deltas <= 100: %zu/%zu (%.1f%%) [smooth changes!]\n",
+        smallCount, encoded.deltaCount,
+        100.0 * smallCount / encoded.deltaCount);
 
     analyzeCompression(&ts, &encoded, "Sensor Readings");
 
@@ -468,7 +487,7 @@ void demonstrateStockPrices() {
 
     // Simulate stock ticks: irregular intervals, price in cents
     uint64_t baseTime = 1700000000;
-    int64_t price = 15000;  // $150.00 in cents
+    int64_t price = 15000; // $150.00 in cents
 
     for (size_t i = 0; i < 200; i++) {
         // Irregular intervals (1-10 seconds)
@@ -490,12 +509,15 @@ void demonstrateStockPrices() {
     printf("\nDelta-of-delta analysis:\n");
     size_t smallTimeDelta = 0, smallValueDelta = 0;
     for (size_t i = 0; i < encoded.deltaCount; i++) {
-        if (abs(encoded.timeDeltaOfDelta[i]) <= 5) smallTimeDelta++;
-        if (abs(encoded.valueDeltaOfDelta[i]) <= 5) smallValueDelta++;
+        if (abs(encoded.timeDeltaOfDelta[i]) <= 5) {
+            smallTimeDelta++;
+        }
+        if (abs(encoded.valueDeltaOfDelta[i]) <= 5) {
+            smallValueDelta++;
+        }
     }
-    printf("  Time delta-of-deltas <= 5: %zu/%zu (%.1f%%)\n",
-           smallTimeDelta, encoded.deltaCount,
-           100.0 * smallTimeDelta / encoded.deltaCount);
+    printf("  Time delta-of-deltas <= 5: %zu/%zu (%.1f%%)\n", smallTimeDelta,
+           encoded.deltaCount, 100.0 * smallTimeDelta / encoded.deltaCount);
     printf("  Value delta-of-deltas <= 5 cents: %zu/%zu (%.1f%%)\n",
            smallValueDelta, encoded.deltaCount,
            100.0 * smallValueDelta / encoded.deltaCount);
@@ -534,7 +556,7 @@ void demonstrateCounterMetrics() {
     int64_t requestsPerMinute = 1000;
 
     for (size_t i = 0; i < 150; i++) {
-        uint64_t timestamp = baseTime + i * 60;  // Every minute
+        uint64_t timestamp = baseTime + i * 60; // Every minute
 
         // Requests per minute varies slightly (950-1050)
         int variation = rand() % 101 - 50;
@@ -551,12 +573,17 @@ void demonstrateCounterMetrics() {
     printf("\nDelta-of-delta analysis:\n");
     size_t zeroTimeDelta = 0, smallValueDelta = 0;
     for (size_t i = 0; i < encoded.deltaCount; i++) {
-        if (encoded.timeDeltaOfDelta[i] == 0) zeroTimeDelta++;
-        if (abs(encoded.valueDeltaOfDelta[i]) <= 100) smallValueDelta++;
+        if (encoded.timeDeltaOfDelta[i] == 0) {
+            zeroTimeDelta++;
+        }
+        if (abs(encoded.valueDeltaOfDelta[i]) <= 100) {
+            smallValueDelta++;
+        }
     }
-    printf("  Time delta-of-deltas = 0: %zu/%zu (%.1f%%) [regular intervals!]\n",
-           zeroTimeDelta, encoded.deltaCount,
-           100.0 * zeroTimeDelta / encoded.deltaCount);
+    printf(
+        "  Time delta-of-deltas = 0: %zu/%zu (%.1f%%) [regular intervals!]\n",
+        zeroTimeDelta, encoded.deltaCount,
+        100.0 * zeroTimeDelta / encoded.deltaCount);
     printf("  Value delta-of-deltas <= 100: %zu/%zu (%.1f%%) [steady rate!]\n",
            smallValueDelta, encoded.deltaCount,
            100.0 * smallValueDelta / encoded.deltaCount);
@@ -587,18 +614,19 @@ void demonstrateTemperatureData() {
     printf("Pattern: 24-hour cycle, predictable oscillation\n");
 
     TimeSeries ts;
-    timeSeriesInit(&ts, 288);  // 24 hours × 12 (5-minute intervals)
+    timeSeriesInit(&ts, 288); // 24 hours × 12 (5-minute intervals)
 
     // Simulate daily temperature: 5-minute intervals, sine wave pattern
     uint64_t baseTime = 1700000000;
-    int64_t avgTemp = 15000;  // 15.000°C in millidegrees
+    int64_t avgTemp = 15000; // 15.000°C in millidegrees
 
     for (size_t i = 0; i < 288; i++) {
-        uint64_t timestamp = baseTime + i * 300;  // 5-minute intervals
+        uint64_t timestamp = baseTime + i * 300; // 5-minute intervals
 
         // Daily cycle: peaks at noon, troughs at midnight
-        double hourOfDay = (i * 5.0) / 60.0;  // Hours since start
-        double tempVariation = 8000.0 * sin((hourOfDay / 24.0) * 2 * M_PI - M_PI / 2);
+        double hourOfDay = (i * 5.0) / 60.0; // Hours since start
+        double tempVariation =
+            8000.0 * sin((hourOfDay / 24.0) * 2 * M_PI - M_PI / 2);
         int64_t temp = avgTemp + (int64_t)tempVariation;
 
         timeSeriesAppend(&ts, timestamp, temp);
@@ -612,12 +640,17 @@ void demonstrateTemperatureData() {
     printf("\nDelta-of-delta analysis:\n");
     size_t zeroTimeDelta = 0, smallValueDelta = 0;
     for (size_t i = 0; i < encoded.deltaCount; i++) {
-        if (encoded.timeDeltaOfDelta[i] == 0) zeroTimeDelta++;
-        if (abs(encoded.valueDeltaOfDelta[i]) <= 200) smallValueDelta++;
+        if (encoded.timeDeltaOfDelta[i] == 0) {
+            zeroTimeDelta++;
+        }
+        if (abs(encoded.valueDeltaOfDelta[i]) <= 200) {
+            smallValueDelta++;
+        }
     }
-    printf("  Time delta-of-deltas = 0: %zu/%zu (%.1f%%) [regular intervals!]\n",
-           zeroTimeDelta, encoded.deltaCount,
-           100.0 * zeroTimeDelta / encoded.deltaCount);
+    printf(
+        "  Time delta-of-deltas = 0: %zu/%zu (%.1f%%) [regular intervals!]\n",
+        zeroTimeDelta, encoded.deltaCount,
+        100.0 * zeroTimeDelta / encoded.deltaCount);
     printf("  Value delta-of-deltas <= 200: %zu/%zu (%.1f%%) [smooth cycle!]\n",
            smallValueDelta, encoded.deltaCount,
            100.0 * smallValueDelta / encoded.deltaCount);
@@ -670,7 +703,8 @@ int main() {
     printf("=======================================================\n");
     printf("\n");
     printf("Key Insights:\n");
-    printf("  1. Regular intervals → time delta-of-deltas = 0 (100%% of cases)\n");
+    printf(
+        "  1. Regular intervals → time delta-of-deltas = 0 (100%% of cases)\n");
     printf("  2. Smooth changes → value delta-of-deltas are tiny\n");
     printf("  3. varintExternal adapts: 1 byte for small deltas\n");
     printf("  4. Typical compression: 10-20x for monitoring data\n");

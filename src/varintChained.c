@@ -63,8 +63,8 @@
 ** bit clear.  Except, if we get to the 9th byte, it stores the full
 ** 8 bits and is the last byte.
 */
-static varintWidth __attribute__((noinline))
-putVarint64(uint8_t *p, uint64_t v) {
+static varintWidth __attribute__((noinline)) putVarint64(uint8_t *p,
+                                                         uint64_t v) {
     int32_t i, j, n;
     uint8_t buf[10];
     if (v & (((uint64_t)0xff000000) << 32)) {

@@ -12,17 +12,17 @@
  * - Mixed-width field packing
  * - Message framing
  *
- * Compile: gcc -I../src network_protocol.c ../build/src/libvarint.a -o network_protocol
- * Run: ./network_protocol
+ * Compile: gcc -I../src network_protocol.c ../build/src/libvarint.a -o
+ * network_protocol Run: ./network_protocol
  */
 
 #include "varintBitstream.h"
 #include "varintChained.h"
 #include "varintExternal.h"
+#include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <assert.h>
 
 // ============================================================================
 // CUSTOM PROTOCOL HEADER (using varintBitstream)
@@ -37,13 +37,13 @@
  */
 
 typedef struct {
-    uint8_t version;   // 3 bits
-    uint8_t type;      // 5 bits
-    uint8_t flags;     // 8 bits
-    uint16_t length;   // 12 bits
+    uint8_t version; // 3 bits
+    uint8_t type;    // 5 bits
+    uint8_t flags;   // 8 bits
+    uint16_t length; // 12 bits
 } PacketHeader;
 
-#define HEADER_BYTES 4  // 28 bits = 4 bytes
+#define HEADER_BYTES 4 // 28 bits = 4 bytes
 
 void encodeHeader(uint8_t *buffer, const PacketHeader *header) {
     uint64_t packed = 0;
@@ -62,8 +62,8 @@ void encodeHeader(uint8_t *buffer, const PacketHeader *header) {
     varintBitstreamSet(&packed, offset, 12, header->length);
     offset += 12;
 
-    // varintBitstream packs from high bits down, so shift right to move data to low bits
-    // We used 28 bits total, so shift right by (64 - 28) = 36 bits
+    // varintBitstream packs from high bits down, so shift right to move data to
+    // low bits We used 28 bits total, so shift right by (64 - 28) = 36 bits
     packed >>= (64 - 28);
 
     // Write to buffer (native endianness via memcpy)
@@ -144,19 +144,21 @@ void decodeProtobuf(const uint8_t *buffer, size_t *offset, UserInfo *user) {
         // Read tag
         uint64_t tag;
         size_t tagLen = varintChainedGetVarint(buffer + *offset, &tag);
-        if (tagLen == 0) break;
+        if (tagLen == 0) {
+            break;
+        }
         *offset += tagLen;
 
         uint32_t fieldNumber = tag >> 3;
         uint32_t wireType = tag & 0x07;
 
         switch (fieldNumber) {
-        case 1:  // user_id
+        case 1: // user_id
             assert(wireType == WIRE_TYPE_VARINT);
             *offset += varintChainedGetVarint(buffer + *offset, &user->userId);
             break;
 
-        case 2: {  // age
+        case 2: { // age
             assert(wireType == WIRE_TYPE_VARINT);
             uint64_t age64;
             *offset += varintChainedGetVarint(buffer + *offset, &age64);
@@ -164,14 +166,14 @@ void decodeProtobuf(const uint8_t *buffer, size_t *offset, UserInfo *user) {
             break;
         }
 
-        case 3: {  // name
+        case 3: { // name
             assert(wireType == WIRE_TYPE_LENGTH_DELIMITED);
             uint64_t nameLen;
             *offset += varintChainedGetVarint(buffer + *offset, &nameLen);
             memcpy(user->name, buffer + *offset, nameLen);
             user->name[nameLen] = '\0';
             *offset += nameLen;
-            return;  // End of message
+            return; // End of message
         }
 
         default:
@@ -244,7 +246,8 @@ void streamAppend(MessageStream *stream, const uint8_t *data, size_t len) {
     assert(stream->used + 1 + len <= stream->capacity);
 
     // Write length prefix (varintExternal)
-    varintWidth lengthWidth = varintExternalPut(stream->buffer + stream->used, len);
+    varintWidth lengthWidth =
+        varintExternalPut(stream->buffer + stream->used, len);
     stream->used += lengthWidth;
 
     // Write data
@@ -252,7 +255,8 @@ void streamAppend(MessageStream *stream, const uint8_t *data, size_t len) {
     stream->used += len;
 }
 
-bool streamRead(MessageStream *stream, size_t *offset, uint8_t *data, size_t *len) {
+bool streamRead(MessageStream *stream, size_t *offset, uint8_t *data,
+                size_t *len) {
     if (*offset >= stream->used) {
         return false;
     }
@@ -260,7 +264,8 @@ bool streamRead(MessageStream *stream, size_t *offset, uint8_t *data, size_t *le
     // Read length prefix
     varintWidth lengthWidth;
     varintExternalUnsignedEncoding(stream->buffer[*offset], lengthWidth);
-    uint64_t messageLen = varintExternalGet(stream->buffer + *offset, lengthWidth);
+    uint64_t messageLen =
+        varintExternalGet(stream->buffer + *offset, lengthWidth);
     *offset += lengthWidth;
 
     // Read data
@@ -287,14 +292,13 @@ void demonstrateProtocol() {
 
     Packet packet = {
         .header = {.version = 2, .type = 5, .flags = 0x42, .length = 0},
-        .payload = {.userId = 123456, .age = 28, .name = "Alice"}
-    };
+        .payload = {.userId = 123456, .age = 28, .name = "Alice"}};
 
     printf("   Version: %u\n", packet.header.version);
     printf("   Type: %u\n", packet.header.type);
     printf("   Flags: 0x%02X\n", packet.header.flags);
-    printf("   Payload: UserID=%lu, Age=%u, Name=%s\n",
-           packet.payload.userId, packet.payload.age, packet.payload.name);
+    printf("   Payload: UserID=%lu, Age=%u, Name=%s\n", packet.payload.userId,
+           packet.payload.age, packet.payload.name);
 
     uint8_t packetBuffer[512];
     size_t packetLen = encodePacket(packetBuffer, &packet);
@@ -313,8 +317,8 @@ void demonstrateProtocol() {
     printf("   Type: %u\n", decoded.header.type);
     printf("   Flags: 0x%02X\n", decoded.header.flags);
     printf("   Length: %u\n", decoded.header.length);
-    printf("   Payload: UserID=%lu, Age=%u, Name=%s\n",
-           decoded.payload.userId, decoded.payload.age, decoded.payload.name);
+    printf("   Payload: UserID=%lu, Age=%u, Name=%s\n", decoded.payload.userId,
+           decoded.payload.age, decoded.payload.name);
 
     assert(decoded.header.version == packet.header.version);
     assert(decoded.header.type == packet.header.type);
@@ -357,8 +361,8 @@ void demonstrateProtocol() {
     while (streamRead(&stream, &offset, messageBuffer, &messageLen)) {
         Packet pkt;
         decodePacket(messageBuffer, &pkt);
-        printf("   Packet %d: UserID=%lu, Name=%s\n",
-               ++count, pkt.payload.userId, pkt.payload.name);
+        printf("   Packet %d: UserID=%lu, Name=%s\n", ++count,
+               pkt.payload.userId, pkt.payload.name);
     }
 
     assert(count == 3);

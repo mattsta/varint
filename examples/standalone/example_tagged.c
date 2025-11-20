@@ -4,15 +4,15 @@
  * varintTagged provides sortable, self-describing variable-length integers.
  * Perfect for database keys, B-tree nodes, and sorted data structures.
  *
- * Compile: gcc -I../src example_tagged.c ../src/varintTagged.c -o example_tagged
- * Run: ./example_tagged
+ * Compile: gcc -I../src example_tagged.c ../src/varintTagged.c -o
+ * example_tagged Run: ./example_tagged
  */
 
 #include "varintTagged.h"
-#include <stdio.h>
 #include <assert.h>
-#include <string.h>
+#include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 // Example 1: Basic encode/decode
 void example_basic() {
@@ -54,7 +54,7 @@ void example_boundaries() {
         {UINT64_MAX, 9, "uint64_t max"},
     };
 
-    for (size_t i = 0; i < sizeof(tests)/sizeof(tests[0]); i++) {
+    for (size_t i = 0; i < sizeof(tests) / sizeof(tests[0]); i++) {
         uint8_t buffer[9];
         varintWidth width = varintTaggedPut64(buffer, tests[i].value);
 
@@ -110,7 +110,7 @@ void example_sortable() {
 
 // Example 4: Database composite key
 typedef struct {
-    uint8_t encoded[18];  // Max: 9 bytes + 9 bytes
+    uint8_t encoded[18]; // Max: 9 bytes + 9 bytes
     size_t totalLen;
 } CompositeKey;
 
@@ -120,7 +120,8 @@ void createCompositeKey(CompositeKey *key, uint64_t tableId, uint64_t rowId) {
     key->totalLen = w1 + w2;
 }
 
-void decodeCompositeKey(const CompositeKey *key, uint64_t *tableId, uint64_t *rowId) {
+void decodeCompositeKey(const CompositeKey *key, uint64_t *tableId,
+                        uint64_t *rowId) {
     varintWidth w1 = varintTaggedGet64(key->encoded, tableId);
     varintTaggedGet64(key->encoded + w1, rowId);
 }
@@ -138,15 +139,16 @@ void example_composite_key() {
     for (int i = 0; i < 3; i++) {
         uint64_t tableId, rowId;
         decodeCompositeKey(&keys[i], &tableId, &rowId);
-        printf("  Key %d: table=%lu, row=%lu (size=%zu bytes)\n",
-               i, tableId, rowId, keys[i].totalLen);
+        printf("  Key %d: table=%lu, row=%lu (size=%zu bytes)\n", i, tableId,
+               rowId, keys[i].totalLen);
     }
 
     // Sort composite keys (maintains table, row order)
     for (int i = 0; i < 2; i++) {
         for (int j = i + 1; j < 3; j++) {
-            size_t minLen = keys[i].totalLen < keys[j].totalLen ?
-                           keys[i].totalLen : keys[j].totalLen;
+            size_t minLen = keys[i].totalLen < keys[j].totalLen
+                                ? keys[i].totalLen
+                                : keys[j].totalLen;
             if (memcmp(keys[i].encoded, keys[j].encoded, minLen) > 0 ||
                 (memcmp(keys[i].encoded, keys[j].encoded, minLen) == 0 &&
                  keys[i].totalLen > keys[j].totalLen)) {
@@ -178,7 +180,7 @@ void example_arithmetic() {
     // Increment 10 times
     for (int i = 0; i < 10; i++) {
         varintWidth newWidth = varintTaggedAddGrow(counter, 1);
-        (void)newWidth;  // Allow growth
+        (void)newWidth; // Allow growth
     }
 
     uint64_t result;
@@ -208,7 +210,7 @@ void example_fixed_width() {
     uint8_t slot[9];
 
     // Encode small value in large slot (for later updates)
-    varintTaggedPut64FixedWidth(slot, 10, 5);  // Use 5 bytes
+    varintTaggedPut64FixedWidth(slot, 10, 5); // Use 5 bytes
 
     uint64_t value;
     varintTaggedGet64(slot, &value);
@@ -231,13 +233,13 @@ void example_performance() {
     printf("Value      | Tagged | uint64_t | Savings\n");
     printf("-----------|--------|----------|--------\n");
 
-    for (size_t i = 0; i < sizeof(testValues)/sizeof(testValues[0]); i++) {
+    for (size_t i = 0; i < sizeof(testValues) / sizeof(testValues[0]); i++) {
         uint8_t buffer[9];
         varintWidth width = varintTaggedPut64(buffer, testValues[i]);
         float savings = ((8.0 - width) / 8.0) * 100.0;
 
-        printf("%10lu | %2d     | 8        | %5.1f%%\n",
-               testValues[i], width, savings);
+        printf("%10lu | %2d     | 8        | %5.1f%%\n", testValues[i], width,
+               savings);
     }
 }
 

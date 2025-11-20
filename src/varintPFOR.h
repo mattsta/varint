@@ -20,29 +20,30 @@ __BEGIN_DECLS
  *        Requires two-pass encoding (analyze then encode). */
 
 /* Exception threshold percentiles for PFOR encoding */
-#define VARINT_PFOR_THRESHOLD_90  90  /* 90th percentile - more exceptions */
-#define VARINT_PFOR_THRESHOLD_95  95  /* 95th percentile - balanced (default) */
-#define VARINT_PFOR_THRESHOLD_99  99  /* 99th percentile - fewer exceptions */
+#define VARINT_PFOR_THRESHOLD_90 90 /* 90th percentile - more exceptions */
+#define VARINT_PFOR_THRESHOLD_95 95 /* 95th percentile - balanced (default) */
+#define VARINT_PFOR_THRESHOLD_99 99 /* 99th percentile - fewer exceptions */
 
 /* PFOR metadata structure for encoding/decoding state
  * Fields ordered by size (8-byte → 4-byte) to eliminate padding */
 typedef struct varintPFORMeta {
-    uint64_t min;              /* Minimum value in frame */
-    uint64_t exceptionMarker;  /* Marker value for exceptions (all 1s) */
-    uint64_t thresholdValue;   /* Actual threshold value from percentile */
-    varintWidth width;         /* Width in bytes for regular values */
-    uint32_t count;            /* Total number of values */
-    uint32_t exceptionCount;   /* Number of exception values */
-    uint32_t threshold;        /* Percentile threshold (90, 95, 99) */
+    uint64_t min;             /* Minimum value in frame */
+    uint64_t exceptionMarker; /* Marker value for exceptions (all 1s) */
+    uint64_t thresholdValue;  /* Actual threshold value from percentile */
+    varintWidth width;        /* Width in bytes for regular values */
+    uint32_t count;           /* Total number of values */
+    uint32_t exceptionCount;  /* Number of exception values */
+    uint32_t threshold;       /* Percentile threshold (90, 95, 99) */
 } varintPFORMeta;
 
 /* Compile-time size guarantees to prevent regressions */
 _Static_assert(sizeof(varintPFORMeta) == 40,
-    "varintPFORMeta size changed! Expected 40 bytes (3×8-byte + 4×4-byte, ZERO padding). "
-    "This struct achieved 100% efficiency - do not break it!");
+               "varintPFORMeta size changed! Expected 40 bytes (3×8-byte + "
+               "4×4-byte, ZERO padding). "
+               "This struct achieved 100% efficiency - do not break it!");
 _Static_assert(sizeof(varintPFORMeta) <= 64,
-    "varintPFORMeta exceeds single cache line (64 bytes)! "
-    "Keep this struct cache-friendly for hot encoding paths.");
+               "varintPFORMeta exceeds single cache line (64 bytes)! "
+               "Keep this struct cache-friendly for hot encoding paths.");
 
 /* Compute optimal threshold and metadata for encoding.
  * Returns width needed for regular values (non-exceptions).

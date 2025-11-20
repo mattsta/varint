@@ -15,29 +15,29 @@
  */
 
 #include "varintBitstream.h"
-#include <stdio.h>
 #include <assert.h>
-#include <string.h>
-#include <stdlib.h>
 #include <stdbool.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 
 // Example 1: Basic bit-level operations
 void example_basic() {
     printf("\n=== Example 1: Basic Bit-Level Operations ===\n");
 
-    vbits buffer[8];  // 8 slots × 64 bits = 512 bits
+    vbits buffer[8]; // 8 slots × 64 bits = 512 bits
     memset(buffer, 0, sizeof(buffer));
 
     // Write a 3-bit value at offset 0
-    varintBitstreamSet(buffer, 0, 3, 5);  // Binary: 101
+    varintBitstreamSet(buffer, 0, 3, 5); // Binary: 101
     printf("Wrote 5 (101 binary) at bit offset 0 (3 bits)\n");
 
     // Write a 5-bit value at offset 3
-    varintBitstreamSet(buffer, 3, 5, 17);  // Binary: 10001
+    varintBitstreamSet(buffer, 3, 5, 17); // Binary: 10001
     printf("Wrote 17 (10001 binary) at bit offset 3 (5 bits)\n");
 
     // Write a 7-bit value at offset 8
-    varintBitstreamSet(buffer, 8, 7, 100);  // Binary: 1100100
+    varintBitstreamSet(buffer, 8, 7, 100); // Binary: 1100100
     printf("Wrote 100 (1100100 binary) at bit offset 8 (7 bits)\n");
 
     // Read back
@@ -70,35 +70,28 @@ void example_bit_offsets() {
         size_t bits;
         vbitsVal value;
     } writes[] = {
-        {0, 4, 15},       // 0-3
-        {4, 6, 33},       // 4-9
-        {10, 8, 255},     // 10-17
-        {18, 10, 1023},   // 18-27
-        {28, 12, 4095},   // 28-39
-        {40, 5, 31},      // 40-44
+        {0, 4, 15},     // 0-3
+        {4, 6, 33},     // 4-9
+        {10, 8, 255},   // 10-17
+        {18, 10, 1023}, // 18-27
+        {28, 12, 4095}, // 28-39
+        {40, 5, 31},    // 40-44
     };
 
     printf("Writing values at arbitrary offsets:\n");
-    for (size_t i = 0; i < sizeof(writes)/sizeof(writes[0]); i++) {
-        varintBitstreamSet(buffer,
-                          writes[i].offset,
-                          writes[i].bits,
-                          writes[i].value);
-        printf("  Offset %2zu, %2zu bits: value %lu\n",
-               writes[i].offset,
-               writes[i].bits,
-               writes[i].value);
+    for (size_t i = 0; i < sizeof(writes) / sizeof(writes[0]); i++) {
+        varintBitstreamSet(buffer, writes[i].offset, writes[i].bits,
+                           writes[i].value);
+        printf("  Offset %2zu, %2zu bits: value %lu\n", writes[i].offset,
+               writes[i].bits, writes[i].value);
     }
 
     printf("\nReading back:\n");
-    for (size_t i = 0; i < sizeof(writes)/sizeof(writes[0]); i++) {
-        vbitsVal value = varintBitstreamGet(buffer,
-                                           writes[i].offset,
-                                           writes[i].bits);
-        printf("  Offset %2zu, %2zu bits: value %lu ",
-               writes[i].offset,
-               writes[i].bits,
-               value);
+    for (size_t i = 0; i < sizeof(writes) / sizeof(writes[0]); i++) {
+        vbitsVal value =
+            varintBitstreamGet(buffer, writes[i].offset, writes[i].bits);
+        printf("  Offset %2zu, %2zu bits: value %lu ", writes[i].offset,
+               writes[i].bits, value);
 
         assert(value == writes[i].value);
         printf("✓\n");
@@ -113,8 +106,8 @@ void example_cross_slot() {
     memset(buffer, 0, sizeof(buffer));
 
     // Write a value that spans across 64-bit slot boundary
-    size_t offset = 60;  // Near the end of first slot
-    size_t bits = 10;    // Spans into second slot
+    size_t offset = 60; // Near the end of first slot
+    size_t bits = 10;   // Spans into second slot
     vbitsVal value = 1000;
 
     printf("Slot size: %zu bits\n", BITS_PER_SLOT);
@@ -171,7 +164,8 @@ void example_protocol_header() {
     varintBitstreamSet(buffer, offset, 16, payloadLen);
     offset += 16;
 
-    printf("Packed protocol header (%zu bits = %zu bytes):\n", offset, (offset + 7) / 8);
+    printf("Packed protocol header (%zu bits = %zu bytes):\n", offset,
+           (offset + 7) / 8);
     printf("  Version: %u\n", version);
     printf("  Message Type: %u\n", msgType);
     printf("  Flags: 0b%05u\n", flags);
@@ -219,11 +213,12 @@ void example_signed_values() {
     // Store signed values using sign bit encoding
     int64_t signedValues[] = {-100, -1, 0, 1, 100, -500, 500};
     size_t offset = 0;
-    size_t bitsPerValue = 12;  // Enough for +/-2047
+    size_t bitsPerValue = 12; // Enough for +/-2047
 
     printf("Storing signed values (%zu bits each):\n", bitsPerValue);
 
-    for (size_t i = 0; i < sizeof(signedValues)/sizeof(signedValues[0]); i++) {
+    for (size_t i = 0; i < sizeof(signedValues) / sizeof(signedValues[0]);
+         i++) {
         int64_t original = signedValues[i];
 
         // Prepare signed value (convert to unsigned representation)
@@ -242,7 +237,8 @@ void example_signed_values() {
     printf("\nReading back:\n");
     offset = 0;
 
-    for (size_t i = 0; i < sizeof(signedValues)/sizeof(signedValues[0]); i++) {
+    for (size_t i = 0; i < sizeof(signedValues) / sizeof(signedValues[0]);
+         i++) {
         vbitsVal retrieved = varintBitstreamGet(buffer, offset, bitsPerValue);
 
         // Restore signed value
@@ -273,7 +269,7 @@ void example_trie_node() {
 
     // Encode terminal node
     bool isTerminal = true;
-    uint8_t wildcardType = 1;  // Single wildcard
+    uint8_t wildcardType = 1; // Single wildcard
     uint8_t childCount = 3;
     uint32_t valueId = 12345;
 
@@ -292,8 +288,8 @@ void example_trie_node() {
         offset += 24;
     }
 
-    printf("Trie node encoded (%zu bits = %zu bytes):\n",
-           offset, (offset + 7) / 8);
+    printf("Trie node encoded (%zu bits = %zu bytes):\n", offset,
+           (offset + 7) / 8);
     printf("  Terminal: %s\n", isTerminal ? "yes" : "no");
     printf("  Wildcard: %u\n", wildcardType);
     printf("  Children: %u\n", childCount);
@@ -346,18 +342,20 @@ void example_space_efficiency() {
         {"uint32_t", 32, count * 4},
     };
 
-    printf("Format                | Bits/value | Bytes for %zu items | Efficiency\n", count);
-    printf("----------------------|------------|---------------------|------------\n");
+    printf("Format                | Bits/value | Bytes for %zu items | "
+           "Efficiency\n",
+           count);
+    printf("----------------------|------------|---------------------|---------"
+           "---\n");
 
     size_t uint32Size = count * 4;
-    for (size_t i = 0; i < sizeof(formats)/sizeof(formats[0]); i++) {
-        float efficiency = ((float)(uint32Size - formats[i].bytesNeeded) / uint32Size) * 100;
+    for (size_t i = 0; i < sizeof(formats) / sizeof(formats[0]); i++) {
+        float efficiency =
+            ((float)(uint32Size - formats[i].bytesNeeded) / uint32Size) * 100;
 
         printf("%-20s | %10zu | %19zu | %5.1f%% saved\n",
-               formats[i].description,
-               formats[i].bitsPerValue,
-               formats[i].bytesNeeded,
-               efficiency);
+               formats[i].description, formats[i].bitsPerValue,
+               formats[i].bytesNeeded, efficiency);
     }
 }
 

@@ -31,26 +31,40 @@ __BEGIN_DECLS
 /* Map 2-bit encoding to actual byte widths */
 static inline varintWidth varintGroupWidthDecode_(uint8_t encoded) {
     switch (encoded & VARINT_GROUP_WIDTH_MASK) {
-    case 0: return VARINT_WIDTH_8B;
-    case 1: return VARINT_WIDTH_16B;
-    case 2: return VARINT_WIDTH_32B;
-    case 3: return VARINT_WIDTH_64B;
-    default: return VARINT_WIDTH_INVALID;
+    case 0:
+        return VARINT_WIDTH_8B;
+    case 1:
+        return VARINT_WIDTH_16B;
+    case 2:
+        return VARINT_WIDTH_32B;
+    case 3:
+        return VARINT_WIDTH_64B;
+    default:
+        return VARINT_WIDTH_INVALID;
     }
 }
 
 /* Map actual byte width to 2-bit encoding */
 static inline uint8_t varintGroupWidthEncode_(varintWidth width) {
     switch (width) {
-    case VARINT_WIDTH_8B: return 0;
-    case VARINT_WIDTH_16B: return 1;
-    case VARINT_WIDTH_24B: return 2; /* upgrade to 4 bytes */
-    case VARINT_WIDTH_32B: return 2;
-    case VARINT_WIDTH_40B: return 3; /* upgrade to 8 bytes */
-    case VARINT_WIDTH_48B: return 3;
-    case VARINT_WIDTH_56B: return 3;
-    case VARINT_WIDTH_64B: return 3;
-    default: return 3; /* default to 8 bytes for safety */
+    case VARINT_WIDTH_8B:
+        return 0;
+    case VARINT_WIDTH_16B:
+        return 1;
+    case VARINT_WIDTH_24B:
+        return 2; /* upgrade to 4 bytes */
+    case VARINT_WIDTH_32B:
+        return 2;
+    case VARINT_WIDTH_40B:
+        return 3; /* upgrade to 8 bytes */
+    case VARINT_WIDTH_48B:
+        return 3;
+    case VARINT_WIDTH_56B:
+        return 3;
+    case VARINT_WIDTH_64B:
+        return 3;
+    default:
+        return 3; /* default to 8 bytes for safety */
     }
 }
 

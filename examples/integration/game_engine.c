@@ -13,8 +13,8 @@
  * - Network-ready state serialization
  * - Delta compression for state updates
  *
- * Compile: gcc -I../../src game_engine.c ../../build/src/libvarint.a -o game_engine
- * Run: ./game_engine
+ * Compile: gcc -I../../src game_engine.c ../../build/src/libvarint.a -o
+ * game_engine Run: ./game_engine
  */
 
 // Generate varintPacked13 for 13-bit entity IDs (0-8191)
@@ -34,22 +34,23 @@
 
 // Entity state flags packed into 16 bits
 typedef enum {
-    ENTITY_FLAG_ALIVE = 0,     // 1 bit: Is entity alive?
-    ENTITY_FLAG_ACTIVE = 1,    // 1 bit: Is entity active in scene?
-    ENTITY_FLAG_VISIBLE = 2,   // 1 bit: Is entity visible?
-    ENTITY_FLAG_PHYSICS = 3,   // 1 bit: Has physics enabled?
-    ENTITY_FLAG_AI = 4,        // 1 bit: Has AI enabled?
-    ENTITY_FLAG_NETWORKED = 5, // 1 bit: Replicated over network?
-    ENTITY_FLAG_LAYER = 6,     // 3 bits: Rendering layer (0-7)
-    ENTITY_FLAG_TEAM = 9,      // 2 bits: Team ID (0-3)
+    ENTITY_FLAG_ALIVE = 0,       // 1 bit: Is entity alive?
+    ENTITY_FLAG_ACTIVE = 1,      // 1 bit: Is entity active in scene?
+    ENTITY_FLAG_VISIBLE = 2,     // 1 bit: Is entity visible?
+    ENTITY_FLAG_PHYSICS = 3,     // 1 bit: Has physics enabled?
+    ENTITY_FLAG_AI = 4,          // 1 bit: Has AI enabled?
+    ENTITY_FLAG_NETWORKED = 5,   // 1 bit: Replicated over network?
+    ENTITY_FLAG_LAYER = 6,       // 3 bits: Rendering layer (0-7)
+    ENTITY_FLAG_TEAM = 9,        // 2 bits: Team ID (0-3)
     ENTITY_FLAG_HEALTH_PCT = 11, // 5 bits: Health percentage (0-31 = 0-100%)
 } EntityFlagOffset;
 
 typedef struct {
-    uint64_t flags;  // All flags packed (varintBitstream requires uint64_t)
+    uint64_t flags; // All flags packed (varintBitstream requires uint64_t)
 } EntityFlags;
 
-void entityFlagsSetBit(EntityFlags *flags, EntityFlagOffset offset, bool value) {
+void entityFlagsSetBit(EntityFlags *flags, EntityFlagOffset offset,
+                       bool value) {
     varintBitstreamSet((uint64_t *)&flags->flags, offset, 1, value ? 1 : 0);
 }
 
@@ -58,7 +59,7 @@ bool entityFlagsGetBit(const EntityFlags *flags, EntityFlagOffset offset) {
 }
 
 void entityFlagsSetLayer(EntityFlags *flags, uint8_t layer) {
-    assert(layer < 8);  // 3 bits = 0-7
+    assert(layer < 8); // 3 bits = 0-7
     varintBitstreamSet((uint64_t *)&flags->flags, ENTITY_FLAG_LAYER, 3, layer);
 }
 
@@ -68,7 +69,7 @@ uint8_t entityFlagsGetLayer(const EntityFlags *flags) {
 }
 
 void entityFlagsSetTeam(EntityFlags *flags, uint8_t team) {
-    assert(team < 4);  // 2 bits = 0-3
+    assert(team < 4); // 2 bits = 0-3
     varintBitstreamSet((uint64_t *)&flags->flags, ENTITY_FLAG_TEAM, 2, team);
 }
 
@@ -86,8 +87,8 @@ void entityFlagsSetHealth(EntityFlags *flags, uint8_t healthPercent) {
 }
 
 uint8_t entityFlagsGetHealth(const EntityFlags *flags) {
-    uint8_t compressed = (uint8_t)varintBitstreamGet((const uint64_t *)&flags->flags,
-                                                      ENTITY_FLAG_HEALTH_PCT, 5);
+    uint8_t compressed = (uint8_t)varintBitstreamGet(
+        (const uint64_t *)&flags->flags, ENTITY_FLAG_HEALTH_PCT, 5);
     // Map 0-31 back to 0-100
     return (compressed * 100) / 31;
 }
@@ -107,14 +108,15 @@ typedef enum {
 } ComponentType;
 
 typedef struct {
-    uint16_t entityId;        // Entity owning this component
-    ComponentType type;       // Component type
-    void *data;               // Component data (type-specific)
+    uint16_t entityId;  // Entity owning this component
+    ComponentType type; // Component type
+    void *data;         // Component data (type-specific)
 } Component;
 
 typedef struct {
-    uint16_t *entityToComponents[COMPONENT_COUNT];  // Maps entity -> component index
-    Component *components[COMPONENT_COUNT];         // Component pools
+    uint16_t
+        *entityToComponents[COMPONENT_COUNT]; // Maps entity -> component index
+    Component *components[COMPONENT_COUNT];   // Component pools
     size_t componentCounts[COMPONENT_COUNT];
     size_t componentCapacities[COMPONENT_COUNT];
     size_t maxEntities;
@@ -148,9 +150,11 @@ void componentManagerAdd(ComponentManager *mgr, uint16_t entityId,
     size_t index = mgr->componentCounts[type];
     if (index >= mgr->componentCapacities[type]) {
         mgr->componentCapacities[type] =
-            mgr->componentCapacities[type] ? mgr->componentCapacities[type] * 2 : 16;
-        mgr->components[type] = realloc(
-            mgr->components[type], mgr->componentCapacities[type] * sizeof(Component));
+            mgr->componentCapacities[type] ? mgr->componentCapacities[type] * 2
+                                           : 16;
+        mgr->components[type] =
+            realloc(mgr->components[type],
+                    mgr->componentCapacities[type] * sizeof(Component));
     }
 
     // Add component
@@ -163,8 +167,8 @@ void componentManagerAdd(ComponentManager *mgr, uint16_t entityId,
     mgr->entityToComponents[type][entityId] = (uint16_t)index;
 }
 
-uint16_t componentManagerGetIndex(const ComponentManager *mgr, uint16_t entityId,
-                                  ComponentType type) {
+uint16_t componentManagerGetIndex(const ComponentManager *mgr,
+                                  uint16_t entityId, ComponentType type) {
     assert(entityId < mgr->maxEntities);
     assert(type < COMPONENT_COUNT);
 
@@ -175,12 +179,12 @@ uint16_t componentManagerGetIndex(const ComponentManager *mgr, uint16_t entityId
 // ENTITY MANAGER (using varintPacked13)
 // ============================================================================
 
-#define MAX_ENTITIES 8192  // 13-bit entity IDs
+#define MAX_ENTITIES 8192 // 13-bit entity IDs
 
 typedef struct {
-    uint8_t *freeList;         // Sorted list of free entity IDs (packed 13-bit)
+    uint8_t *freeList; // Sorted list of free entity IDs (packed 13-bit)
     size_t freeCount;
-    EntityFlags *flags;        // Entity flags (bit-packed)
+    EntityFlags *flags; // Entity flags (bit-packed)
     ComponentManager components;
     uint16_t nextId;
 } EntityManager;
@@ -211,7 +215,7 @@ void entityManagerFree(EntityManager *mgr) {
 }
 
 uint16_t entityManagerCreate(EntityManager *mgr) {
-    assert(mgr->freeCount > 0);  // Check we have free entities
+    assert(mgr->freeCount > 0); // Check we have free entities
 
     // Pop from free list (sorted, so take last element)
     mgr->freeCount--;
@@ -263,7 +267,7 @@ void packetFree(NetworkPacket *packet) {
 }
 
 void packetWriteEntityState(NetworkPacket *packet, uint16_t entityId,
-                             const EntityFlags *flags) {
+                            const EntityFlags *flags) {
     // Write entity ID (13 bits = 2 bytes when packed)
     size_t idBytes = (13 + 7) / 8;
     varintPacked13Set(packet->buffer + packet->size, 0, entityId);
@@ -275,7 +279,7 @@ void packetWriteEntityState(NetworkPacket *packet, uint16_t entityId,
 }
 
 void packetReadEntityState(const NetworkPacket *packet, size_t *offset,
-                            uint16_t *entityId, EntityFlags *flags) {
+                           uint16_t *entityId, EntityFlags *flags) {
     // Read entity ID
     *entityId = varintPacked13Get(packet->buffer + *offset, 0);
     size_t idBytes = (13 + 7) / 8;
@@ -302,7 +306,8 @@ void demonstrateGameEngine() {
     printf("   Max entities: %d (13-bit IDs)\n", MAX_ENTITIES);
     printf("   Free entities: %zu\n", mgr.freeCount);
     printf("   Entity flags: 16 bits per entity\n");
-    printf("   Storage: %zu bytes for flags\n", MAX_ENTITIES * sizeof(EntityFlags));
+    printf("   Storage: %zu bytes for flags\n",
+           MAX_ENTITIES * sizeof(EntityFlags));
 
     // 2. Create entities
     printf("\n2. Creating entities...\n");
@@ -312,7 +317,8 @@ void demonstrateGameEngine() {
     uint16_t enemy2 = entityManagerCreate(&mgr);
     uint16_t powerup = entityManagerCreate(&mgr);
 
-    printf("   Created entities: %u, %u, %u, %u\n", player, enemy1, enemy2, powerup);
+    printf("   Created entities: %u, %u, %u, %u\n", player, enemy1, enemy2,
+           powerup);
     printf("   Free entities: %zu\n", mgr.freeCount);
 
     // 3. Set entity flags
@@ -342,8 +348,10 @@ void demonstrateGameEngine() {
     entityFlagsSetLayer(powerupFlags, 2);
 
     printf("   Player flags: 0x%04lX\n", (unsigned long)playerFlags->flags);
-    printf("   - Alive: %d\n", entityFlagsGetBit(playerFlags, ENTITY_FLAG_ALIVE));
-    printf("   - Visible: %d\n", entityFlagsGetBit(playerFlags, ENTITY_FLAG_VISIBLE));
+    printf("   - Alive: %d\n",
+           entityFlagsGetBit(playerFlags, ENTITY_FLAG_ALIVE));
+    printf("   - Visible: %d\n",
+           entityFlagsGetBit(playerFlags, ENTITY_FLAG_VISIBLE));
     printf("   - Team: %d\n", entityFlagsGetTeam(playerFlags));
     printf("   - Layer: %d\n", entityFlagsGetLayer(playerFlags));
     printf("   - Health: %d%%\n", entityFlagsGetHealth(playerFlags));
@@ -360,7 +368,7 @@ void demonstrateGameEngine() {
     packetInit(&packet, 1024);
 
     // Write entity count (13 bits)
-    uint16_t entityCount = 2;  // Player and enemy1
+    uint16_t entityCount = 2; // Player and enemy1
     varintPacked13Set(packet.buffer, 0, entityCount);
     packet.size = 2;
 
@@ -383,7 +391,8 @@ void demonstrateGameEngine() {
         packetReadEntityState(&packet, &offset, &entityId, &flags);
 
         printf("   Entity %u: flags=0x%04lX, team=%d, health=%d%%\n", entityId,
-               (unsigned long)flags.flags, entityFlagsGetTeam(&flags), entityFlagsGetHealth(&flags));
+               (unsigned long)flags.flags, entityFlagsGetTeam(&flags),
+               entityFlagsGetHealth(&flags));
     }
 
     // 5. Space efficiency analysis
@@ -392,7 +401,8 @@ void demonstrateGameEngine() {
     // Entity IDs
     size_t entityIdStorage = (MAX_ENTITIES * 13 + 7) / 8;
     printf("   Entity ID storage (13-bit packed):\n");
-    printf("   - %d entities × 13 bits = %zu bytes\n", MAX_ENTITIES, entityIdStorage);
+    printf("   - %d entities × 13 bits = %zu bytes\n", MAX_ENTITIES,
+           entityIdStorage);
     printf("   - vs 16-bit: %d bytes\n", MAX_ENTITIES * 2);
     printf("   - Savings: %zu bytes (%.1f%%)\n",
            MAX_ENTITIES * 2 - entityIdStorage,
@@ -400,9 +410,11 @@ void demonstrateGameEngine() {
 
     // Entity flags
     size_t flagStorage = MAX_ENTITIES * sizeof(EntityFlags);
-    size_t unpackedFlagStorage = MAX_ENTITIES * 4;  // 4 bytes per entity uncompressed
+    size_t unpackedFlagStorage =
+        MAX_ENTITIES * 4; // 4 bytes per entity uncompressed
     printf("\n   Entity flags (16-bit packed):\n");
-    printf("   - %d entities × 16 bits = %zu bytes\n", MAX_ENTITIES, flagStorage);
+    printf("   - %d entities × 16 bits = %zu bytes\n", MAX_ENTITIES,
+           flagStorage);
     printf("   - vs unpacked struct: %zu bytes\n", unpackedFlagStorage);
     printf("   - Savings: %zu bytes (%.1f%%)\n",
            unpackedFlagStorage - flagStorage,
@@ -410,7 +422,8 @@ void demonstrateGameEngine() {
 
     // Network packets
     size_t networkPacketSize = packet.size;
-    size_t uncompressedPacketSize = entityCount * (2 + 4);  // 2 bytes ID + 4 bytes flags
+    size_t uncompressedPacketSize =
+        entityCount * (2 + 4); // 2 bytes ID + 4 bytes flags
     printf("\n   Network packet:\n");
     printf("   - Compressed: %zu bytes\n", networkPacketSize);
     printf("   - Uncompressed: %zu bytes\n", uncompressedPacketSize);
@@ -424,7 +437,8 @@ void demonstrateGameEngine() {
     entityManagerDestroy(&mgr, enemy1);
     printf("   Free entities: %zu\n", mgr.freeCount);
     printf("   Enemy alive? %d\n",
-           entityFlagsGetBit(entityManagerGetFlags(&mgr, enemy1), ENTITY_FLAG_ALIVE));
+           entityFlagsGetBit(entityManagerGetFlags(&mgr, enemy1),
+                             ENTITY_FLAG_ALIVE));
 
     printf("\n   Creating new entity (should reuse ID)...\n");
     uint16_t newEntity = entityManagerCreate(&mgr);

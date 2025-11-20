@@ -28,8 +28,8 @@
  * - Databases (PostgreSQL, BigQuery) for join optimization
  * - Distributed systems (Bitcoin, Chrome) for sync/deduplication
  *
- * Compile: gcc -I../../src bloom_filter.c ../../build/src/libvarint.a -o bloom_filter -lm
- * Run: ./bloom_filter
+ * Compile: gcc -I../../src bloom_filter.c ../../build/src/libvarint.a -o
+ * bloom_filter -lm Run: ./bloom_filter
  */
 
 #include <assert.h>
@@ -127,13 +127,13 @@ uint64_t getNthHash(DoubleHash *dh, uint32_t n, uint64_t m) {
 // ============================================================================
 
 typedef struct {
-    uint32_t m;           // Number of bits in filter
-    uint32_t n;           // Expected number of elements
-    uint8_t k;            // Number of hash functions
-    uint32_t count;       // Actual elements inserted
-    uint8_t *bits;        // Bit array (varintPacked1 storage)
-    size_t bitsBytes;     // Size of bits array in bytes
-    double targetFPR;     // Target false positive rate
+    uint32_t m;       // Number of bits in filter
+    uint32_t n;       // Expected number of elements
+    uint8_t k;        // Number of hash functions
+    uint32_t count;   // Actual elements inserted
+    uint8_t *bits;    // Bit array (varintPacked1 storage)
+    size_t bitsBytes; // Size of bits array in bytes
+    double targetFPR; // Target false positive rate
 } BloomFilter;
 
 // Statistics tracking
@@ -153,14 +153,14 @@ typedef struct {
 // Calculate optimal m (bits) for given n (elements) and p (FPR)
 uint32_t calculateOptimalM(uint32_t n, double p) {
     // m = -n * ln(p) / (ln(2)^2)
-    double ln2_squared = 0.480453013918201;  // (ln 2)^2
+    double ln2_squared = 0.480453013918201; // (ln 2)^2
     return (uint32_t)ceil(-1.0 * n * log(p) / ln2_squared);
 }
 
 // Calculate optimal k (hash functions) for given m and n
 uint8_t calculateOptimalK(uint32_t m, uint32_t n) {
     // k = (m / n) * ln(2)
-    double k = ((double)m / n) * 0.693147180559945;  // ln(2)
+    double k = ((double)m / n) * 0.693147180559945; // ln(2)
     uint8_t result = (uint8_t)round(k);
     return result > 0 ? result : 1;
 }
@@ -172,7 +172,8 @@ double calculateTheoreticalFPR(uint32_t m, uint32_t n, uint8_t k) {
     return pow(1.0 - exp(exponent), k);
 }
 
-void bloomFilterInit(BloomFilter *bf, uint32_t expectedElements, double targetFPR) {
+void bloomFilterInit(BloomFilter *bf, uint32_t expectedElements,
+                     double targetFPR) {
     bf->n = expectedElements;
     bf->targetFPR = targetFPR;
     bf->m = calculateOptimalM(expectedElements, targetFPR);
@@ -182,7 +183,7 @@ void bloomFilterInit(BloomFilter *bf, uint32_t expectedElements, double targetFP
     // Allocate bit array using varintPacked1
     // varintPacked1 uses uint32_t slots (4 bytes = 32 bits each)
     // Need to allocate enough bytes for complete slots
-    uint32_t numSlots = (bf->m + 31) / 32;  // Round up to next slot
+    uint32_t numSlots = (bf->m + 31) / 32; // Round up to next slot
     bf->bitsBytes = numSlots * sizeof(uint32_t);
     bf->bits = calloc(bf->bitsBytes, 1);
 }
@@ -218,11 +219,11 @@ bool bloomFilterQuery(const BloomFilter *bf, const void *key, size_t keyLen) {
     for (uint8_t i = 0; i < bf->k; i++) {
         uint64_t bitPos = getNthHash(&dh, i, bf->m);
         if (varintPacked1Get(bf->bits, bitPos) == 0) {
-            return false;  // Definitely not in set
+            return false; // Definitely not in set
         }
     }
 
-    return true;  // Possibly in set (or false positive)
+    return true; // Possibly in set (or false positive)
 }
 
 // Get current fill ratio (percentage of bits set)
@@ -300,16 +301,17 @@ typedef struct {
 } SSTableEntry;
 
 typedef struct {
-    uint32_t level;          // LSM tree level (0 = memtable)
-    uint64_t fileId;         // SSTable file ID
-    SSTableEntry *entries;   // Sorted entries
+    uint32_t level;        // LSM tree level (0 = memtable)
+    uint64_t fileId;       // SSTable file ID
+    SSTableEntry *entries; // Sorted entries
     size_t entryCount;
-    BloomFilter *filter;     // Bloom filter for this SSTable
-    uint64_t minKey;         // Key range
+    BloomFilter *filter; // Bloom filter for this SSTable
+    uint64_t minKey;     // Key range
     uint64_t maxKey;
 } SSTable;
 
-void sstableInit(SSTable *sst, uint32_t level, uint64_t fileId, size_t expectedSize) {
+void sstableInit(SSTable *sst, uint32_t level, uint64_t fileId,
+                 size_t expectedSize) {
     sst->level = level;
     sst->fileId = fileId;
     sst->entries = NULL;
@@ -341,10 +343,12 @@ void sstableBuild(SSTable *sst, SSTableEntry *entries, size_t count) {
 
         // Track key range
         uint64_t keyHash = hash64(entries[i].key, strlen(entries[i].key), 0);
-        if (keyHash < sst->minKey)
+        if (keyHash < sst->minKey) {
             sst->minKey = keyHash;
-        if (keyHash > sst->maxKey)
+        }
+        if (keyHash > sst->maxKey) {
             sst->maxKey = keyHash;
+        }
     }
 }
 
@@ -358,7 +362,7 @@ SSTableEntry *sstableGet(SSTable *sst, const char *key, bool *found) {
 
     // Bloom filter check: if not present, definitely not in SSTable
     if (!sstableMightContain(sst, key)) {
-        return NULL;  // Saved a disk I/O!
+        return NULL; // Saved a disk I/O!
     }
 
     // Bloom filter says "maybe" - need to check actual data
@@ -398,7 +402,7 @@ void demonstrateBasicOperations() {
     const char *urls[] = {
         "https://example.com/page1", "https://example.com/page2",
         "https://example.com/page3", "https://github.com/repo1",
-        "https://github.com/repo2",   "https://stackoverflow.com/q/12345",
+        "https://github.com/repo2",  "https://stackoverflow.com/q/12345",
     };
 
     for (size_t i = 0; i < 6; i++) {
@@ -409,14 +413,15 @@ void demonstrateBasicOperations() {
     // Query elements
     printf("\n3. Querying elements...\n");
     printf("   Query 'https://example.com/page1': %s\n",
-           bloomFilterQuery(&bf, "https://example.com/page1", 25) ? "FOUND"
-                                                                   : "NOT FOUND");
+           bloomFilterQuery(&bf, "https://example.com/page1", 25)
+               ? "FOUND"
+               : "NOT FOUND");
     printf("   Query 'https://github.com/repo2': %s\n",
            bloomFilterQuery(&bf, "https://github.com/repo2", 24) ? "FOUND"
-                                                                  : "NOT FOUND");
+                                                                 : "NOT FOUND");
     printf("   Query 'https://unknown.com/page': %s\n",
            bloomFilterQuery(&bf, "https://unknown.com/page", 24) ? "FOUND (FP!)"
-                                                                  : "NOT FOUND");
+                                                                 : "NOT FOUND");
 
     // Fill ratio
     printf("\n4. Filter statistics...\n");
@@ -465,9 +470,11 @@ void demonstrateFalsePositiveRates() {
         double theoreticalFPR = calculateTheoreticalFPR(bf.m, bf.n, bf.k);
 
         printf("  Theoretical FPR: %.4f%%\n", theoreticalFPR * 100);
-        printf("  Actual FPR: %.4f%% (%u / 10,000)\n", actualFPR * 100, falsePositives);
+        printf("  Actual FPR: %.4f%% (%u / 10,000)\n", actualFPR * 100,
+               falsePositives);
         printf("  Accuracy: %.1f%%\n\n",
-               100.0 * (1.0 - fabs(actualFPR - theoreticalFPR) / theoreticalFPR));
+               100.0 *
+                   (1.0 - fabs(actualFPR - theoreticalFPR) / theoreticalFPR));
 
         bloomFilterFree(&bf);
     }
@@ -486,8 +493,10 @@ void demonstrateOptimalK() {
     printf("Optimal m (bits): %u\n\n", m);
 
     printf("Testing different k values:\n");
-    printf("%-4s %-10s %-12s %-12s\n", "k", "Theo. FPR", "Actual FPR", "Space/elem");
-    printf("%-4s %-10s %-12s %-12s\n", "---", "---------", "----------", "----------");
+    printf("%-4s %-10s %-12s %-12s\n", "k", "Theo. FPR", "Actual FPR",
+           "Space/elem");
+    printf("%-4s %-10s %-12s %-12s\n", "---", "---------", "----------",
+           "----------");
 
     for (uint8_t k = 1; k <= 15; k++) {
         BloomFilter bf;
@@ -520,8 +529,8 @@ void demonstrateOptimalK() {
         double actualFPR = (double)falsePositives / 5000.0;
         double theoreticalFPR = calculateTheoreticalFPR(m, n, k);
 
-        printf("%-4u %-10.4f%% %-12.4f%% %-12.2f bits\n", k, theoreticalFPR * 100,
-               actualFPR * 100, (double)m / n);
+        printf("%-4u %-10.4f%% %-12.4f%% %-12.2f bits\n", k,
+               theoreticalFPR * 100, actualFPR * 100, (double)m / n);
 
         bloomFilterFree(&bf);
     }
@@ -558,9 +567,10 @@ void demonstrateSerialization() {
     printf("   Metadata overhead: %zu bytes\n", serializedSize - bf.bitsBytes);
 
     // Calculate what naive encoding would be
-    size_t naiveSize = 4 + 4 + 1 + 4 + 4 + bf.bitsBytes;  // Fixed-width metadata
+    size_t naiveSize = 4 + 4 + 1 + 4 + 4 + bf.bitsBytes; // Fixed-width metadata
     printf("   Naive encoding: %zu bytes\n", naiveSize);
-    printf("   Varint savings: %zu bytes (%.1f%%)\n", naiveSize - serializedSize,
+    printf("   Varint savings: %zu bytes (%.1f%%)\n",
+           naiveSize - serializedSize,
            100.0 * (naiveSize - serializedSize) / naiveSize);
 
     // Deserialize
@@ -613,7 +623,8 @@ void demonstrateLSMTree() {
     sstableInit(&sst[1], 1, 2001, 5000);
     SSTableEntry *entries1 = malloc(5000 * sizeof(SSTableEntry));
     for (size_t i = 0; i < 5000; i++) {
-        snprintf(entries1[i].key, sizeof(entries1[i].key), "user_%04zu", i + 1000);
+        snprintf(entries1[i].key, sizeof(entries1[i].key), "user_%04zu",
+                 i + 1000);
         entries1[i].value = (i + 1000) * 100;
     }
     sstableBuild(&sst[1], entries1, 5000);
@@ -623,7 +634,8 @@ void demonstrateLSMTree() {
     sstableInit(&sst[2], 2, 3001, 10000);
     SSTableEntry *entries2 = malloc(10000 * sizeof(SSTableEntry));
     for (size_t i = 0; i < 10000; i++) {
-        snprintf(entries2[i].key, sizeof(entries2[i].key), "user_%04zu", i + 6000);
+        snprintf(entries2[i].key, sizeof(entries2[i].key), "user_%04zu",
+                 i + 6000);
         entries2[i].value = (i + 6000) * 100;
     }
     sstableBuild(&sst[2], entries2, 10000);
@@ -631,21 +643,23 @@ void demonstrateLSMTree() {
 
     printf("SSTable configuration:\n");
     for (int i = 0; i < 3; i++) {
-        printf("  SSTable %d (Level %u, File %lu):\n", i, sst[i].level, sst[i].fileId);
+        printf("  SSTable %d (Level %u, File %lu):\n", i, sst[i].level,
+               sst[i].fileId);
         printf("    Entries: %zu\n", sst[i].entryCount);
         printf("    Bloom filter: %u bits (%u KB)\n", sst[i].filter->m,
                sst[i].filter->m / 8192);
-        printf("    Fill ratio: %.2f%%\n", bloomFilterFillRatio(sst[i].filter) * 100);
+        printf("    Fill ratio: %.2f%%\n",
+               bloomFilterFillRatio(sst[i].filter) * 100);
     }
 
     // Perform queries
     printf("\n Performing LSM tree queries...\n\n");
 
     const char *queryKeys[] = {
-        "user_0042",  // In SSTable 0
-        "user_1500",  // In SSTable 1
-        "user_8000",  // In SSTable 2
-        "user_9999",  // Not in any SSTable
+        "user_0042", // In SSTable 0
+        "user_1500", // In SSTable 1
+        "user_8000", // In SSTable 2
+        "user_9999", // Not in any SSTable
     };
 
     uint64_t bloomFilterSaves = 0;
@@ -660,15 +674,20 @@ void demonstrateLSMTree() {
             bool mightContain = sstableMightContain(&sst[i], queryKeys[q]);
 
             if (!mightContain) {
-                printf("    SSTable %d: Bloom filter says NO (saved disk I/O)\n", i);
+                printf(
+                    "    SSTable %d: Bloom filter says NO (saved disk I/O)\n",
+                    i);
                 bloomFilterSaves++;
             } else {
-                printf("    SSTable %d: Bloom filter says MAYBE (disk I/O required)\n", i);
+                printf("    SSTable %d: Bloom filter says MAYBE (disk I/O "
+                       "required)\n",
+                       i);
                 diskReads++;
 
                 // Actually check SSTable
                 bool actuallyFound;
-                SSTableEntry *entry = sstableGet(&sst[i], queryKeys[q], &actuallyFound);
+                SSTableEntry *entry =
+                    sstableGet(&sst[i], queryKeys[q], &actuallyFound);
 
                 if (actuallyFound) {
                     printf("      -> FOUND: value=%lu\n", entry->value);
@@ -721,7 +740,8 @@ void demonstratePerformance() {
 
     printf("   Inserted 100K elements in %.3f seconds\n", insertTime);
     printf("   Throughput: %.0f inserts/sec\n", insertRate);
-    printf("   Latency: %.3f microseconds/insert\n", (insertTime / 100000) * 1000000);
+    printf("   Latency: %.3f microseconds/insert\n",
+           (insertTime / 100000) * 1000000);
 
     // Query benchmark
     printf("\n2. Query benchmark...\n");
@@ -741,20 +761,23 @@ void demonstratePerformance() {
 
     printf("   Performed 1M queries in %.3f seconds\n", queryTime);
     printf("   Throughput: %.0f queries/sec\n", queryRate);
-    printf("   Latency: %.3f microseconds/query\n", (queryTime / 1000000) * 1000000);
+    printf("   Latency: %.3f microseconds/query\n",
+           (queryTime / 1000000) * 1000000);
     printf("   Hits: %u / 1,000,000\n", hits);
 
     // Memory efficiency
     printf("\n3. Memory efficiency...\n");
     printf("   Elements: %u\n", bf.count);
-    printf("   Memory used: %zu bytes (%.2f KB)\n", bf.bitsBytes, bf.bitsBytes / 1024.0);
+    printf("   Memory used: %zu bytes (%.2f KB)\n", bf.bitsBytes,
+           bf.bitsBytes / 1024.0);
     printf("   Bytes per element: %.2f\n", (double)bf.bitsBytes / bf.count);
-    printf("   Bits per element: %.2f\n", (double)(bf.bitsBytes * 8) / bf.count);
+    printf("   Bits per element: %.2f\n",
+           (double)(bf.bitsBytes * 8) / bf.count);
 
     // Compare to other data structures
     printf("\n4. Space comparison (100K elements)...\n");
-    size_t hashTableSize = 100000 * (32 + 8);  // 32-byte key + 8-byte pointer
-    size_t bitmapSize = 100000 / 8;            // 1 bit per element
+    size_t hashTableSize = 100000 * (32 + 8); // 32-byte key + 8-byte pointer
+    size_t bitmapSize = 100000 / 8;           // 1 bit per element
 
     printf("   Bloom filter: %zu bytes\n", bf.bitsBytes);
     printf("   Hash table: %zu bytes (%.1fx larger)\n", hashTableSize,

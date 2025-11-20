@@ -1,13 +1,13 @@
 #pragma once
 
 #include "varint.h"
-#include "varintExternal.h"
-#include "varintTagged.h"
+#include "varintBitmap.h"
 #include "varintDelta.h"
+#include "varintDict.h"
+#include "varintExternal.h"
 #include "varintFOR.h"
 #include "varintPFOR.h"
-#include "varintDict.h"
-#include "varintBitmap.h"
+#include "varintTagged.h"
 
 __BEGIN_DECLS
 
@@ -39,46 +39,48 @@ __BEGIN_DECLS
 
 /* Encoding types that adaptive can select */
 typedef enum varintAdaptiveEncodingType {
-    VARINT_ADAPTIVE_DELTA = 0,   /* Delta encoding for sorted/sequential */
-    VARINT_ADAPTIVE_FOR = 1,     /* Frame-of-Reference for clustered */
-    VARINT_ADAPTIVE_PFOR = 2,    /* Patched FOR with outliers */
-    VARINT_ADAPTIVE_DICT = 3,    /* Dictionary for repetitive */
-    VARINT_ADAPTIVE_BITMAP = 4,  /* Bitmap for dense sets in 0-65535 */
-    VARINT_ADAPTIVE_TAGGED = 5,  /* Fallback general purpose */
-    VARINT_ADAPTIVE_GROUP = 6,   /* Grouped encoding (future) */
+    VARINT_ADAPTIVE_DELTA = 0,  /* Delta encoding for sorted/sequential */
+    VARINT_ADAPTIVE_FOR = 1,    /* Frame-of-Reference for clustered */
+    VARINT_ADAPTIVE_PFOR = 2,   /* Patched FOR with outliers */
+    VARINT_ADAPTIVE_DICT = 3,   /* Dictionary for repetitive */
+    VARINT_ADAPTIVE_BITMAP = 4, /* Bitmap for dense sets in 0-65535 */
+    VARINT_ADAPTIVE_TAGGED = 5, /* Fallback general purpose */
+    VARINT_ADAPTIVE_GROUP = 6,  /* Grouped encoding (future) */
 } varintAdaptiveEncodingType;
 
 /* Data characteristics computed during analysis
  * Fields ordered by size (8-byte → 4-byte → 1-byte) to eliminate padding */
 typedef struct varintAdaptiveDataStats {
-    size_t count;               /* Number of values */
-    uint64_t minValue;          /* Minimum value */
-    uint64_t maxValue;          /* Maximum value */
-    uint64_t range;             /* maxValue - minValue */
-    size_t uniqueCount;         /* Number of unique values */
-    uint64_t avgDelta;          /* Average absolute delta between consecutive values */
-    uint64_t maxDelta;          /* Maximum absolute delta */
-    size_t outlierCount;        /* Count of values beyond 95th percentile */
-    float uniqueRatio;          /* uniqueCount / count */
-    float outlierRatio;         /* outlierCount / count */
-    bool isSorted;              /* True if array is sorted */
-    bool isReverseSorted;       /* True if reverse sorted */
-    bool fitsInBitmapRange;     /* True if all values < 65536 */
+    size_t count;        /* Number of values */
+    uint64_t minValue;   /* Minimum value */
+    uint64_t maxValue;   /* Maximum value */
+    uint64_t range;      /* maxValue - minValue */
+    size_t uniqueCount;  /* Number of unique values */
+    uint64_t avgDelta;   /* Average absolute delta between consecutive values */
+    uint64_t maxDelta;   /* Maximum absolute delta */
+    size_t outlierCount; /* Count of values beyond 95th percentile */
+    float uniqueRatio;   /* uniqueCount / count */
+    float outlierRatio;  /* outlierCount / count */
+    bool isSorted;       /* True if array is sorted */
+    bool isReverseSorted;   /* True if reverse sorted */
+    bool fitsInBitmapRange; /* True if all values < 65536 */
 } varintAdaptiveDataStats;
 
 /* Compile-time size guarantees to prevent regressions */
 _Static_assert(sizeof(varintAdaptiveDataStats) == 80,
-    "varintAdaptiveDataStats size changed! Expected 80 bytes (8×8-byte + 2×4-byte + 3×1-byte + 5 padding). "
-    "93.8% efficient - acceptable for analysis struct.");
-_Static_assert(sizeof(varintAdaptiveDataStats) <= 128,
+               "varintAdaptiveDataStats size changed! Expected 80 bytes "
+               "(8×8-byte + 2×4-byte + 3×1-byte + 5 padding). "
+               "93.8% efficient - acceptable for analysis struct.");
+_Static_assert(
+    sizeof(varintAdaptiveDataStats) <= 128,
     "varintAdaptiveDataStats should not exceed 2 cache lines (128 bytes)! "
     "Hot fields (bytes 0-63) are in first cache line by design.");
 
 /* Metadata for selected encoding
  * Fields ordered by size (8-byte/union → 4-byte) to eliminate padding */
 typedef struct varintAdaptiveMeta {
-    size_t originalCount;       /* Number of values encoded */
-    size_t encodedSize;         /* Total bytes including header */
+    size_t originalCount; /* Number of values encoded */
+    size_t encodedSize;   /* Total bytes including header */
 
     /* Encoding-specific metadata (only one used based on encodingType) */
     union {
@@ -92,11 +94,14 @@ typedef struct varintAdaptiveMeta {
 
 /* Compile-time size guarantees to prevent regressions */
 _Static_assert(sizeof(varintAdaptiveMeta) == 72,
-    "varintAdaptiveMeta size changed! Expected 72 bytes (2×8-byte + 48-byte union + 4-byte enum + 4 padding). "
-    "94.4% efficient - union dominates size.");
-_Static_assert(sizeof(varintAdaptiveMeta) <= 128,
+               "varintAdaptiveMeta size changed! Expected 72 bytes (2×8-byte + "
+               "48-byte union + 4-byte enum + 4 padding). "
+               "94.4% efficient - union dominates size.");
+_Static_assert(
+    sizeof(varintAdaptiveMeta) <= 128,
     "varintAdaptiveMeta should not exceed 2 cache lines (128 bytes)! "
-    "Metadata union in first cache line, encodingType in second (read once during decode).");
+    "Metadata union in first cache line, encodingType in second (read once "
+    "during decode).");
 
 /* ====================================================================
  * Core API
@@ -124,8 +129,8 @@ void varintAdaptiveAnalyze(const uint64_t *values, size_t count,
  * 5. If range < count * 100 → FOR
  * 6. Otherwise → TAGGED
  */
-varintAdaptiveEncodingType varintAdaptiveSelectEncoding(
-    const varintAdaptiveDataStats *stats);
+varintAdaptiveEncodingType
+varintAdaptiveSelectEncoding(const varintAdaptiveDataStats *stats);
 
 /* Encode array with automatic encoding selection.
  * Analyzes data, selects optimal encoding, and encodes with header.
@@ -180,8 +185,8 @@ size_t varintAdaptiveReadMeta(const uint8_t *src, varintAdaptiveMeta *meta);
 /* Get encoding type from encoded buffer (just reads first byte).
  * Returns: encoding type
  */
-static inline varintAdaptiveEncodingType varintAdaptiveGetEncodingType(
-    const uint8_t *src) {
+static inline varintAdaptiveEncodingType
+varintAdaptiveGetEncodingType(const uint8_t *src) {
     return (varintAdaptiveEncodingType)src[0];
 }
 
@@ -199,7 +204,9 @@ const char *varintAdaptiveEncodingName(varintAdaptiveEncodingType type);
  * Returns: maximum bytes needed (worst-case scenario)
  */
 static inline size_t varintAdaptiveMaxSize(size_t count) {
-    if (count == 0) return 1; /* Just header byte */
+    if (count == 0) {
+        return 1; /* Just header byte */
+    }
 
     /* Worst case: TAGGED encoding with 1 byte header + 9 bytes per value
      * Header: 1 byte encoding type
@@ -216,8 +223,10 @@ static inline size_t varintAdaptiveMaxSize(size_t count) {
  * Returns: compression ratio (originalBytes / encodedBytes)
  */
 static inline float varintAdaptiveCompressionRatio(size_t originalCount,
-                                                    size_t encodedSize) {
-    if (encodedSize == 0) return 0.0f;
+                                                   size_t encodedSize) {
+    if (encodedSize == 0) {
+        return 0.0f;
+    }
     size_t originalSize = originalCount * sizeof(uint64_t);
     return (float)originalSize / (float)encodedSize;
 }

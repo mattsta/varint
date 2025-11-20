@@ -19,19 +19,21 @@ __BEGIN_DECLS
 
 /* Dictionary structure for building and using dictionaries */
 typedef struct varintDict {
-    uint64_t *values;        /* Dictionary values (sorted) */
-    uint32_t size;           /* Number of unique values */
-    uint32_t capacity;       /* Allocated capacity */
-    varintWidth indexWidth;  /* Width needed for indices */
+    uint64_t *values;       /* Dictionary values (sorted) */
+    uint32_t size;          /* Number of unique values */
+    uint32_t capacity;      /* Allocated capacity */
+    varintWidth indexWidth; /* Width needed for indices */
 } varintDict;
 
 /* Compile-time size guarantees to prevent regressions */
-_Static_assert(sizeof(varintDict) == 24,
-    "varintDict size changed! Expected 24 bytes (8-byte pointer + 3×4-byte + 4 padding). "
+_Static_assert(
+    sizeof(varintDict) == 24,
+    "varintDict size changed! Expected 24 bytes (8-byte pointer + 3×4-byte + 4 "
+    "padding). "
     "83.3% efficient - padding required for 8-byte alignment of pointer.");
 _Static_assert(sizeof(varintDict) <= 64,
-    "varintDict exceeds single cache line (64 bytes)! "
-    "Keep dictionary struct cache-friendly.");
+               "varintDict exceeds single cache line (64 bytes)! "
+               "Keep dictionary struct cache-friendly.");
 
 /* ====================================================================
  * Dictionary Management
@@ -106,23 +108,24 @@ float varintDictCompressionRatio(const uint64_t *values, size_t count);
 /* Get statistics about the dictionary encoding.
  * Returns 0 on success, -1 on failure. */
 typedef struct varintDictStats {
-    size_t uniqueCount;      /* Number of unique values */
-    size_t totalCount;       /* Total number of values */
-    size_t dictBytes;        /* Bytes for dictionary */
-    size_t indexBytes;       /* Bytes for indices */
-    size_t totalBytes;       /* Total encoded size */
-    size_t originalBytes;    /* Size with uint64_t */
-    float compressionRatio;  /* originalBytes / totalBytes */
-    float spaceReduction;    /* (1 - totalBytes/originalBytes) * 100 */
+    size_t uniqueCount;     /* Number of unique values */
+    size_t totalCount;      /* Total number of values */
+    size_t dictBytes;       /* Bytes for dictionary */
+    size_t indexBytes;      /* Bytes for indices */
+    size_t totalBytes;      /* Total encoded size */
+    size_t originalBytes;   /* Size with uint64_t */
+    float compressionRatio; /* originalBytes / totalBytes */
+    float spaceReduction;   /* (1 - totalBytes/originalBytes) * 100 */
 } varintDictStats;
 
 /* Compile-time size guarantees to prevent regressions */
 _Static_assert(sizeof(varintDictStats) == 56,
-    "varintDictStats size changed! Expected 56 bytes (6×8-byte + 2×4-byte, ZERO padding). "
-    "This struct achieved 100% efficiency - do not break it!");
+               "varintDictStats size changed! Expected 56 bytes (6×8-byte + "
+               "2×4-byte, ZERO padding). "
+               "This struct achieved 100% efficiency - do not break it!");
 _Static_assert(sizeof(varintDictStats) <= 64,
-    "varintDictStats exceeds single cache line (64 bytes)! "
-    "Keep statistics struct cache-friendly.");
+               "varintDictStats exceeds single cache line (64 bytes)! "
+               "Keep statistics struct cache-friendly.");
 
 int varintDictGetStats(const uint64_t *values, size_t count,
                        varintDictStats *stats);

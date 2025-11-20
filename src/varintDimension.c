@@ -133,17 +133,17 @@ uint64_t varintDimensionPairEntryGetUnsigned(
             VARINT_DIMENSION_PAIR_WIDTH_ROW_COUNT(dim);                        \
         const varintWidth widthCols =                                          \
             VARINT_DIMENSION_PAIR_WIDTH_COL_COUNT(dim);                        \
-        const uint8_t metadataSize = (uint8_t)(widthRows + widthCols);                    \
+        const uint8_t metadataSize = (uint8_t)(widthRows + widthCols);         \
         size_t _bit_offsetTotal;                                               \
         if (row) {                                                             \
             const size_t cols =                                                \
                 varintExternalGet((arr) + widthRows, widthCols);               \
-            _bit_offsetTotal = (((row)*cols) + (col));                         \
+            _bit_offsetTotal = (((row) * cols) + (col));                       \
         } else {                                                               \
             _bit_offsetTotal = (col);                                          \
         }                                                                      \
-        (offsetByte) = metadataSize + (_bit_offsetTotal / 8);    \
-        (offsetBit) = _bit_offsetTotal % 8;                      \
+        (offsetByte) = metadataSize + (_bit_offsetTotal / 8);                  \
+        (offsetBit) = _bit_offsetTotal % 8;                                    \
     } while (0)
 
 bool varintDimensionPairEntryGetBit(const void *_src, const size_t row,
@@ -447,8 +447,8 @@ int varintDimensionTest(int argc, char *argv[]) {
                 uint8_t result = varintDimensionPairEntryGetUnsigned(
                     totalMatrix, row, col, VARINT_WIDTH_8B, mat);
                 if (result != val) {
-                    ERR("Didn't get %u at (%u, %u); got: %u!", (unsigned)val, (unsigned)row, (unsigned)col,
-                        (unsigned)result);
+                    ERR("Didn't get %u at (%u, %u); got: %u!", (unsigned)val,
+                        (unsigned)row, (unsigned)col, (unsigned)result);
                 }
             }
         }
@@ -474,8 +474,8 @@ int varintDimensionTest(int argc, char *argv[]) {
                 int8_t result = varintDimensionPairEntryGetUnsigned(
                     totalMatrix, row, col, VARINT_WIDTH_8B, mat);
                 if (result != val) {
-                    ERR("Didn't get %u at (%u, %u); got: %u!", (unsigned)val, (unsigned)row, (unsigned)col,
-                        (unsigned)result);
+                    ERR("Didn't get %u at (%u, %u); got: %u!", (unsigned)val,
+                        (unsigned)row, (unsigned)col, (unsigned)result);
                 }
             }
         }
@@ -502,8 +502,8 @@ int varintDimensionTest(int argc, char *argv[]) {
                 uint32_t result = varintDimensionPairEntryGetUnsigned(
                     totalMatrix, row, col, VARINT_WIDTH_24B, mat);
                 if (result != val) {
-                    ERR("Didn't get %u at (%u, %u); got: %u!", (unsigned)val, (unsigned)row, (unsigned)col,
-                        (unsigned)result);
+                    ERR("Didn't get %u at (%u, %u); got: %u!", (unsigned)val,
+                        (unsigned)row, (unsigned)col, (unsigned)result);
                 }
             }
         }
@@ -538,8 +538,8 @@ int varintDimensionTest(int argc, char *argv[]) {
                  */
                 varintRestoreSigned24to32_(result);
                 if (result != originalVal) {
-                    ERR("Didn't get %u at (%u, %u); got: %u!", (unsigned)val, (unsigned)row, (unsigned)col,
-                        (unsigned)result);
+                    ERR("Didn't get %u at (%u, %u); got: %u!", (unsigned)val,
+                        (unsigned)row, (unsigned)col, (unsigned)result);
                 }
             }
         }

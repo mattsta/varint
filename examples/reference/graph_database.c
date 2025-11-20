@@ -17,8 +17,8 @@
  * This is a complete, production-ready reference implementation.
  * Users can adapt this code for social networks, knowledge graphs, and routing.
  *
- * Compile: gcc -I../../src graph_database.c ../../build/src/libvarint.a -o graph_database
- * Run: ./graph_database
+ * Compile: gcc -I../../src graph_database.c ../../build/src/libvarint.a -o
+ * graph_database Run: ./graph_database
  */
 
 // Generate varintPacked16 for node IDs (up to 65535 nodes)
@@ -42,7 +42,7 @@ typedef uint32_t EdgeID;
 
 typedef struct {
     char name[64];
-    uint64_t properties;  // Bit-packed properties
+    uint64_t properties; // Bit-packed properties
 } Node;
 
 typedef struct {
@@ -61,7 +61,7 @@ typedef struct {
     size_t edgeCount;
     size_t edgeCapacity;
 
-    uint8_t *adjacencyMatrix;  // Bit matrix: 1 bit per potential edge
+    uint8_t *adjacencyMatrix; // Bit matrix: 1 bit per potential edge
     varintDimensionPair dimensionEncoding;
     bool isDirected;
 } Graph;
@@ -320,7 +320,8 @@ ShortestPath graphDijkstra(const Graph *graph, NodeID start, NodeID end) {
     uint32_t *distances = malloc(graph->nodeCount * sizeof(uint32_t));
     if (!distances) {
         fprintf(stderr, "Error: Failed to allocate Dijkstra distances array\n");
-        ShortestPath result = {.path = NULL, .pathLength = 0, .totalWeight = UINT32_MAX};
+        ShortestPath result = {
+            .path = NULL, .pathLength = 0, .totalWeight = UINT32_MAX};
         return result;
     }
 
@@ -328,7 +329,8 @@ ShortestPath graphDijkstra(const Graph *graph, NodeID start, NodeID end) {
     if (!previous) {
         fprintf(stderr, "Error: Failed to allocate Dijkstra previous array\n");
         free(distances);
-        ShortestPath result = {.path = NULL, .pathLength = 0, .totalWeight = UINT32_MAX};
+        ShortestPath result = {
+            .path = NULL, .pathLength = 0, .totalWeight = UINT32_MAX};
         return result;
     }
 
@@ -337,7 +339,8 @@ ShortestPath graphDijkstra(const Graph *graph, NodeID start, NodeID end) {
         fprintf(stderr, "Error: Failed to allocate Dijkstra visited array\n");
         free(distances);
         free(previous);
-        ShortestPath result = {.path = NULL, .pathLength = 0, .totalWeight = UINT32_MAX};
+        ShortestPath result = {
+            .path = NULL, .pathLength = 0, .totalWeight = UINT32_MAX};
         return result;
     }
 
@@ -360,8 +363,9 @@ ShortestPath graphDijkstra(const Graph *graph, NodeID start, NodeID end) {
             }
         }
 
-        if (minNode == (NodeID)-1)
-            break;  // No more reachable nodes
+        if (minNode == (NodeID)-1) {
+            break; // No more reachable nodes
+        }
 
         visited[minNode] = true;
 
@@ -369,7 +373,7 @@ ShortestPath graphDijkstra(const Graph *graph, NodeID start, NodeID end) {
         for (NodeID neighbor = 0; neighbor < graph->nodeCount; neighbor++) {
             if (graphHasEdge(graph, minNode, neighbor) && !visited[neighbor]) {
                 // Find edge weight
-                uint32_t weight = 1;  // Default weight
+                uint32_t weight = 1; // Default weight
                 for (size_t e = 0; e < graph->edgeCount; e++) {
                     if (graph->edges[e].from == minNode &&
                         graph->edges[e].to == neighbor) {
@@ -437,7 +441,7 @@ void demonstrateGraphDB() {
     // 1. Create graph
     printf("1. Creating directed graph...\n");
     Graph graph;
-    if (!graphInit(&graph, 256, true)) {  // Directed graph, max 256 nodes
+    if (!graphInit(&graph, 256, true)) { // Directed graph, max 256 nodes
         fprintf(stderr, "Error: Failed to initialize graph\n");
         return;
     }
@@ -487,15 +491,15 @@ void demonstrateGraphDB() {
     // 4. Check adjacency
     printf("\n4. Testing adjacency queries...\n");
 
-    NodeID testPairs[][2] = {{nodeA, nodeB}, {nodeB, nodeA}, {nodeA, nodeF},
-                             {nodeC, nodeE}};
+    NodeID testPairs[][2] = {
+        {nodeA, nodeB}, {nodeB, nodeA}, {nodeA, nodeF}, {nodeC, nodeE}};
 
     for (size_t i = 0; i < 4; i++) {
         NodeID from = testPairs[i][0];
         NodeID to = testPairs[i][1];
         bool hasEdge = graphHasEdge(&graph, from, to);
-        printf("   %s -> %s: %s\n", graph.nodes[from].name, graph.nodes[to].name,
-               hasEdge ? "YES" : "NO");
+        printf("   %s -> %s: %s\n", graph.nodes[from].name,
+               graph.nodes[to].name, hasEdge ? "YES" : "NO");
     }
 
     // 5. Degree calculations
@@ -556,13 +560,14 @@ void demonstrateGraphDB() {
     // Edge list
     size_t edgeListBytes = graph.edgeCount * sizeof(Edge);
     printf("\n   Edge list:\n");
-    printf("   - %zu edges × %zu bytes = %zu bytes\n", graph.edgeCount, sizeof(Edge),
-           edgeListBytes);
+    printf("   - %zu edges × %zu bytes = %zu bytes\n", graph.edgeCount,
+           sizeof(Edge), edgeListBytes);
 
     // Sparse vs dense
-    double density = (double)graph.edgeCount / (graph.nodeCount * graph.nodeCount);
-    printf("\n   Graph density: %.2f%% (%zu / %zu possible edges)\n", density * 100,
-           graph.edgeCount, graph.nodeCount * graph.nodeCount);
+    double density =
+        (double)graph.edgeCount / (graph.nodeCount * graph.nodeCount);
+    printf("\n   Graph density: %.2f%% (%zu / %zu possible edges)\n",
+           density * 100, graph.edgeCount, graph.nodeCount * graph.nodeCount);
     printf("   Optimal representation: %s\n",
            density < 0.1 ? "Edge list (sparse)" : "Adjacency matrix (dense)");
 

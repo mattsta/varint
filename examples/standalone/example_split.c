@@ -5,16 +5,16 @@
  * Fast encoding/decoding with efficient space usage for small values.
  * Perfect for data with predictable ranges and bit-packing requirements.
  *
- * Compile: gcc -I../src example_split.c ../src/varintExternal.c -o example_split
- * Run: ./example_split
+ * Compile: gcc -I../src example_split.c ../src/varintExternal.c -o
+ * example_split Run: ./example_split
  */
 
 #include "varintExternal.h"
 #include "varintSplit.h"
-#include <stdio.h>
 #include <assert.h>
-#include <string.h>
+#include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 // Example 1: Basic encode/decode
 void example_basic() {
@@ -65,17 +65,15 @@ void example_three_levels() {
     printf("  Level 2 (01xxxxxx): 64-16,446 (14 bits total)\n");
     printf("  Level 3 (10xxxxxx): 16,447+   (varintExternal)\n\n");
 
-    for (size_t i = 0; i < sizeof(tests)/sizeof(tests[0]); i++) {
+    for (size_t i = 0; i < sizeof(tests) / sizeof(tests[0]); i++) {
         uint8_t buffer[9];
         varintWidth width;
 
         varintSplitPut_(buffer, width, tests[i].value);
 
-        printf("%-25s: %10lu -> %d bytes (type: 0x%02x)",
-               tests[i].description,
-               tests[i].value,
-               width,
-               buffer[0] & 0xC0);  // Show type bits
+        printf("%-25s: %10lu -> %d bytes (type: 0x%02x)", tests[i].description,
+               tests[i].value, width,
+               buffer[0] & 0xC0); // Show type bits
 
         assert(width == tests[i].expectedWidth);
 
@@ -102,7 +100,7 @@ void example_type_detection() {
         {100000, "Level 3 (VAR)"},
     };
 
-    for (size_t i = 0; i < sizeof(tests)/sizeof(tests[0]); i++) {
+    for (size_t i = 0; i < sizeof(tests) / sizeof(tests[0]); i++) {
         uint8_t buffer[9];
         varintWidth width;
 
@@ -113,17 +111,17 @@ void example_type_detection() {
         const char *typeName;
 
         switch (typeMarker) {
-            case VARINT_SPLIT_6:
-                typeName = "Level 1 (6-bit)";
-                break;
-            case VARINT_SPLIT_14:
-                typeName = "Level 2 (14-bit)";
-                break;
-            case VARINT_SPLIT_VAR:
-                typeName = "Level 3 (VAR)";
-                break;
-            default:
-                typeName = "Unknown";
+        case VARINT_SPLIT_6:
+            typeName = "Level 1 (6-bit)";
+            break;
+        case VARINT_SPLIT_14:
+            typeName = "Level 2 (14-bit)";
+            break;
+        case VARINT_SPLIT_VAR:
+            typeName = "Level 3 (VAR)";
+            break;
+        default:
+            typeName = "Unknown";
         }
 
         printf("Value %10lu -> %s ", tests[i].value, typeName);
@@ -144,7 +142,8 @@ void example_reversed() {
     for (size_t i = 0; i < 4; i++) {
         varintWidth width;
         varintSplitPut_(buffer + offset, width, values[i]);
-        printf("  Value %lu at offset %zu (width %d)\n", values[i], offset, width);
+        printf("  Value %lu at offset %zu (width %d)\n", values[i], offset,
+               width);
         offset += width;
     }
 
@@ -166,16 +165,16 @@ void example_reversed() {
 
     // Now demonstrate reversed encoding
     printf("\nReversed encoding (for backward traversal):\n");
-    uint8_t reversed[128];  // Increased buffer size
+    uint8_t reversed[128]; // Increased buffer size
     memset(reversed, 0, sizeof(reversed));
-    offset = 20;  // Start earlier to fit all values
+    offset = 20; // Start earlier to fit all values
 
     for (size_t i = 0; i < 4; i++) {
         varintWidth width;
         varintSplitReversedPutReversed_(reversed + offset, width, values[i]);
         printf("  Value %lu at position %zu (width %d, type at [%zu])\n",
                values[i], offset, width, offset);
-        offset += 10;  // Move to next position
+        offset += 10; // Move to next position
     }
 
     printf("✓ Reversed encoding demonstrated\n");
@@ -199,7 +198,7 @@ void example_bitpacking() {
     VarArray array;
     array.count = count;
     array.offsets = malloc((count + 1) * sizeof(size_t));
-    array.data = malloc(count * 9);  // Max size
+    array.data = malloc(count * 9); // Max size
 
     size_t offset = 0;
     for (size_t i = 0; i < count; i++) {
@@ -237,15 +236,19 @@ void example_performance() {
     printf("\n=== Example 6: Encoding Type Distribution ===\n");
 
     uint64_t ranges[] = {0, 64, 16447, 1000000};
-    const char *rangeNames[] = {"0-63", "64-16,446", "16,447-999,999", "1,000,000+"};
+    const char *rangeNames[] = {"0-63", "64-16,446", "16,447-999,999",
+                                "1,000,000+"};
 
     printf("Range          | Level      | Bytes | Efficiency\n");
     printf("---------------|------------|-------|------------\n");
 
-    for (size_t i = 0; i < sizeof(ranges)/sizeof(ranges[0]); i++) {
-        uint64_t testVal = (i < sizeof(ranges)/sizeof(ranges[0]) - 1) ?
-                          ranges[i] : ranges[i];
-        if (i > 0) testVal += 10;  // Move into range
+    for (size_t i = 0; i < sizeof(ranges) / sizeof(ranges[0]); i++) {
+        uint64_t testVal = (i < sizeof(ranges) / sizeof(ranges[0]) - 1)
+                               ? ranges[i]
+                               : ranges[i];
+        if (i > 0) {
+            testVal += 10; // Move into range
+        }
 
         uint8_t buffer[9];
         varintWidth width;
@@ -254,17 +257,23 @@ void example_performance() {
         uint8_t type = varintSplitEncoding2_(buffer);
         const char *levelName;
         switch (type) {
-            case VARINT_SPLIT_6:  levelName = "Level 1"; break;
-            case VARINT_SPLIT_14: levelName = "Level 2"; break;
-            case VARINT_SPLIT_VAR: levelName = "Level 3"; break;
-            default: levelName = "Unknown";
+        case VARINT_SPLIT_6:
+            levelName = "Level 1";
+            break;
+        case VARINT_SPLIT_14:
+            levelName = "Level 2";
+            break;
+        case VARINT_SPLIT_VAR:
+            levelName = "Level 3";
+            break;
+        default:
+            levelName = "Unknown";
         }
 
-        printf("%-14s | %-10s | %5d | %s\n",
-               rangeNames[i],
-               levelName,
-               width,
-               width == 1 ? "Excellent" : width == 2 ? "Good" : "Variable");
+        printf("%-14s | %-10s | %5d | %s\n", rangeNames[i], levelName, width,
+               width == 1   ? "Excellent"
+               : width == 2 ? "Good"
+                            : "Variable");
     }
 }
 

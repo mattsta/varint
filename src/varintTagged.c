@@ -146,12 +146,13 @@ varintWidth varintTaggedGet(const uint8_t *__restrict z, int32_t n,
         memcpy(pResult, &result, sizeof(result));
         return 3;
     case 250:
-        result = ((uint64_t)z[1] << 16) | ((uint64_t)z[2] << 8) | (uint64_t)z[3];
+        result =
+            ((uint64_t)z[1] << 16) | ((uint64_t)z[2] << 8) | (uint64_t)z[3];
         memcpy(pResult, &result, sizeof(result));
         return 4;
     default: {
-        uint64_t x =
-            (((uint64_t)z[1]) << 24) | ((uint64_t)z[2] << 16) | ((uint64_t)z[3] << 8) | (uint64_t)z[4];
+        uint64_t x = (((uint64_t)z[1]) << 24) | ((uint64_t)z[2] << 16) |
+                     ((uint64_t)z[3] << 8) | (uint64_t)z[4];
         switch (z[0]) {
         case 251:
             memcpy(pResult, &x, sizeof(x));
@@ -165,12 +166,15 @@ varintWidth varintTaggedGet(const uint8_t *__restrict z, int32_t n,
             memcpy(pResult, &result, sizeof(result));
             return 7;
         case 254:
-            result = (x << 24) | ((uint64_t)z[5] << 16) | ((uint64_t)z[6] << 8) | (uint64_t)z[7];
+            result = (x << 24) | ((uint64_t)z[5] << 16) |
+                     ((uint64_t)z[6] << 8) | (uint64_t)z[7];
             memcpy(pResult, &result, sizeof(result));
             return 8;
         case 255:
-            result = (x << 32) | (0xffffffff & ((((uint64_t)z[5]) << 24) |
-                                           ((uint64_t)z[6] << 16) | ((uint64_t)z[7] << 8) | (uint64_t)z[8]));
+            result = (x << 32) |
+                     (0xffffffff &
+                      ((((uint64_t)z[5]) << 24) | ((uint64_t)z[6] << 16) |
+                       ((uint64_t)z[7] << 8) | (uint64_t)z[8]));
             memcpy(pResult, &result, sizeof(result));
             return 9;
         default:

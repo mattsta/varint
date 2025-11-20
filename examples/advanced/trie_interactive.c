@@ -17,8 +17,8 @@
  * - Comprehensive test coverage
  * - Server-ready architecture
  *
- * Compile: gcc -I../../src trie_interactive.c ../../build/src/libvarint.a -o trie_interactive -lm
- * Run: ./trie_interactive
+ * Compile: gcc -I../../src trie_interactive.c ../../build/src/libvarint.a -o
+ * trie_interactive -lm Run: ./trie_interactive
  */
 
 #include "varintBitstream.h"
@@ -44,8 +44,8 @@
 
 typedef enum {
     SEGMENT_LITERAL = 0,
-    SEGMENT_STAR = 1,    // * matches exactly one word
-    SEGMENT_HASH = 2     // # matches zero or more words
+    SEGMENT_STAR = 1, // * matches exactly one word
+    SEGMENT_HASH = 2  // # matches zero or more words
 } SegmentType;
 
 typedef struct {
@@ -89,13 +89,19 @@ typedef struct {
 
 void trieInit(PatternTrie *trie);
 void trieFree(PatternTrie *trie);
-bool trieInsert(PatternTrie *trie, const char *pattern, uint32_t subscriberId, const char *subscriberName);
+bool trieInsert(PatternTrie *trie, const char *pattern, uint32_t subscriberId,
+                const char *subscriberName);
 bool trieRemovePattern(PatternTrie *trie, const char *pattern);
-bool trieRemoveSubscriber(PatternTrie *trie, const char *pattern, uint32_t subscriberId);
-bool trieAddSubscriber(PatternTrie *trie, const char *pattern, uint32_t subscriberId, const char *subscriberName);
+bool trieRemoveSubscriber(PatternTrie *trie, const char *pattern,
+                          uint32_t subscriberId);
+bool trieAddSubscriber(PatternTrie *trie, const char *pattern,
+                       uint32_t subscriberId, const char *subscriberName);
 void trieMatch(PatternTrie *trie, const char *input, MatchResult *result);
-void trieListPatterns(const PatternTrie *trie, char patterns[][MAX_PATTERN_LENGTH], size_t *count, size_t maxCount);
-void trieStats(const PatternTrie *trie, size_t *totalNodes, size_t *terminalNodes, size_t *wildcardNodes, size_t *maxDepth);
+void trieListPatterns(const PatternTrie *trie,
+                      char patterns[][MAX_PATTERN_LENGTH], size_t *count,
+                      size_t maxCount);
+void trieStats(const PatternTrie *trie, size_t *totalNodes,
+               size_t *terminalNodes, size_t *wildcardNodes, size_t *maxDepth);
 
 // ============================================================================
 // UTILITY FUNCTIONS
@@ -103,7 +109,9 @@ void trieStats(const PatternTrie *trie, size_t *totalNodes, size_t *terminalNode
 
 // Secure string copy with bounds checking
 static void secureStrCopy(char *dst, size_t dstSize, const char *src) {
-    if (!dst || !src || dstSize == 0) return;
+    if (!dst || !src || dstSize == 0) {
+        return;
+    }
 
     size_t i;
     for (i = 0; i < dstSize - 1 && src[i] != '\0'; i++) {
@@ -114,13 +122,15 @@ static void secureStrCopy(char *dst, size_t dstSize, const char *src) {
 
 // Validate pattern string (alphanumeric, dots, wildcards only)
 static bool validatePattern(const char *pattern) {
-    if (!pattern || strlen(pattern) == 0 || strlen(pattern) >= MAX_PATTERN_LENGTH) {
+    if (!pattern || strlen(pattern) == 0 ||
+        strlen(pattern) >= MAX_PATTERN_LENGTH) {
         return false;
     }
 
     for (size_t i = 0; pattern[i] != '\0'; i++) {
         char c = pattern[i];
-        if (!isalnum(c) && c != '.' && c != '*' && c != '#' && c != '_' && c != '-') {
+        if (!isalnum(c) && c != '.' && c != '*' && c != '#' && c != '_' &&
+            c != '-') {
             return false;
         }
     }
@@ -156,7 +166,8 @@ static void subscriberListInit(SubscriberList *list) {
     list->count = 0;
 }
 
-static bool subscriberListAdd(SubscriberList *list, uint32_t id, const char *name) {
+static bool subscriberListAdd(SubscriberList *list, uint32_t id,
+                              const char *name) {
     if (list->count >= MAX_SUBSCRIBERS) {
         return false;
     }
@@ -169,7 +180,8 @@ static bool subscriberListAdd(SubscriberList *list, uint32_t id, const char *nam
     }
 
     list->subscribers[list->count].id = id;
-    secureStrCopy(list->subscribers[list->count].name, MAX_SUBSCRIBER_NAME, name);
+    secureStrCopy(list->subscribers[list->count].name, MAX_SUBSCRIBER_NAME,
+                  name);
     list->count++;
     return true;
 }
@@ -203,7 +215,9 @@ static bool subscriberListContains(const SubscriberList *list, uint32_t id) {
 
 static TrieNode *trieNodeCreate(const char *segment, SegmentType type) {
     TrieNode *node = (TrieNode *)calloc(1, sizeof(TrieNode));
-    if (!node) return NULL;
+    if (!node) {
+        return NULL;
+    }
 
     secureStrCopy(node->segment, MAX_SEGMENT_LENGTH, segment);
     node->type = type;
@@ -217,7 +231,9 @@ static TrieNode *trieNodeCreate(const char *segment, SegmentType type) {
 }
 
 static void trieNodeFree(TrieNode *node) {
-    if (!node) return;
+    if (!node) {
+        return;
+    }
 
     for (size_t i = 0; i < node->childCount; i++) {
         trieNodeFree(node->children[i]);
@@ -228,12 +244,18 @@ static void trieNodeFree(TrieNode *node) {
 }
 
 static bool trieNodeAddChild(TrieNode *parent, TrieNode *child) {
-    if (!parent || !child) return false;
+    if (!parent || !child) {
+        return false;
+    }
 
     if (parent->childCount >= parent->childCapacity) {
-        size_t newCapacity = parent->childCapacity == 0 ? 4 : parent->childCapacity * 2;
-        TrieNode **newChildren = (TrieNode **)realloc(parent->children, newCapacity * sizeof(TrieNode *));
-        if (!newChildren) return false;
+        size_t newCapacity =
+            parent->childCapacity == 0 ? 4 : parent->childCapacity * 2;
+        TrieNode **newChildren = (TrieNode **)realloc(
+            parent->children, newCapacity * sizeof(TrieNode *));
+        if (!newChildren) {
+            return false;
+        }
 
         parent->children = newChildren;
         parent->childCapacity = newCapacity;
@@ -243,8 +265,11 @@ static bool trieNodeAddChild(TrieNode *parent, TrieNode *child) {
     return true;
 }
 
-static TrieNode *trieNodeFindChild(TrieNode *parent, const char *segment, SegmentType type) {
-    if (!parent) return NULL;
+static TrieNode *trieNodeFindChild(TrieNode *parent, const char *segment,
+                                   SegmentType type) {
+    if (!parent) {
+        return NULL;
+    }
 
     for (size_t i = 0; i < parent->childCount; i++) {
         TrieNode *child = parent->children[i];
@@ -257,7 +282,9 @@ static TrieNode *trieNodeFindChild(TrieNode *parent, const char *segment, Segmen
 }
 
 static bool trieNodeRemoveChild(TrieNode *parent, TrieNode *child) {
-    if (!parent || !child) return false;
+    if (!parent || !child) {
+        return false;
+    }
 
     for (size_t i = 0; i < parent->childCount; i++) {
         if (parent->children[i] == child) {
@@ -284,7 +311,9 @@ typedef struct {
 } ParsedPattern;
 
 static bool parsePattern(const char *pattern, ParsedPattern *parsed) {
-    if (!pattern || !parsed) return false;
+    if (!pattern || !parsed) {
+        return false;
+    }
 
     parsed->count = 0;
     const char *start = pattern;
@@ -349,7 +378,9 @@ static bool parsePattern(const char *pattern, ParsedPattern *parsed) {
 // ============================================================================
 
 void trieInit(PatternTrie *trie) {
-    if (!trie) return;
+    if (!trie) {
+        return;
+    }
 
     trie->root = trieNodeCreate("", SEGMENT_LITERAL);
     trie->patternCount = 0;
@@ -358,7 +389,9 @@ void trieInit(PatternTrie *trie) {
 }
 
 void trieFree(PatternTrie *trie) {
-    if (!trie) return;
+    if (!trie) {
+        return;
+    }
 
     trieNodeFree(trie->root);
     trie->root = NULL;
@@ -367,8 +400,11 @@ void trieFree(PatternTrie *trie) {
     trie->subscriberCount = 0;
 }
 
-bool trieInsert(PatternTrie *trie, const char *pattern, uint32_t subscriberId, const char *subscriberName) {
-    if (!trie || !validatePattern(pattern) || !validateSubscriberId(subscriberId) || !validateSubscriberName(subscriberName)) {
+bool trieInsert(PatternTrie *trie, const char *pattern, uint32_t subscriberId,
+                const char *subscriberName) {
+    if (!trie || !validatePattern(pattern) ||
+        !validateSubscriberId(subscriberId) ||
+        !validateSubscriberName(subscriberName)) {
         return false;
     }
 
@@ -380,11 +416,14 @@ bool trieInsert(PatternTrie *trie, const char *pattern, uint32_t subscriberId, c
     TrieNode *current = trie->root;
 
     for (size_t i = 0; i < parsed.count; i++) {
-        TrieNode *child = trieNodeFindChild(current, parsed.segments[i], parsed.types[i]);
+        TrieNode *child =
+            trieNodeFindChild(current, parsed.segments[i], parsed.types[i]);
 
         if (!child) {
             child = trieNodeCreate(parsed.segments[i], parsed.types[i]);
-            if (!child) return false;
+            if (!child) {
+                return false;
+            }
 
             if (!trieNodeAddChild(current, child)) {
                 trieNodeFree(child);
@@ -398,9 +437,11 @@ bool trieInsert(PatternTrie *trie, const char *pattern, uint32_t subscriberId, c
     }
 
     bool isNewPattern = !current->isTerminal;
-    bool isNewSubscriber = !subscriberListContains(&current->subscribers, subscriberId);
+    bool isNewSubscriber =
+        !subscriberListContains(&current->subscribers, subscriberId);
 
-    if (!subscriberListAdd(&current->subscribers, subscriberId, subscriberName)) {
+    if (!subscriberListAdd(&current->subscribers, subscriberId,
+                           subscriberName)) {
         return false;
     }
 
@@ -417,12 +458,15 @@ bool trieInsert(PatternTrie *trie, const char *pattern, uint32_t subscriberId, c
 }
 
 static TrieNode *trieFindNode(TrieNode *root, const ParsedPattern *parsed) {
-    if (!root || !parsed) return NULL;
+    if (!root || !parsed) {
+        return NULL;
+    }
 
     TrieNode *current = root;
 
     for (size_t i = 0; i < parsed->count; i++) {
-        TrieNode *child = trieNodeFindChild(current, parsed->segments[i], parsed->types[i]);
+        TrieNode *child =
+            trieNodeFindChild(current, parsed->segments[i], parsed->types[i]);
         if (!child) {
             return NULL;
         }
@@ -462,8 +506,10 @@ bool trieRemovePattern(PatternTrie *trie, const char *pattern) {
     return true;
 }
 
-bool trieRemoveSubscriber(PatternTrie *trie, const char *pattern, uint32_t subscriberId) {
-    if (!trie || !validatePattern(pattern) || !validateSubscriberId(subscriberId)) {
+bool trieRemoveSubscriber(PatternTrie *trie, const char *pattern,
+                          uint32_t subscriberId) {
+    if (!trie || !validatePattern(pattern) ||
+        !validateSubscriberId(subscriberId)) {
         return false;
     }
 
@@ -492,7 +538,8 @@ bool trieRemoveSubscriber(PatternTrie *trie, const char *pattern, uint32_t subsc
     return true;
 }
 
-bool trieAddSubscriber(PatternTrie *trie, const char *pattern, uint32_t subscriberId, const char *subscriberName) {
+bool trieAddSubscriber(PatternTrie *trie, const char *pattern,
+                       uint32_t subscriberId, const char *subscriberName) {
     // This is essentially the same as insert
     return trieInsert(trie, pattern, subscriberId, subscriberName);
 }
@@ -505,8 +552,10 @@ static void matchResultInit(MatchResult *result) {
     result->count = 0;
 }
 
-static void matchResultAdd(MatchResult *result, const SubscriberList *subscribers) {
-    for (size_t i = 0; i < subscribers->count && result->count < MAX_SUBSCRIBERS; i++) {
+static void matchResultAdd(MatchResult *result,
+                           const SubscriberList *subscribers) {
+    for (size_t i = 0;
+         i < subscribers->count && result->count < MAX_SUBSCRIBERS; i++) {
         // Check for duplicates
         bool exists = false;
         for (size_t j = 0; j < result->count; j++) {
@@ -517,16 +566,19 @@ static void matchResultAdd(MatchResult *result, const SubscriberList *subscriber
         }
 
         if (!exists) {
-            result->subscriberIds[result->count] = subscribers->subscribers[i].id;
-            secureStrCopy(result->subscriberNames[result->count], MAX_SUBSCRIBER_NAME,
-                         subscribers->subscribers[i].name);
+            result->subscriberIds[result->count] =
+                subscribers->subscribers[i].id;
+            secureStrCopy(result->subscriberNames[result->count],
+                          MAX_SUBSCRIBER_NAME,
+                          subscribers->subscribers[i].name);
             result->count++;
         }
     }
 }
 
-static void trieMatchRecursive(TrieNode *node, const char **segments, size_t segmentCount,
-                               size_t currentSegment, MatchResult *result) {
+static void trieMatchRecursive(TrieNode *node, const char **segments,
+                               size_t segmentCount, size_t currentSegment,
+                               MatchResult *result) {
     if (currentSegment >= segmentCount) {
         if (node->isTerminal) {
             matchResultAdd(result, &node->subscribers);
@@ -536,7 +588,8 @@ static void trieMatchRecursive(TrieNode *node, const char **segments, size_t seg
         for (size_t i = 0; i < node->childCount; i++) {
             TrieNode *child = node->children[i];
             if (child->type == SEGMENT_HASH) {
-                trieMatchRecursive(child, segments, segmentCount, currentSegment, result);
+                trieMatchRecursive(child, segments, segmentCount,
+                                   currentSegment, result);
             }
         }
         return;
@@ -549,23 +602,29 @@ static void trieMatchRecursive(TrieNode *node, const char **segments, size_t seg
 
         if (child->type == SEGMENT_LITERAL) {
             if (strcmp(child->segment, segment) == 0) {
-                trieMatchRecursive(child, segments, segmentCount, currentSegment + 1, result);
+                trieMatchRecursive(child, segments, segmentCount,
+                                   currentSegment + 1, result);
             }
         } else if (child->type == SEGMENT_STAR) {
-            trieMatchRecursive(child, segments, segmentCount, currentSegment + 1, result);
+            trieMatchRecursive(child, segments, segmentCount,
+                               currentSegment + 1, result);
         } else if (child->type == SEGMENT_HASH) {
             // Try matching 0 segments
-            trieMatchRecursive(child, segments, segmentCount, currentSegment, result);
+            trieMatchRecursive(child, segments, segmentCount, currentSegment,
+                               result);
             // Try matching 1+ segments
             for (size_t j = currentSegment; j < segmentCount; j++) {
-                trieMatchRecursive(child, segments, segmentCount, j + 1, result);
+                trieMatchRecursive(child, segments, segmentCount, j + 1,
+                                   result);
             }
         }
     }
 }
 
 void trieMatch(PatternTrie *trie, const char *input, MatchResult *result) {
-    if (!trie || !input || !result) return;
+    if (!trie || !input || !result) {
+        return;
+    }
 
     matchResultInit(result);
 
@@ -586,9 +645,13 @@ void trieMatch(PatternTrie *trie, const char *input, MatchResult *result) {
 // LISTING AND STATISTICS
 // ============================================================================
 
-static void trieListPatternsRecursive(TrieNode *node, char *currentPath, size_t pathLen,
-                                     char patterns[][MAX_PATTERN_LENGTH], size_t *count, size_t maxCount) {
-    if (!node || *count >= maxCount) return;
+static void trieListPatternsRecursive(TrieNode *node, char *currentPath,
+                                      size_t pathLen,
+                                      char patterns[][MAX_PATTERN_LENGTH],
+                                      size_t *count, size_t maxCount) {
+    if (!node || *count >= maxCount) {
+        return;
+    }
 
     if (node->isTerminal) {
         secureStrCopy(patterns[*count], MAX_PATTERN_LENGTH, currentPath);
@@ -610,24 +673,32 @@ static void trieListPatternsRecursive(TrieNode *node, char *currentPath, size_t 
             memcpy(currentPath + newLen, child->segment, segLen);
             currentPath[newLen + segLen] = '\0';
 
-            trieListPatternsRecursive(child, currentPath, newLen + segLen, patterns, count, maxCount);
+            trieListPatternsRecursive(child, currentPath, newLen + segLen,
+                                      patterns, count, maxCount);
             currentPath[pathLen] = '\0'; // Restore path
         }
     }
 }
 
-void trieListPatterns(const PatternTrie *trie, char patterns[][MAX_PATTERN_LENGTH], size_t *count, size_t maxCount) {
-    if (!trie || !patterns || !count) return;
+void trieListPatterns(const PatternTrie *trie,
+                      char patterns[][MAX_PATTERN_LENGTH], size_t *count,
+                      size_t maxCount) {
+    if (!trie || !patterns || !count) {
+        return;
+    }
 
     *count = 0;
     char currentPath[MAX_PATTERN_LENGTH] = "";
 
-    trieListPatternsRecursive(trie->root, currentPath, 0, patterns, count, maxCount);
+    trieListPatternsRecursive(trie->root, currentPath, 0, patterns, count,
+                              maxCount);
 }
 
-void trieStats(const PatternTrie *trie, size_t *totalNodes, size_t *terminalNodes,
-               size_t *wildcardNodes, size_t *maxDepth) {
-    if (!trie) return;
+void trieStats(const PatternTrie *trie, size_t *totalNodes,
+               size_t *terminalNodes, size_t *wildcardNodes, size_t *maxDepth) {
+    if (!trie) {
+        return;
+    }
 
     *totalNodes = 0;
     *terminalNodes = 0;
@@ -648,9 +719,15 @@ void trieStats(const PatternTrie *trie, size_t *totalNodes, size_t *terminalNode
         front++;
 
         (*totalNodes)++;
-        if (node->isTerminal) (*terminalNodes)++;
-        if (node->type != SEGMENT_LITERAL) (*wildcardNodes)++;
-        if (depth > *maxDepth) *maxDepth = depth;
+        if (node->isTerminal) {
+            (*terminalNodes)++;
+        }
+        if (node->type != SEGMENT_LITERAL) {
+            (*wildcardNodes)++;
+        }
+        if (depth > *maxDepth) {
+            *maxDepth = depth;
+        }
 
         for (size_t i = 0; i < node->childCount && back < 4096; i++) {
             queue[back] = node->children[i];
@@ -683,7 +760,8 @@ static size_t trieNodeSerialize(const TrieNode *node, uint8_t *buffer) {
     // Subscriber count and data
     offset += varintTaggedPut64(buffer + offset, node->subscribers.count);
     for (size_t i = 0; i < node->subscribers.count; i++) {
-        offset += varintTaggedPut64(buffer + offset, node->subscribers.subscribers[i].id);
+        offset += varintTaggedPut64(buffer + offset,
+                                    node->subscribers.subscribers[i].id);
 
         size_t nameLen = strlen(node->subscribers.subscribers[i].name);
         offset += varintTaggedPut64(buffer + offset, nameLen);
@@ -706,7 +784,9 @@ static size_t trieNodeDeserialize(TrieNode **node, const uint8_t *buffer) {
     size_t offset = 0;
 
     *node = trieNodeCreate("", SEGMENT_LITERAL);
-    if (!*node) return 0;
+    if (!*node) {
+        return 0;
+    }
 
     // Read flags
     uint8_t flagsByte = buffer[offset++];
@@ -759,7 +839,9 @@ static size_t trieNodeDeserialize(TrieNode **node, const uint8_t *buffer) {
     for (size_t i = 0; i < childCount; i++) {
         TrieNode *child;
         size_t childSize = trieNodeDeserialize(&child, buffer + offset);
-        if (childSize == 0) break;
+        if (childSize == 0) {
+            break;
+        }
 
         trieNodeAddChild(*node, child);
         offset += childSize;
@@ -769,7 +851,9 @@ static size_t trieNodeDeserialize(TrieNode **node, const uint8_t *buffer) {
 }
 
 bool trieSave(const PatternTrie *trie, const char *filename) {
-    if (!trie || !filename) return false;
+    if (!trie || !filename) {
+        return false;
+    }
 
     FILE *file = fopen(filename, "wb");
     if (!file) {
@@ -814,7 +898,9 @@ bool trieSave(const PatternTrie *trie, const char *filename) {
 }
 
 bool trieLoad(PatternTrie *trie, const char *filename) {
-    if (!trie || !filename) return false;
+    if (!trie || !filename) {
+        return false;
+    }
 
     FILE *file = fopen(filename, "rb");
     if (!file) {
@@ -922,17 +1008,40 @@ typedef struct {
 } Command;
 
 static CommandType parseCommandType(const char *cmd) {
-    if (strcmp(cmd, "add") == 0) return CMD_ADD;
-    if (strcmp(cmd, "remove") == 0 || strcmp(cmd, "rm") == 0) return CMD_REMOVE;
-    if (strcmp(cmd, "subscribe") == 0 || strcmp(cmd, "sub") == 0) return CMD_SUBSCRIBE;
-    if (strcmp(cmd, "unsubscribe") == 0 || strcmp(cmd, "unsub") == 0) return CMD_UNSUBSCRIBE;
-    if (strcmp(cmd, "match") == 0 || strcmp(cmd, "test") == 0) return CMD_MATCH;
-    if (strcmp(cmd, "list") == 0 || strcmp(cmd, "ls") == 0) return CMD_LIST;
-    if (strcmp(cmd, "stats") == 0 || strcmp(cmd, "info") == 0) return CMD_STATS;
-    if (strcmp(cmd, "save") == 0) return CMD_SAVE;
-    if (strcmp(cmd, "load") == 0) return CMD_LOAD;
-    if (strcmp(cmd, "help") == 0 || strcmp(cmd, "?") == 0) return CMD_HELP;
-    if (strcmp(cmd, "quit") == 0 || strcmp(cmd, "exit") == 0 || strcmp(cmd, "q") == 0) return CMD_QUIT;
+    if (strcmp(cmd, "add") == 0) {
+        return CMD_ADD;
+    }
+    if (strcmp(cmd, "remove") == 0 || strcmp(cmd, "rm") == 0) {
+        return CMD_REMOVE;
+    }
+    if (strcmp(cmd, "subscribe") == 0 || strcmp(cmd, "sub") == 0) {
+        return CMD_SUBSCRIBE;
+    }
+    if (strcmp(cmd, "unsubscribe") == 0 || strcmp(cmd, "unsub") == 0) {
+        return CMD_UNSUBSCRIBE;
+    }
+    if (strcmp(cmd, "match") == 0 || strcmp(cmd, "test") == 0) {
+        return CMD_MATCH;
+    }
+    if (strcmp(cmd, "list") == 0 || strcmp(cmd, "ls") == 0) {
+        return CMD_LIST;
+    }
+    if (strcmp(cmd, "stats") == 0 || strcmp(cmd, "info") == 0) {
+        return CMD_STATS;
+    }
+    if (strcmp(cmd, "save") == 0) {
+        return CMD_SAVE;
+    }
+    if (strcmp(cmd, "load") == 0) {
+        return CMD_LOAD;
+    }
+    if (strcmp(cmd, "help") == 0 || strcmp(cmd, "?") == 0) {
+        return CMD_HELP;
+    }
+    if (strcmp(cmd, "quit") == 0 || strcmp(cmd, "exit") == 0 ||
+        strcmp(cmd, "q") == 0) {
+        return CMD_QUIT;
+    }
     return CMD_UNKNOWN;
 }
 
@@ -941,47 +1050,50 @@ static bool parseCommand(const char *line, Command *cmd) {
     memset(cmd, 0, sizeof(Command));
 
     int matched = sscanf(line, "%63s", cmdStr);
-    if (matched != 1) return false;
+    if (matched != 1) {
+        return false;
+    }
 
     cmd->type = parseCommandType(cmdStr);
 
     switch (cmd->type) {
-        case CMD_ADD:
-        case CMD_SUBSCRIBE:
-            // Format: add <pattern> <id> <name>
-            matched = sscanf(line, "%*s %255s %u %63s",
-                           cmd->pattern, &cmd->subscriberId, cmd->subscriberName);
-            return matched == 3;
+    case CMD_ADD:
+    case CMD_SUBSCRIBE:
+        // Format: add <pattern> <id> <name>
+        matched = sscanf(line, "%*s %255s %u %63s", cmd->pattern,
+                         &cmd->subscriberId, cmd->subscriberName);
+        return matched == 3;
 
-        case CMD_REMOVE:
-            // Format: remove <pattern>
-            matched = sscanf(line, "%*s %255s", cmd->pattern);
-            return matched == 1;
+    case CMD_REMOVE:
+        // Format: remove <pattern>
+        matched = sscanf(line, "%*s %255s", cmd->pattern);
+        return matched == 1;
 
-        case CMD_UNSUBSCRIBE:
-            // Format: unsubscribe <pattern> <id>
-            matched = sscanf(line, "%*s %255s %u", cmd->pattern, &cmd->subscriberId);
-            return matched == 2;
+    case CMD_UNSUBSCRIBE:
+        // Format: unsubscribe <pattern> <id>
+        matched =
+            sscanf(line, "%*s %255s %u", cmd->pattern, &cmd->subscriberId);
+        return matched == 2;
 
-        case CMD_MATCH:
-            // Format: match <pattern>
-            matched = sscanf(line, "%*s %255s", cmd->pattern);
-            return matched == 1;
+    case CMD_MATCH:
+        // Format: match <pattern>
+        matched = sscanf(line, "%*s %255s", cmd->pattern);
+        return matched == 1;
 
-        case CMD_SAVE:
-        case CMD_LOAD:
-            // Format: save/load <filename>
-            matched = sscanf(line, "%*s %255s", cmd->filename);
-            return matched == 1;
+    case CMD_SAVE:
+    case CMD_LOAD:
+        // Format: save/load <filename>
+        matched = sscanf(line, "%*s %255s", cmd->filename);
+        return matched == 1;
 
-        case CMD_LIST:
-        case CMD_STATS:
-        case CMD_HELP:
-        case CMD_QUIT:
-            return true;
+    case CMD_LIST:
+    case CMD_STATS:
+    case CMD_HELP:
+    case CMD_QUIT:
+        return true;
 
-        default:
-            return false;
+    default:
+        return false;
     }
 }
 
@@ -990,7 +1102,8 @@ static void printHelp(void) {
     printf("  add <pattern> <id> <name>       - Add pattern with subscriber\n");
     printf("  remove <pattern>                - Remove entire pattern\n");
     printf("  subscribe <pattern> <id> <name> - Add subscriber to pattern\n");
-    printf("  unsubscribe <pattern> <id>      - Remove subscriber from pattern\n");
+    printf(
+        "  unsubscribe <pattern> <id>      - Remove subscriber from pattern\n");
     printf("  match <input>                   - Test pattern matching\n");
     printf("  list                            - List all patterns\n");
     printf("  stats                           - Show statistics\n");
@@ -1013,90 +1126,94 @@ static void handleCommand(PatternTrie *trie, const Command *cmd) {
     size_t totalNodes, terminalNodes, wildcardNodes, maxDepth;
 
     switch (cmd->type) {
-        case CMD_ADD:
-        case CMD_SUBSCRIBE:
-            if (trieInsert(trie, cmd->pattern, cmd->subscriberId, cmd->subscriberName)) {
-                printf("✓ Added subscriber '%s' (ID: %u) to pattern '%s'\n",
-                       cmd->subscriberName, cmd->subscriberId, cmd->pattern);
-            } else {
-                printf("✗ Failed to add subscriber (check pattern/ID/name validity)\n");
-            }
-            break;
+    case CMD_ADD:
+    case CMD_SUBSCRIBE:
+        if (trieInsert(trie, cmd->pattern, cmd->subscriberId,
+                       cmd->subscriberName)) {
+            printf("✓ Added subscriber '%s' (ID: %u) to pattern '%s'\n",
+                   cmd->subscriberName, cmd->subscriberId, cmd->pattern);
+        } else {
+            printf("✗ Failed to add subscriber (check pattern/ID/name "
+                   "validity)\n");
+        }
+        break;
 
-        case CMD_REMOVE:
-            if (trieRemovePattern(trie, cmd->pattern)) {
-                printf("✓ Removed pattern '%s'\n", cmd->pattern);
-            } else {
-                printf("✗ Pattern '%s' not found\n", cmd->pattern);
-            }
-            break;
+    case CMD_REMOVE:
+        if (trieRemovePattern(trie, cmd->pattern)) {
+            printf("✓ Removed pattern '%s'\n", cmd->pattern);
+        } else {
+            printf("✗ Pattern '%s' not found\n", cmd->pattern);
+        }
+        break;
 
-        case CMD_UNSUBSCRIBE:
-            if (trieRemoveSubscriber(trie, cmd->pattern, cmd->subscriberId)) {
-                printf("✓ Removed subscriber %u from pattern '%s'\n",
-                       cmd->subscriberId, cmd->pattern);
-            } else {
-                printf("✗ Subscriber %u not found in pattern '%s'\n",
-                       cmd->subscriberId, cmd->pattern);
-            }
-            break;
+    case CMD_UNSUBSCRIBE:
+        if (trieRemoveSubscriber(trie, cmd->pattern, cmd->subscriberId)) {
+            printf("✓ Removed subscriber %u from pattern '%s'\n",
+                   cmd->subscriberId, cmd->pattern);
+        } else {
+            printf("✗ Subscriber %u not found in pattern '%s'\n",
+                   cmd->subscriberId, cmd->pattern);
+        }
+        break;
 
-        case CMD_MATCH:
-            trieMatch(trie, cmd->pattern, &result);
-            printf("Matches for '%s': %zu subscribers\n", cmd->pattern, result.count);
-            for (size_t i = 0; i < result.count; i++) {
-                printf("  %u: %s\n", result.subscriberIds[i], result.subscriberNames[i]);
-            }
-            break;
+    case CMD_MATCH:
+        trieMatch(trie, cmd->pattern, &result);
+        printf("Matches for '%s': %zu subscribers\n", cmd->pattern,
+               result.count);
+        for (size_t i = 0; i < result.count; i++) {
+            printf("  %u: %s\n", result.subscriberIds[i],
+                   result.subscriberNames[i]);
+        }
+        break;
 
-        case CMD_LIST:
-            trieListPatterns(trie, patterns, &count, 1024);
-            printf("Patterns (%zu total):\n", count);
-            for (size_t i = 0; i < count; i++) {
-                printf("  %s\n", patterns[i]);
-            }
-            break;
+    case CMD_LIST:
+        trieListPatterns(trie, patterns, &count, 1024);
+        printf("Patterns (%zu total):\n", count);
+        for (size_t i = 0; i < count; i++) {
+            printf("  %s\n", patterns[i]);
+        }
+        break;
 
-        case CMD_STATS:
-            trieStats(trie, &totalNodes, &terminalNodes, &wildcardNodes, &maxDepth);
-            printf("Statistics:\n");
-            printf("  Patterns: %zu\n", trie->patternCount);
-            printf("  Subscribers: %zu\n", trie->subscriberCount);
-            printf("  Total nodes: %zu\n", totalNodes);
-            printf("  Terminal nodes: %zu\n", terminalNodes);
-            printf("  Wildcard nodes: %zu\n", wildcardNodes);
-            printf("  Max depth: %zu\n", maxDepth);
-            break;
+    case CMD_STATS:
+        trieStats(trie, &totalNodes, &terminalNodes, &wildcardNodes, &maxDepth);
+        printf("Statistics:\n");
+        printf("  Patterns: %zu\n", trie->patternCount);
+        printf("  Subscribers: %zu\n", trie->subscriberCount);
+        printf("  Total nodes: %zu\n", totalNodes);
+        printf("  Terminal nodes: %zu\n", terminalNodes);
+        printf("  Wildcard nodes: %zu\n", wildcardNodes);
+        printf("  Max depth: %zu\n", maxDepth);
+        break;
 
-        case CMD_SAVE:
-            if (trieSave(trie, cmd->filename)) {
-                printf("✓ Saved trie to '%s'\n", cmd->filename);
-            } else {
-                printf("✗ Failed to save trie to '%s'\n", cmd->filename);
-            }
-            break;
+    case CMD_SAVE:
+        if (trieSave(trie, cmd->filename)) {
+            printf("✓ Saved trie to '%s'\n", cmd->filename);
+        } else {
+            printf("✗ Failed to save trie to '%s'\n", cmd->filename);
+        }
+        break;
 
-        case CMD_LOAD:
-            if (trieLoad(trie, cmd->filename)) {
-                printf("✓ Loaded trie from '%s'\n", cmd->filename);
-                printf("  Patterns: %zu, Subscribers: %zu, Nodes: %zu\n",
-                       trie->patternCount, trie->subscriberCount, trie->nodeCount);
-            } else {
-                printf("✗ Failed to load trie from '%s'\n", cmd->filename);
-            }
-            break;
+    case CMD_LOAD:
+        if (trieLoad(trie, cmd->filename)) {
+            printf("✓ Loaded trie from '%s'\n", cmd->filename);
+            printf("  Patterns: %zu, Subscribers: %zu, Nodes: %zu\n",
+                   trie->patternCount, trie->subscriberCount, trie->nodeCount);
+        } else {
+            printf("✗ Failed to load trie from '%s'\n", cmd->filename);
+        }
+        break;
 
-        case CMD_HELP:
-            printHelp();
-            break;
+    case CMD_HELP:
+        printHelp();
+        break;
 
-        case CMD_QUIT:
-            printf("Goodbye!\n");
-            break;
+    case CMD_QUIT:
+        printf("Goodbye!\n");
+        break;
 
-        default:
-            printf("Unknown command. Type 'help' for usage.\n");
-            break;
+    default:
+        printf("Unknown command. Type 'help' for usage.\n");
+        break;
     }
 }
 
@@ -1441,7 +1558,8 @@ static void testBinaryRoundtrip(void) {
     }
     fclose(f1);
     fclose(f2);
-    printf("  ✓ Binary files are identical (%zu bytes compared)\n", bytesCompared);
+    printf("  ✓ Binary files are identical (%zu bytes compared)\n",
+           bytesCompared);
 
     // Load into third trie and verify all functionality
     assert(trieLoad(&trie3, file2));
@@ -1452,18 +1570,14 @@ static void testBinaryRoundtrip(void) {
     assert(trie2.patternCount == trie3.patternCount);
     assert(trie1.subscriberCount == trie2.subscriberCount);
     assert(trie2.subscriberCount == trie3.subscriberCount);
-    printf("  ✓ Metadata matches across all tries (patterns: %zu, subscribers: %zu)\n",
+    printf("  ✓ Metadata matches across all tries (patterns: %zu, subscribers: "
+           "%zu)\n",
            trie1.patternCount, trie1.subscriberCount);
 
     // Verify pattern matching is identical across all three tries
-    const char *testInputs[] = {
-        "stock.nasdaq.aapl",
-        "stock.nyse.goog",
-        "forex.eur.usd",
-        "forex.jpy.usd",
-        "crypto.binance.btc",
-        "options.spy.call"
-    };
+    const char *testInputs[] = {"stock.nasdaq.aapl",  "stock.nyse.goog",
+                                "forex.eur.usd",      "forex.jpy.usd",
+                                "crypto.binance.btc", "options.spy.call"};
 
     for (size_t i = 0; i < sizeof(testInputs) / sizeof(testInputs[0]); i++) {
         MatchResult r1, r2, r3;
@@ -1568,7 +1682,8 @@ static void runBatchMode(FILE *input) {
     }
 
     printf("\n=== Batch Summary ===\n");
-    printf("Commands executed: %zu/%zu successful\n", successCount, commandCount);
+    printf("Commands executed: %zu/%zu successful\n", successCount,
+           commandCount);
     printf("Final stats:\n");
     Command statsCmd = {.type = CMD_STATS};
     handleCommand(&trie, &statsCmd);
@@ -1581,18 +1696,25 @@ static void printUsage(const char *program) {
     printf("Modes:\n");
     printf("  (none)              - Interactive CLI mode\n");
     printf("  --test              - Run comprehensive test suite\n");
-    printf("  --batch [file]      - Batch mode: read commands from file or stdin\n");
+    printf("  --batch [file]      - Batch mode: read commands from file or "
+           "stdin\n");
     printf("  --help              - Show this help message\n");
     printf("\nExamples:\n");
-    printf("  %s                                    # Interactive mode\n", program);
+    printf("  %s                                    # Interactive mode\n",
+           program);
     printf("  %s --test                             # Run tests\n", program);
-    printf("  %s --batch commands.txt               # Execute commands from file\n", program);
-    printf("  echo 'add test 1 Sub' | %s --batch    # Execute commands from stdin\n", program);
+    printf("  %s --batch commands.txt               # Execute commands from "
+           "file\n",
+           program);
+    printf("  echo 'add test 1 Sub' | %s --batch    # Execute commands from "
+           "stdin\n",
+           program);
     printf("\n");
 }
 
 int main(int argc, char *argv[]) {
-    if (argc > 1 && (strcmp(argv[1], "--help") == 0 || strcmp(argv[1], "-h") == 0)) {
+    if (argc > 1 &&
+        (strcmp(argv[1], "--help") == 0 || strcmp(argv[1], "-h") == 0)) {
         printUsage(argv[0]);
         return 0;
     }

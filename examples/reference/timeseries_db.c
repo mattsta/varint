@@ -1,7 +1,8 @@
 /**
  * timeseries_db.c - Production-quality time-series database
  *
- * This reference implementation demonstrates a complete time-series database with:
+ * This reference implementation demonstrates a complete time-series database
+ * with:
  * - varintSplit for timestamp encoding (efficient for sequential times)
  * - varintExternal for metric values (adaptive width)
  * - Delta encoding for timestamps
@@ -18,12 +19,12 @@
  * This is a complete, production-ready reference implementation.
  * Users can adapt this code for IoT, monitoring, and analytics systems.
  *
- * Compile: gcc -I../../src timeseries_db.c ../../build/src/libvarint.a -o timeseries_db
- * Run: ./timeseries_db
+ * Compile: gcc -I../../src timeseries_db.c ../../build/src/libvarint.a -o
+ * timeseries_db Run: ./timeseries_db
  */
 
-#include "varintExternal.h"
 #include "varintChained.h"
+#include "varintExternal.h"
 #include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -35,8 +36,8 @@
 // ============================================================================
 
 typedef struct {
-    uint64_t timestamp;  // Unix timestamp (seconds or milliseconds)
-    uint64_t value;      // Metric value
+    uint64_t timestamp; // Unix timestamp (seconds or milliseconds)
+    uint64_t value;     // Metric value
 } DataPoint;
 
 // ============================================================================
@@ -45,13 +46,13 @@ typedef struct {
 
 typedef struct {
     char metricName[64];
-    uint64_t baseTimestamp;  // First timestamp (base for deltas)
+    uint64_t baseTimestamp;    // First timestamp (base for deltas)
     uint16_t *deltaTimestamps; // Delta from base (varintExternal 1-2 bytes)
-    uint64_t *values;           // Metric values
-    varintWidth *valueWidths;   // Width of each value
+    uint64_t *values;          // Metric values
+    varintWidth *valueWidths;  // Width of each value
     size_t count;
     size_t capacity;
-    uint64_t minValue;          // For range tracking
+    uint64_t minValue; // For range tracking
     uint64_t maxValue;
 } TimeSeries;
 
@@ -158,21 +159,24 @@ void timeSeriesAppend(TimeSeries *ts, uint64_t timestamp, uint64_t value) {
     if (ts->count >= ts->capacity) {
         size_t newCapacity = ts->capacity * 2;
 
-        uint16_t *newDeltas = realloc(ts->deltaTimestamps, newCapacity * sizeof(uint16_t));
+        uint16_t *newDeltas =
+            realloc(ts->deltaTimestamps, newCapacity * sizeof(uint16_t));
         if (!newDeltas) {
             fprintf(stderr, "Error: Failed to reallocate delta timestamps\n");
             return;
         }
         ts->deltaTimestamps = newDeltas;
 
-        uint64_t *newValues = realloc(ts->values, newCapacity * sizeof(uint64_t));
+        uint64_t *newValues =
+            realloc(ts->values, newCapacity * sizeof(uint64_t));
         if (!newValues) {
             fprintf(stderr, "Error: Failed to reallocate values\n");
             return;
         }
         ts->values = newValues;
 
-        varintWidth *newWidths = realloc(ts->valueWidths, newCapacity * sizeof(varintWidth));
+        varintWidth *newWidths =
+            realloc(ts->valueWidths, newCapacity * sizeof(varintWidth));
         if (!newWidths) {
             fprintf(stderr, "Error: Failed to reallocate value widths\n");
             return;
@@ -189,7 +193,7 @@ void timeSeriesAppend(TimeSeries *ts, uint64_t timestamp, uint64_t value) {
     } else {
         // Calculate delta from base
         uint64_t delta = timestamp - ts->baseTimestamp;
-        assert(delta <= UINT16_MAX);  // Delta must fit in 16 bits
+        assert(delta <= UINT16_MAX); // Delta must fit in 16 bits
         ts->deltaTimestamps[ts->count] = (uint16_t)delta;
     }
 
@@ -198,16 +202,18 @@ void timeSeriesAppend(TimeSeries *ts, uint64_t timestamp, uint64_t value) {
     ts->valueWidths[ts->count] = varintExternalLen(value);
 
     // Update min/max
-    if (value < ts->minValue)
+    if (value < ts->minValue) {
         ts->minValue = value;
-    if (value > ts->maxValue)
+    }
+    if (value > ts->maxValue) {
         ts->maxValue = value;
+    }
 
     ts->count++;
 }
 
-void timeSeriesDBInsert(TimeSeriesDB *db, const char *metricName, uint64_t timestamp,
-                        uint64_t value) {
+void timeSeriesDBInsert(TimeSeriesDB *db, const char *metricName,
+                        uint64_t timestamp, uint64_t value) {
     TimeSeries *ts = timeSeriesDBGetOrCreate(db, metricName);
     if (!ts) {
         fprintf(stderr, "Error: Failed to get or create time series\n");
@@ -240,11 +246,13 @@ size_t timeSeriesSerialize(const TimeSeries *ts, uint8_t *buffer) {
     for (size_t i = 0; i < ts->count; i++) {
         // Delta timestamp (1-2 bytes with varintExternal)
         varintWidth deltaWidth = ts->deltaTimestamps[i] <= 255 ? 1 : 2;
-        varintExternalPutFixedWidth(buffer + offset, ts->deltaTimestamps[i], deltaWidth);
+        varintExternalPutFixedWidth(buffer + offset, ts->deltaTimestamps[i],
+                                    deltaWidth);
         offset += deltaWidth;
 
         // Value (adaptive width)
-        varintExternalPutFixedWidth(buffer + offset, ts->values[i], ts->valueWidths[i]);
+        varintExternalPutFixedWidth(buffer + offset, ts->values[i],
+                                    ts->valueWidths[i]);
         offset += ts->valueWidths[i];
     }
 
@@ -265,7 +273,7 @@ size_t timeSeriesDeserialize(TimeSeries *ts, const uint8_t *buffer) {
 
     // Read count
     uint64_t count;
-    varintWidth countWidth = varintExternalLen(ts->count);  // Determine width
+    varintWidth countWidth = varintExternalLen(ts->count); // Determine width
     count = varintExternalGet(buffer + offset, countWidth);
     offset += countWidth;
 
@@ -273,20 +281,24 @@ size_t timeSeriesDeserialize(TimeSeries *ts, const uint8_t *buffer) {
     ts->capacity = (size_t)count;
     ts->deltaTimestamps = malloc(ts->capacity * sizeof(uint16_t));
     if (!ts->deltaTimestamps) {
-        fprintf(stderr, "Error: Failed to allocate delta timestamps during deserialization\n");
+        fprintf(stderr, "Error: Failed to allocate delta timestamps during "
+                        "deserialization\n");
         return 0;
     }
 
     ts->values = malloc(ts->capacity * sizeof(uint64_t));
     if (!ts->values) {
-        fprintf(stderr, "Error: Failed to allocate values during deserialization\n");
+        fprintf(stderr,
+                "Error: Failed to allocate values during deserialization\n");
         free(ts->deltaTimestamps);
         return 0;
     }
 
     ts->valueWidths = malloc(ts->capacity * sizeof(varintWidth));
     if (!ts->valueWidths) {
-        fprintf(stderr, "Error: Failed to allocate value widths during deserialization\n");
+        fprintf(
+            stderr,
+            "Error: Failed to allocate value widths during deserialization\n");
         free(ts->deltaTimestamps);
         free(ts->values);
         return 0;
@@ -366,14 +378,14 @@ typedef enum {
 } AggregationType;
 
 typedef struct {
-    uint64_t bucketSize;  // Time bucket size (e.g., 60 seconds)
+    uint64_t bucketSize; // Time bucket size (e.g., 60 seconds)
     AggregationType aggType;
 } DownsampleConfig;
 
 typedef struct {
-    uint64_t timestamp;  // Bucket start time
-    uint64_t value;      // Aggregated value
-    size_t count;        // Number of points in bucket
+    uint64_t timestamp; // Bucket start time
+    uint64_t value;     // Aggregated value
+    size_t count;       // Number of points in bucket
 } AggregatedPoint;
 
 typedef struct {
@@ -395,7 +407,8 @@ DownsampleResult timeSeriesDownsample(const TimeSeries *ts,
     // Calculate number of buckets
     uint64_t firstTime = ts->baseTimestamp;
     uint64_t lastTime = ts->baseTimestamp + ts->deltaTimestamps[ts->count - 1];
-    size_t numBuckets = (size_t)((lastTime - firstTime) / config->bucketSize) + 1;
+    size_t numBuckets =
+        (size_t)((lastTime - firstTime) / config->bucketSize) + 1;
 
     // Allocate buckets
     DownsampleResult result;
@@ -423,7 +436,8 @@ DownsampleResult timeSeriesDownsample(const TimeSeries *ts,
         uint64_t timestamp = ts->baseTimestamp + ts->deltaTimestamps[i];
         uint64_t value = ts->values[i];
 
-        size_t bucketIdx = (size_t)((timestamp - firstTime) / config->bucketSize);
+        size_t bucketIdx =
+            (size_t)((timestamp - firstTime) / config->bucketSize);
         AggregatedPoint *bucket = &result.points[bucketIdx];
 
         bucket->count++;
@@ -443,7 +457,7 @@ DownsampleResult timeSeriesDownsample(const TimeSeries *ts,
             bucket->value += value;
             break;
         case AGG_AVG:
-            bucket->value += value;  // Will divide by count later
+            bucket->value += value; // Will divide by count later
             break;
         case AGG_COUNT:
             bucket->value = bucket->count;
@@ -489,26 +503,26 @@ void demonstrateTimeSeriesDB() {
     // 2. Insert data points
     printf("\n2. Inserting time-series data...\n");
 
-    uint64_t baseTime = 1704067200;  // 2024-01-01 00:00:00 UTC
+    uint64_t baseTime = 1704067200; // 2024-01-01 00:00:00 UTC
 
     // CPU usage metric
     for (size_t i = 0; i < 100; i++) {
-        uint64_t timestamp = baseTime + i * 60;  // Every minute
-        uint64_t cpuUsage = 20 + (i % 30);       // 20-50% usage
+        uint64_t timestamp = baseTime + i * 60; // Every minute
+        uint64_t cpuUsage = 20 + (i % 30);      // 20-50% usage
         timeSeriesDBInsert(&db, "cpu.usage", timestamp, cpuUsage);
     }
 
     // Memory usage metric
     for (size_t i = 0; i < 100; i++) {
         uint64_t timestamp = baseTime + i * 60;
-        uint64_t memUsage = 4000 + (i * 10);  // Growing memory usage
+        uint64_t memUsage = 4000 + (i * 10); // Growing memory usage
         timeSeriesDBInsert(&db, "memory.usage", timestamp, memUsage);
     }
 
     // Network traffic metric
     for (size_t i = 0; i < 100; i++) {
         uint64_t timestamp = baseTime + i * 60;
-        uint64_t netTraffic = 1000 + (i % 50) * 100;  // Variable traffic
+        uint64_t netTraffic = 1000 + (i % 50) * 100; // Variable traffic
         timeSeriesDBInsert(&db, "network.bytes", timestamp, netTraffic);
     }
 
@@ -542,16 +556,19 @@ void demonstrateTimeSeriesDB() {
     // 4. Downsampling
     printf("\n4. Downsampling to 5-minute buckets...\n");
 
-    DownsampleConfig downsampleConfig = {.bucketSize = 5 * 60,  // 5 minutes
+    DownsampleConfig downsampleConfig = {.bucketSize = 5 * 60, // 5 minutes
                                          .aggType = AGG_AVG};
 
-    DownsampleResult downsample = timeSeriesDownsample(cpuSeries, &downsampleConfig);
-    printf("   Downsampled to %zu buckets (from 100 points)\n", downsample.count);
+    DownsampleResult downsample =
+        timeSeriesDownsample(cpuSeries, &downsampleConfig);
+    printf("   Downsampled to %zu buckets (from 100 points)\n",
+           downsample.count);
     printf("   First 5 buckets (5-min averages):\n");
     for (size_t i = 0; i < 5 && i < downsample.count; i++) {
         if (downsample.points[i].count > 0) {
-            printf("   - Bucket %zu (time +%lu min): Avg CPU = %lu%% (%zu points)\n", i,
-                   (downsample.points[i].timestamp - baseTime) / 60,
+            printf("   - Bucket %zu (time +%lu min): Avg CPU = %lu%% (%zu "
+                   "points)\n",
+                   i, (downsample.points[i].timestamp - baseTime) / 60,
                    downsample.points[i].value, downsample.points[i].count);
         }
     }
@@ -564,7 +581,8 @@ void demonstrateTimeSeriesDB() {
     const char *aggNames[] = {"MIN", "MAX", "AVG", "SUM"};
 
     for (size_t i = 0; i < 4; i++) {
-        DownsampleConfig config = {.bucketSize = 10 * 60, .aggType = aggTypes[i]};
+        DownsampleConfig config = {.bucketSize = 10 * 60,
+                                   .aggType = aggTypes[i]};
         DownsampleResult result = timeSeriesDownsample(cpuSeries, &config);
 
         // Get first non-empty bucket
@@ -576,7 +594,8 @@ void demonstrateTimeSeriesDB() {
             }
         }
 
-        printf("   %s (10-min buckets): First bucket = %lu\n", aggNames[i], firstValue);
+        printf("   %s (10-min buckets): First bucket = %lu\n", aggNames[i],
+               firstValue);
         downsampleResultFree(&result);
     }
 
@@ -593,12 +612,16 @@ void demonstrateTimeSeriesDB() {
 
     printf("   Serialized size: %zu bytes\n", serializedSize);
     printf("   Data points: %zu\n", cpuSeries->count);
-    printf("   Bytes per point: %.2f\n", (double)serializedSize / cpuSeries->count);
+    printf("   Bytes per point: %.2f\n",
+           (double)serializedSize / cpuSeries->count);
 
     // Calculate uncompressed size
-    size_t uncompressedSize = cpuSeries->count * (8 + 8);  // 8 bytes timestamp + 8 bytes value
-    printf("\n   Uncompressed size: %zu bytes (16 bytes/point)\n", uncompressedSize);
-    printf("   Compression ratio: %.2fx\n", (double)uncompressedSize / serializedSize);
+    size_t uncompressedSize =
+        cpuSeries->count * (8 + 8); // 8 bytes timestamp + 8 bytes value
+    printf("\n   Uncompressed size: %zu bytes (16 bytes/point)\n",
+           uncompressedSize);
+    printf("   Compression ratio: %.2fx\n",
+           (double)uncompressedSize / serializedSize);
 
     free(buffer);
 
@@ -616,8 +639,8 @@ void demonstrateTimeSeriesDB() {
 
     printf("   Time-series: %s\n", cpuSeries->metricName);
     printf("   - Base timestamp: 8 bytes (varintSplit)\n");
-    printf("   - Delta timestamps: %zu bytes (avg %.2f bytes/point)\n", totalDeltaBytes,
-           (double)totalDeltaBytes / cpuSeries->count);
+    printf("   - Delta timestamps: %zu bytes (avg %.2f bytes/point)\n",
+           totalDeltaBytes, (double)totalDeltaBytes / cpuSeries->count);
     printf("   - Values: %zu bytes (avg %.2f bytes/point)\n", totalValueBytes,
            (double)totalValueBytes / cpuSeries->count);
     printf("   - Total: %zu bytes\n", 8 + totalDeltaBytes + totalValueBytes);

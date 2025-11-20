@@ -19,11 +19,11 @@
  */
 
 #include "varintExternal.h"
+#include <assert.h>
+#include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <assert.h>
-#include <stdbool.h>
 
 // RLE Format:
 // - For repeated bytes: [value][run_length as varint]
@@ -48,9 +48,11 @@ typedef struct {
  *         [ESCAPE][count][bytes...] for literals
  * Returns number of bytes written to output
  */
-size_t rleEncode(const uint8_t *input, size_t inputLen,
-                 uint8_t *output, RLEStats *stats) {
-    if (inputLen == 0) return 0;
+size_t rleEncode(const uint8_t *input, size_t inputLen, uint8_t *output,
+                 RLEStats *stats) {
+    if (inputLen == 0) {
+        return 0;
+    }
 
     size_t outPos = 0;
     size_t i = 0;
@@ -65,33 +67,36 @@ size_t rleEncode(const uint8_t *input, size_t inputLen,
         size_t runLength = 1;
 
         // Count run length
-        while (i + runLength < inputLen &&
-               input[i + runLength] == value &&
+        while (i + runLength < inputLen && input[i + runLength] == value &&
                runLength < UINT64_MAX) {
             runLength++;
         }
 
         // Decide: encode as run or literal?
-        // Run encoding uses: 1 byte (value) + 1 byte (width) + width bytes (length)
+        // Run encoding uses: 1 byte (value) + 1 byte (width) + width bytes
+        // (length)
         varintWidth lengthWidth;
         varintExternalUnsignedEncoding(runLength, lengthWidth);
         size_t runEncodedSize = 1 + 1 + lengthWidth;
 
         // For very short runs, check if literal might be better
         // But always encode runs >= 3 as runs for simplicity
-        if (runLength >= 3 || (value != RLE_ESCAPE && runEncodedSize <= runLength)) {
+        if (runLength >= 3 ||
+            (value != RLE_ESCAPE && runEncodedSize <= runLength)) {
             // Encode as run: [value][width][length]
             if (value == RLE_ESCAPE) {
                 // Special encoding for 0xFF runs: [ESCAPE][0][width][length]
                 output[outPos++] = RLE_ESCAPE;
-                output[outPos++] = 0;  // 0 means "this is a run of 0xFF"
+                output[outPos++] = 0; // 0 means "this is a run of 0xFF"
                 output[outPos++] = (uint8_t)lengthWidth;
-                varintExternalPutFixedWidthQuick_(output + outPos, runLength, lengthWidth);
+                varintExternalPutFixedWidthQuick_(output + outPos, runLength,
+                                                  lengthWidth);
                 outPos += lengthWidth;
             } else {
                 output[outPos++] = value;
                 output[outPos++] = (uint8_t)lengthWidth;
-                varintExternalPutFixedWidthQuick_(output + outPos, runLength, lengthWidth);
+                varintExternalPutFixedWidthQuick_(output + outPos, runLength,
+                                                  lengthWidth);
                 outPos += lengthWidth;
             }
 
@@ -109,7 +114,8 @@ size_t rleEncode(const uint8_t *input, size_t inputLen,
             size_t literalLen = runLength;
 
             // Extend literal sequence while it's beneficial
-            while (i + literalLen < inputLen && literalLen < RLE_MAX_LITERAL_RUN) {
+            while (i + literalLen < inputLen &&
+                   literalLen < RLE_MAX_LITERAL_RUN) {
                 uint8_t nextVal = input[i + literalLen];
                 size_t nextRun = 1;
 
@@ -119,7 +125,9 @@ size_t rleEncode(const uint8_t *input, size_t inputLen,
                     nextRun++;
                 }
 
-                if (nextRun >= 3) break;  // Let the run be encoded separately
+                if (nextRun >= 3) {
+                    break; // Let the run be encoded separately
+                }
                 literalLen += nextRun;
             }
 
@@ -159,13 +167,17 @@ size_t rleDecode(const uint8_t *input, size_t inputLen, uint8_t *output) {
 
         if (value == RLE_ESCAPE) {
             // Literal sequence or 0xFF run
-            if (inPos >= inputLen) break;
+            if (inPos >= inputLen) {
+                break;
+            }
 
             uint8_t litLen = input[inPos++];
 
             if (litLen == 0) {
                 // Special case: run of 0xFF: [ESCAPE][0][width][length]
-                if (inPos >= inputLen) break;
+                if (inPos >= inputLen) {
+                    break;
+                }
                 varintWidth width = input[inPos++];
 
                 if (inPos + width <= inputLen) {
@@ -188,7 +200,9 @@ size_t rleDecode(const uint8_t *input, size_t inputLen, uint8_t *output) {
             }
         } else {
             // Run-length encoded value: [value][width][length_bytes...]
-            if (inPos >= inputLen) break;
+            if (inPos >= inputLen) {
+                break;
+            }
 
             varintWidth width = input[inPos++];
 
@@ -210,9 +224,11 @@ size_t rleDecode(const uint8_t *input, size_t inputLen, uint8_t *output) {
 
 // Simplified bitmap RLE: runs of 0s and 1s
 // Format: [bit_value (0 or 1)][width][run_length_bytes...]
-size_t rleBitmapEncode(const uint8_t *bitmap, size_t numBits,
-                       uint8_t *output, RLEStats *stats) {
-    if (numBits == 0) return 0;
+size_t rleBitmapEncode(const uint8_t *bitmap, size_t numBits, uint8_t *output,
+                       RLEStats *stats) {
+    if (numBits == 0) {
+        return 0;
+    }
 
     size_t outPos = 0;
     size_t bitPos = 0;
@@ -230,8 +246,11 @@ size_t rleBitmapEncode(const uint8_t *bitmap, size_t numBits,
         // Count run
         while (bitPos + runLength < numBits) {
             uint8_t nextBit = (bitmap[(bitPos + runLength) / 8] >>
-                              ((bitPos + runLength) % 8)) & 1;
-            if (nextBit != currentBit) break;
+                               ((bitPos + runLength) % 8)) &
+                              1;
+            if (nextBit != currentBit) {
+                break;
+            }
             runLength++;
         }
 
@@ -264,16 +283,19 @@ void printCompressionStats(const char *name, RLEStats *stats) {
     printf("\n%s:\n", name);
     printf("  Original: %zu bytes\n", stats->originalSize);
     printf("  Compressed: %zu bytes\n", stats->compressedSize);
-    printf("  Ratio: %.2fx", (double)stats->originalSize / stats->compressedSize);
+    printf("  Ratio: %.2fx",
+           (double)stats->originalSize / stats->compressedSize);
     if (stats->compressedSize > stats->originalSize) {
         printf(" (EXPANSION: %.1f%%)\n",
-               ((double)stats->compressedSize / stats->originalSize - 1.0) * 100);
+               ((double)stats->compressedSize / stats->originalSize - 1.0) *
+                   100);
     } else {
         printf(" (%.1f%% savings)\n",
-               (1.0 - (double)stats->compressedSize / stats->originalSize) * 100);
+               (1.0 - (double)stats->compressedSize / stats->originalSize) *
+                   100);
     }
-    printf("  Runs: %zu, Literals: %zu, Longest run: %zu\n",
-           stats->numRuns, stats->numLiterals, stats->longestRun);
+    printf("  Runs: %zu, Literals: %zu, Longest run: %zu\n", stats->numRuns,
+           stats->numLiterals, stats->longestRun);
 }
 
 void example_simple_runs() {
@@ -339,7 +361,9 @@ void example_bitmap_scanlines() {
     // Line 1: all black (1s)
     memset(bitmap + 8, 0xFF, 8);
     // Line 2: alternating (low compression)
-    for (int i = 0; i < 8; i++) bitmap[16 + i] = 0xAA;
+    for (int i = 0; i < 8; i++) {
+        bitmap[16 + i] = 0xAA;
+    }
     // Line 3-7: various patterns
     memset(bitmap + 24, 0xFF, 8);
     memset(bitmap + 32, 0x00, 8);
@@ -358,17 +382,16 @@ void example_bitmap_scanlines() {
 void example_text_repetition() {
     printf("\n=== Example 4: Text with Repetition ===\n");
 
-    const char *text =
-        "AAAAAAA very long run of AAAAAAAAA followed by "
-        "BBBBBBBBBBBBB and then CCCCCCCCCCCCCCCCCC and "
-        "some normal text without much repetition here.";
+    const char *text = "AAAAAAA very long run of AAAAAAAAA followed by "
+                       "BBBBBBBBBBBBB and then CCCCCCCCCCCCCCCCCC and "
+                       "some normal text without much repetition here.";
 
     size_t textLen = strlen(text);
     uint8_t *compressed = malloc(textLen * 2);
     uint8_t *decompressed = malloc(textLen);
     RLEStats stats;
 
-    size_t compSize = rleEncode((uint8_t*)text, textLen, compressed, &stats);
+    size_t compSize = rleEncode((uint8_t *)text, textLen, compressed, &stats);
     printCompressionStats("Text with repeated characters", &stats);
 
     size_t decompSize = rleDecode(compressed, compSize, decompressed);
@@ -414,7 +437,7 @@ void example_varint_vs_fixed() {
 
     // Short runs (1-2 bytes for varint)
     for (int i = 0; i < 10; i++) {
-        memset(data + pos, 'A' + i, 10);  // Run of 10
+        memset(data + pos, 'A' + i, 10); // Run of 10
         pos += 10;
     }
 
@@ -436,7 +459,8 @@ void example_varint_vs_fixed() {
     printf("  Ratio: %.2fx\n", (double)1000 / varintCompSize);
 
     // Simulate fixed 4-byte lengths
-    size_t fixedCompSize = stats.numRuns * (1 + 4);  // 1 byte value + 4 byte length
+    size_t fixedCompSize =
+        stats.numRuns * (1 + 4); // 1 byte value + 4 byte length
     printf("\nWith FIXED 32-bit lengths:\n");
     printf("  Compressed size: %zu bytes\n", fixedCompSize);
     printf("  Ratio: %.2fx\n", (double)1000 / fixedCompSize);
@@ -455,7 +479,9 @@ void example_image_like_data() {
     uint8_t *image = malloc(1024);
 
     // Scan line 0: gradient
-    for (int i = 0; i < 256; i++) image[i] = i;
+    for (int i = 0; i < 256; i++) {
+        image[i] = i;
+    }
 
     // Scan line 1: solid gray
     memset(image + 256, 128, 256);

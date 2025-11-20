@@ -1,13 +1,13 @@
 /* Minimal test file to include all struct definitions for pahole analysis */
+#include "perf.h"
 #include "varint.h"
-#include "varintFOR.h"
-#include "varintPFOR.h"
-#include "varintFloat.h"
 #include "varintAdaptive.h"
 #include "varintBitmap.h"
-#include "varintDict.h"
 #include "varintDelta.h"
-#include "perf.h"
+#include "varintDict.h"
+#include "varintFOR.h"
+#include "varintFloat.h"
+#include "varintPFOR.h"
 
 int main(void) {
     /* Just reference the structs so compiler includes them */

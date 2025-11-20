@@ -167,7 +167,8 @@
 /* Shared defines */
 #define BITS_PER_SLOT (sizeof(SLOT_STORAGE_TYPE) * 8)
 /* Cast to uint32_t to avoid undefined behavior with left shifts */
-#define VALUE_MASK ((uint32_t)(MICRO_PROMOTION_TYPE)((1ULL << BITS_PER_VALUE) - 1))
+#define VALUE_MASK                                                             \
+    ((uint32_t)(MICRO_PROMOTION_TYPE)((1ULL << BITS_PER_VALUE) - 1))
 
 /* This define is an optimization.  If we are using compact storage
  * (example: storing 12 bit packed across slots of uint8_t), then we
@@ -185,7 +186,7 @@
  * #define SLOT_CAN_HOLD_ENTIRE_VALUE (BITS_PER_VALUE <= BITS_PER_SLOT) */
 
 /* Math helpers */
-#define startOffset(offset) ((uint64_t)(offset)*BITS_PER_VALUE)
+#define startOffset(offset) ((uint64_t)(offset) * BITS_PER_VALUE)
 
 PACKED_STATIC void PACKED_ARRAY_SET(void *_dst, const PACKED_LEN_TYPE offset,
                                     const VALUE_TYPE val) {
@@ -214,8 +215,10 @@ PACKED_STATIC void PACKED_ARRAY_SET(void *_dst, const PACKED_LEN_TYPE offset,
          * Storing the same 4095 in position 0 backed by a 64 bit slot is:
          * [0000000000000000000000000000000000000000000000000000111111111111]
          */
-        out[0] = (SLOT_STORAGE_TYPE)((out[0] & ~((uint64_t)VALUE_MASK << startBit)) |
-                 ((uint64_t)MICRO_PROMOTION_TYPE_CAST(val) << startBit));
+        out[0] =
+            (SLOT_STORAGE_TYPE)((out[0] & ~((uint64_t)VALUE_MASK << startBit)) |
+                                ((uint64_t)MICRO_PROMOTION_TYPE_CAST(val)
+                                 << startBit));
     } else {
 #endif
         /* target position is split across two slots */
@@ -255,8 +258,12 @@ PACKED_STATIC void PACKED_ARRAY_SET(void *_dst, const PACKED_LEN_TYPE offset,
         low = (uint64_t)MICRO_PROMOTION_TYPE_CAST(val) << startBit;
         high = (uint64_t)MICRO_PROMOTION_TYPE_CAST(val) >> bitsAvailable;
 
-        out[0] = (SLOT_STORAGE_TYPE)((out[0] & ~((uint64_t)VALUE_MASK << startBit)) | low);
-        out[1] = (SLOT_STORAGE_TYPE)((out[1] & ~((uint64_t)VALUE_MASK >> bitsAvailable)) | high);
+        out[0] =
+            (SLOT_STORAGE_TYPE)((out[0] & ~((uint64_t)VALUE_MASK << startBit)) |
+                                low);
+        out[1] = (SLOT_STORAGE_TYPE)((out[1] & ~((uint64_t)VALUE_MASK >>
+                                                 bitsAvailable)) |
+                                     high);
 #if SLOT_CAN_HOLD_ENTIRE_VALUE
     }
 #endif
@@ -288,8 +295,10 @@ PACKED_STATIC void PACKED_ARRAY_SET_HALF(void *_dst,
         }
 
         const VALUE_TYPE val = current / 2;
-        out[0] = (SLOT_STORAGE_TYPE)((out[0] & ~((uint64_t)VALUE_MASK << startBit)) |
-                 ((uint64_t)MICRO_PROMOTION_TYPE_CAST(val) << startBit));
+        out[0] =
+            (SLOT_STORAGE_TYPE)((out[0] & ~((uint64_t)VALUE_MASK << startBit)) |
+                                ((uint64_t)MICRO_PROMOTION_TYPE_CAST(val)
+                                 << startBit));
     } else {
 #endif
         /* target position is split across two slots */
@@ -299,8 +308,9 @@ PACKED_STATIC void PACKED_ARRAY_SET_HALF(void *_dst,
         low = MICRO_PROMOTION_TYPE_CAST(out[0]) >> startBit;
         high = (uint64_t)(MICRO_PROMOTION_TYPE_CAST(out[1])) << bitsAvailable;
 
-        const VALUE_TYPE current = (VALUE_TYPE)(
-            low | (high & (((uint64_t)VALUE_MASK >> bitsAvailable) << bitsAvailable)));
+        const VALUE_TYPE current =
+            (VALUE_TYPE)(low | (high & (((uint64_t)VALUE_MASK >> bitsAvailable)
+                                        << bitsAvailable)));
 
         if (!current) {
             /* No sense trying to divide and set nothing */
@@ -313,8 +323,12 @@ PACKED_STATIC void PACKED_ARRAY_SET_HALF(void *_dst,
         low = (uint64_t)MICRO_PROMOTION_TYPE_CAST(val) << startBit;
         high = (uint64_t)MICRO_PROMOTION_TYPE_CAST(val) >> bitsAvailable;
 
-        out[0] = (SLOT_STORAGE_TYPE)((out[0] & ~((uint64_t)VALUE_MASK << startBit)) | low);
-        out[1] = (SLOT_STORAGE_TYPE)((out[1] & ~((uint64_t)VALUE_MASK >> bitsAvailable)) | high);
+        out[0] =
+            (SLOT_STORAGE_TYPE)((out[0] & ~((uint64_t)VALUE_MASK << startBit)) |
+                                low);
+        out[1] = (SLOT_STORAGE_TYPE)((out[1] & ~((uint64_t)VALUE_MASK >>
+                                                 bitsAvailable)) |
+                                     high);
 #if SLOT_CAN_HOLD_ENTIRE_VALUE
     }
 #endif
@@ -341,9 +355,12 @@ PACKED_STATIC void PACKED_ARRAY_SET_INCR(void *_dst,
         const VALUE_TYPE current =
             (MICRO_PROMOTION_TYPE_CAST(out[0]) >> startBit) & VALUE_MASK;
         VALUE_TYPE val = (VALUE_TYPE)(current + incrBy);
-        val = val >= (1 << BITS_PER_VALUE) ? (VALUE_TYPE)(current - incrBy) : val;
-        out[0] = (SLOT_STORAGE_TYPE)((out[0] & ~((uint64_t)VALUE_MASK << startBit)) |
-                 ((uint64_t)MICRO_PROMOTION_TYPE_CAST(val) << startBit));
+        val =
+            val >= (1 << BITS_PER_VALUE) ? (VALUE_TYPE)(current - incrBy) : val;
+        out[0] =
+            (SLOT_STORAGE_TYPE)((out[0] & ~((uint64_t)VALUE_MASK << startBit)) |
+                                ((uint64_t)MICRO_PROMOTION_TYPE_CAST(val)
+                                 << startBit));
     } else {
 #endif
         /* target position is split across two slots */
@@ -353,17 +370,23 @@ PACKED_STATIC void PACKED_ARRAY_SET_INCR(void *_dst,
         low = MICRO_PROMOTION_TYPE_CAST(out[0]) >> startBit;
         high = (uint64_t)(MICRO_PROMOTION_TYPE_CAST(out[1])) << bitsAvailable;
 
-        const VALUE_TYPE current = (VALUE_TYPE)(
-            low | (high & (((uint64_t)VALUE_MASK >> bitsAvailable) << bitsAvailable)));
+        const VALUE_TYPE current =
+            (VALUE_TYPE)(low | (high & (((uint64_t)VALUE_MASK >> bitsAvailable)
+                                        << bitsAvailable)));
         VALUE_TYPE val = (VALUE_TYPE)(current + incrBy);
-        val = val >= (1 << BITS_PER_VALUE) ? (VALUE_TYPE)(current - incrBy) : val;
+        val =
+            val >= (1 << BITS_PER_VALUE) ? (VALUE_TYPE)(current - incrBy) : val;
 
         /* SET */
         low = (uint64_t)MICRO_PROMOTION_TYPE_CAST(val) << startBit;
         high = (uint64_t)MICRO_PROMOTION_TYPE_CAST(val) >> bitsAvailable;
 
-        out[0] = (SLOT_STORAGE_TYPE)((out[0] & ~((uint64_t)VALUE_MASK << startBit)) | low);
-        out[1] = (SLOT_STORAGE_TYPE)((out[1] & ~((uint64_t)VALUE_MASK >> bitsAvailable)) | high);
+        out[0] =
+            (SLOT_STORAGE_TYPE)((out[0] & ~((uint64_t)VALUE_MASK << startBit)) |
+                                low);
+        out[1] = (SLOT_STORAGE_TYPE)((out[1] & ~((uint64_t)VALUE_MASK >>
+                                                 bitsAvailable)) |
+                                     high);
 #if SLOT_CAN_HOLD_ENTIRE_VALUE
     }
 #endif
@@ -403,7 +426,8 @@ PACKED_STATIC VALUE_TYPE PACKED_ARRAY_GET(const void *src_,
         /* Re-create the packed integer by combining the shifted
          * down 'low' bits and mask away bits in 'high' not part of
          * this packed integer. */
-        out = (VALUE_TYPE)(low | (high & ((VALUE_MASK >> bitsAvailable) << bitsAvailable)));
+        out = (VALUE_TYPE)(low | (high & ((VALUE_MASK >> bitsAvailable)
+                                          << bitsAvailable)));
 #if SLOT_CAN_HOLD_ENTIRE_VALUE
     }
 #endif
@@ -457,7 +481,8 @@ PACKED_STATIC int64_t PACKED_ARRAY_MEMBER_BYTES(const void *src_,
                                                 const size_t bytes,
                                                 const VALUE_TYPE val) {
     return PACKED_ARRAY_MEMBER(
-        src_, (PACKED_LEN_TYPE)PACKED_ARRAY_COUNT_FROM_STORAGE_BYTES(bytes), val);
+        src_, (PACKED_LEN_TYPE)PACKED_ARRAY_COUNT_FROM_STORAGE_BYTES(bytes),
+        val);
 }
 
 PACKED_STATIC void PACKED_ARRAY_INSERT(void *_dst, const PACKED_LEN_TYPE len,
@@ -479,8 +504,9 @@ PACKED_STATIC void PACKED_ARRAY_INSERT(void *_dst, const PACKED_LEN_TYPE len,
 PACKED_STATIC void PACKED_ARRAY_INSERT_BYTES(void *_dst, const size_t bytes,
                                              const PACKED_LEN_TYPE offset,
                                              const VALUE_TYPE val) {
-    PACKED_ARRAY_INSERT(_dst, (PACKED_LEN_TYPE)PACKED_ARRAY_COUNT_FROM_STORAGE_BYTES(bytes),
-                        offset, val);
+    PACKED_ARRAY_INSERT(
+        _dst, (PACKED_LEN_TYPE)PACKED_ARRAY_COUNT_FROM_STORAGE_BYTES(bytes),
+        offset, val);
 }
 
 PACKED_STATIC void PACKED_ARRAY_INSERT_SORTED(void *_dst,
@@ -496,7 +522,8 @@ PACKED_STATIC void PACKED_ARRAY_INSERT_SORTED_BYTES(void *_dst,
                                                     const size_t bytes,
                                                     const VALUE_TYPE val) {
     PACKED_ARRAY_INSERT_SORTED(
-        _dst, (PACKED_LEN_TYPE)PACKED_ARRAY_COUNT_FROM_STORAGE_BYTES(bytes), val);
+        _dst, (PACKED_LEN_TYPE)PACKED_ARRAY_COUNT_FROM_STORAGE_BYTES(bytes),
+        val);
 }
 
 PACKED_STATIC void PACKED_ARRAY_DELETE(void *_dst, const PACKED_LEN_TYPE len,
@@ -511,8 +538,9 @@ PACKED_STATIC void PACKED_ARRAY_DELETE(void *_dst, const PACKED_LEN_TYPE len,
 
 PACKED_STATIC void PACKED_ARRAY_DELETE_BYTES(void *_dst, const size_t bytes,
                                              const PACKED_LEN_TYPE offset) {
-    PACKED_ARRAY_DELETE(_dst, (PACKED_LEN_TYPE)PACKED_ARRAY_COUNT_FROM_STORAGE_BYTES(bytes),
-                        offset);
+    PACKED_ARRAY_DELETE(
+        _dst, (PACKED_LEN_TYPE)PACKED_ARRAY_COUNT_FROM_STORAGE_BYTES(bytes),
+        offset);
 }
 
 /* Returns 'true' if member found and deleted.
@@ -536,7 +564,8 @@ PACKED_STATIC bool PACKED_ARRAY_DELETE_MEMBER_BYTES(void *_dst,
                                                     const size_t bytes,
                                                     const VALUE_TYPE member) {
     return PACKED_ARRAY_DELETE_MEMBER(
-        _dst, (PACKED_LEN_TYPE)PACKED_ARRAY_COUNT_FROM_STORAGE_BYTES(bytes), member);
+        _dst, (PACKED_LEN_TYPE)PACKED_ARRAY_COUNT_FROM_STORAGE_BYTES(bytes),
+        member);
 }
 
 #undef PACKED_ARRAY_COUNT_FROM_STORAGE_BYTES

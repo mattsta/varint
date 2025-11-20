@@ -32,9 +32,9 @@
 // ============================================================================
 
 typedef struct {
-    uint8_t *key;      // varintTagged encoded key
+    uint8_t *key; // varintTagged encoded key
     varintWidth keyLen;
-    uint8_t *value;    // Raw value bytes
+    uint8_t *value; // Raw value bytes
     size_t valueLen;
 } KVEntry;
 
@@ -46,8 +46,8 @@ typedef struct {
     KVEntry *entries;
     size_t count;
     size_t capacity;
-    size_t totalKeyBytes;    // Total bytes used for keys
-    size_t totalValueBytes;  // Total bytes used for values
+    size_t totalKeyBytes;   // Total bytes used for keys
+    size_t totalValueBytes; // Total bytes used for values
 } KVStore;
 
 // ============================================================================
@@ -85,7 +85,8 @@ void kvStoreFree(KVStore *store) {
  *   - Index of key if found (>= 0)
  *   - -(insertion_point + 1) if not found
  */
-int64_t kvStoreFindKey(const KVStore *store, const uint8_t *key, varintWidth keyLen) {
+int64_t kvStoreFindKey(const KVStore *store, const uint8_t *key,
+                       varintWidth keyLen) {
     int64_t left = 0;
     int64_t right = (int64_t)store->count - 1;
 
@@ -107,7 +108,7 @@ int64_t kvStoreFindKey(const KVStore *store, const uint8_t *key, varintWidth key
         }
 
         if (cmp == 0) {
-            return mid;  // Found
+            return mid; // Found
         } else if (cmp < 0) {
             right = mid - 1;
         } else {
@@ -115,7 +116,7 @@ int64_t kvStoreFindKey(const KVStore *store, const uint8_t *key, varintWidth key
         }
     }
 
-    return -(left + 1);  // Not found, return insertion point
+    return -(left + 1); // Not found, return insertion point
 }
 
 // ============================================================================
@@ -126,7 +127,8 @@ int64_t kvStoreFindKey(const KVStore *store, const uint8_t *key, varintWidth key
  * Insert or update a key-value pair.
  * Keys are kept sorted for efficient lookups.
  */
-bool kvStorePut(KVStore *store, uint64_t key, const void *value, size_t valueLen) {
+bool kvStorePut(KVStore *store, uint64_t key, const void *value,
+                size_t valueLen) {
     // Encode key using varintTagged
     uint8_t keyBuffer[9];
     varintWidth keyLen = varintTaggedPut64(keyBuffer, key);
@@ -143,7 +145,7 @@ bool kvStorePut(KVStore *store, uint64_t key, const void *value, size_t valueLen
         void *newValue = realloc(entry->value, valueLen);
         if (!newValue) {
             fprintf(stderr, "Error: Failed to reallocate value\n");
-            store->totalValueBytes += entry->valueLen;  // Restore
+            store->totalValueBytes += entry->valueLen; // Restore
             return false;
         }
         entry->value = newValue;
@@ -151,13 +153,14 @@ bool kvStorePut(KVStore *store, uint64_t key, const void *value, size_t valueLen
         entry->valueLen = valueLen;
         store->totalValueBytes += valueLen;
 
-        return true;  // Updated existing
+        return true; // Updated existing
     }
 
     // Key doesn't exist - insert new entry
     if (store->count >= store->capacity) {
         size_t newCapacity = store->capacity * 2;
-        KVEntry *newEntries = realloc(store->entries, newCapacity * sizeof(KVEntry));
+        KVEntry *newEntries =
+            realloc(store->entries, newCapacity * sizeof(KVEntry));
         if (!newEntries) {
             fprintf(stderr, "Error: Failed to reallocate entries\n");
             return false;
@@ -208,7 +211,7 @@ bool kvStorePut(KVStore *store, uint64_t key, const void *value, size_t valueLen
     store->totalKeyBytes += keyLen;
     store->totalValueBytes += valueLen;
 
-    return false;  // Inserted new
+    return false; // Inserted new
 }
 
 // ============================================================================
@@ -219,7 +222,8 @@ bool kvStorePut(KVStore *store, uint64_t key, const void *value, size_t valueLen
  * Retrieve value for a key.
  * Returns true if found, false otherwise.
  */
-bool kvStoreGet(const KVStore *store, uint64_t key, void **value, size_t *valueLen) {
+bool kvStoreGet(const KVStore *store, uint64_t key, void **value,
+                size_t *valueLen) {
     // Encode key
     uint8_t keyBuffer[9];
     varintWidth keyLen = varintTaggedPut64(keyBuffer, key);
@@ -227,7 +231,7 @@ bool kvStoreGet(const KVStore *store, uint64_t key, void **value, size_t *valueL
     // Find key
     int64_t pos = kvStoreFindKey(store, keyBuffer, keyLen);
     if (pos < 0) {
-        return false;  // Not found
+        return false; // Not found
     }
 
     const KVEntry *entry = &store->entries[pos];
@@ -252,7 +256,7 @@ bool kvStoreDelete(KVStore *store, uint64_t key) {
     // Find key
     int64_t pos = kvStoreFindKey(store, keyBuffer, keyLen);
     if (pos < 0) {
-        return false;  // Not found
+        return false; // Not found
     }
 
     KVEntry *entry = &store->entries[pos];
@@ -294,12 +298,13 @@ size_t kvStoreRangeQuery(const KVStore *store, const RangeQuery *query,
                          RangeCallback callback, void *userData) {
     // Encode start key
     uint8_t startKeyBuffer[9];
-    varintWidth startKeyLen = varintTaggedPut64(startKeyBuffer, query->startKey);
+    varintWidth startKeyLen =
+        varintTaggedPut64(startKeyBuffer, query->startKey);
 
     // Find starting position
     int64_t startPos = kvStoreFindKey(store, startKeyBuffer, startKeyLen);
     if (startPos < 0) {
-        startPos = -(startPos + 1);  // Convert to insertion point
+        startPos = -(startPos + 1); // Convert to insertion point
     }
 
     // Encode end key
@@ -374,8 +379,9 @@ void kvStoreGetStats(const KVStore *store, KVStoreStats *stats) {
 // DEMONSTRATION
 // ============================================================================
 
-void printValue(uint64_t key, const void *value, size_t valueLen, void *userData) {
-    (void)userData;  // Unused
+void printValue(uint64_t key, const void *value, size_t valueLen,
+                void *userData) {
+    (void)userData; // Unused
     printf("   %lu: \"%.*s\"\n", key, (int)valueLen, (const char *)value);
 }
 
@@ -470,7 +476,8 @@ void demonstrateKVStore() {
     printf("   Total storage: %zu bytes\n", stats.totalBytes);
     printf("   Average key size: %.2f bytes\n", stats.avgKeySize);
     printf("   Average value size: %.2f bytes\n", stats.avgValueSize);
-    printf("   Key size range: %zu - %zu bytes\n", stats.minKeySize, stats.maxKeySize);
+    printf("   Key size range: %zu - %zu bytes\n", stats.minKeySize,
+           stats.maxKeySize);
 
     // 8. Space efficiency analysis
     printf("\n8. Space efficiency analysis:\n");
@@ -484,13 +491,16 @@ void demonstrateKVStore() {
            varintTaggedLen(200));
 
     size_t fixedKeySize = stats.entryCount * 8;
-    printf("\n   Total keys with varintTagged: %zu bytes\n", stats.totalKeyBytes);
+    printf("\n   Total keys with varintTagged: %zu bytes\n",
+           stats.totalKeyBytes);
     printf("   Total keys with uint64_t: %zu bytes\n", fixedKeySize);
-    printf("   Savings: %zu bytes (%.1f%%)\n", fixedKeySize - stats.totalKeyBytes,
+    printf("   Savings: %zu bytes (%.1f%%)\n",
+           fixedKeySize - stats.totalKeyBytes,
            100.0 * (1.0 - (double)stats.totalKeyBytes / fixedKeySize));
 
     // 9. Demonstrate sortability
-    printf("\n9. Demonstrating sortability (keys are stored in sorted order):\n");
+    printf(
+        "\n9. Demonstrating sortability (keys are stored in sorted order):\n");
     printf("   Iterating through all entries (automatically sorted):\n");
 
     for (size_t i = 0; i < store.count; i++) {

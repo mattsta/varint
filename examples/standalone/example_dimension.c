@@ -9,24 +9,26 @@
  *
  * Perfect for: sparse matrices, ML feature matrices, graph adjacency matrices.
  *
- * Compile: gcc -I../src example_dimension.c ../src/varintDimension.c ../src/varintExternal.c -o example_dimension
- * Run: ./example_dimension
+ * Compile: gcc -I../src example_dimension.c ../src/varintDimension.c
+ * ../src/varintExternal.c -o example_dimension Run: ./example_dimension
  */
 
-#include "varintExternal.h"
 #include "varintDimension.h"
-#include <stdio.h>
+#include "varintExternal.h"
 #include <assert.h>
-#include <string.h>
+#include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 /* Memory allocation check macro for demo programs */
-#define CHECK_ALLOC(ptr) do { \
-    if (!(ptr)) { \
-        fprintf(stderr, "Error: Memory allocation failed at %s:%d\n", __FILE__, __LINE__); \
-        exit(EXIT_FAILURE); \
-    } \
-} while(0)
+#define CHECK_ALLOC(ptr)                                                       \
+    do {                                                                       \
+        if (!(ptr)) {                                                          \
+            fprintf(stderr, "Error: Memory allocation failed at %s:%d\n",      \
+                    __FILE__, __LINE__);                                       \
+            exit(EXIT_FAILURE);                                                \
+        }                                                                      \
+    } while (0)
 
 // Example 1: Basic matrix storage
 void example_basic_matrix() {
@@ -41,7 +43,7 @@ void example_basic_matrix() {
 
     // Allocate storage (metadata + 3*4*1 bytes for entries)
     size_t metadataSize = VARINT_DIMENSION_PAIR_BYTE_LENGTH(dim);
-    varintWidth entryWidth = 1;  // 1 byte per entry
+    varintWidth entryWidth = 1; // 1 byte per entry
     size_t totalSize = metadataSize + (rows * cols * entryWidth);
 
     uint8_t *matrix = calloc(1, totalSize);
@@ -55,14 +57,12 @@ void example_basic_matrix() {
 
     // Set some values
     uint64_t values[3][4] = {
-        {10, 20, 30, 40},
-        {50, 60, 70, 80},
-        {90, 100, 110, 120}
-    };
+        {10, 20, 30, 40}, {50, 60, 70, 80}, {90, 100, 110, 120}};
 
     for (size_t r = 0; r < rows; r++) {
         for (size_t c = 0; c < cols; c++) {
-            varintDimensionPairEntrySetUnsigned(matrix, r, c, values[r][c], entryWidth, dim);
+            varintDimensionPairEntrySetUnsigned(matrix, r, c, values[r][c],
+                                                entryWidth, dim);
         }
     }
 
@@ -71,9 +71,12 @@ void example_basic_matrix() {
     for (size_t r = 0; r < rows; r++) {
         printf("  [");
         for (size_t c = 0; c < cols; c++) {
-            uint64_t value = varintDimensionPairEntryGetUnsigned(matrix, r, c, entryWidth, dim);
+            uint64_t value = varintDimensionPairEntryGetUnsigned(
+                matrix, r, c, entryWidth, dim);
             printf("%3lu", value);
-            if (c < cols - 1) printf(", ");
+            if (c < cols - 1) {
+                printf(", ");
+            }
             assert(value == values[r][c]);
         }
         printf("]\n");
@@ -90,12 +93,12 @@ void example_vector() {
 
     // Vector: row=0, cols=length
     size_t length = 8;
-    size_t rows = 0;  // Special case for vector
+    size_t rows = 0; // Special case for vector
 
     varintDimensionPair dim = varintDimensionPairDimension(rows, length);
 
     size_t metadataSize = VARINT_DIMENSION_PAIR_BYTE_LENGTH(dim);
-    varintWidth entryWidth = 2;  // 2 bytes per entry
+    varintWidth entryWidth = 2; // 2 bytes per entry
     size_t totalSize = metadataSize + (length * entryWidth);
 
     uint8_t *vector = calloc(1, totalSize);
@@ -103,21 +106,25 @@ void example_vector() {
     varintDimensionPairEncode(vector, rows, length);
 
     printf("Vector length: %zu (stored as %zu×%zu)\n", length, rows, length);
-    printf("Total size: %zu bytes (%zu metadata + %zu data)\n",
-           totalSize, metadataSize, length * entryWidth);
+    printf("Total size: %zu bytes (%zu metadata + %zu data)\n", totalSize,
+           metadataSize, length * entryWidth);
 
     // Set values
     uint64_t values[] = {100, 200, 300, 400, 500, 600, 700, 800};
     for (size_t i = 0; i < length; i++) {
-        varintDimensionPairEntrySetUnsigned(vector, 0, i, values[i], entryWidth, dim);
+        varintDimensionPairEntrySetUnsigned(vector, 0, i, values[i], entryWidth,
+                                            dim);
     }
 
     // Read back
     printf("Vector: [");
     for (size_t i = 0; i < length; i++) {
-        uint64_t value = varintDimensionPairEntryGetUnsigned(vector, 0, i, entryWidth, dim);
+        uint64_t value =
+            varintDimensionPairEntryGetUnsigned(vector, 0, i, entryWidth, dim);
         printf("%lu", value);
-        if (i < length - 1) printf(", ");
+        if (i < length - 1) {
+            printf(", ");
+        }
         assert(value == values[i]);
     }
     printf("]\n");
@@ -145,11 +152,12 @@ void example_bit_matrix() {
     varintDimensionPairEncode(adjMatrix, size, size);
 
     printf("Adjacency matrix: %zu×%zu\n", size, size);
-    printf("Storage: %zu bytes (%zu metadata + %zu for %zu bits)\n",
-           totalSize, metadataSize, bitsBytes, bitCount);
+    printf("Storage: %zu bytes (%zu metadata + %zu for %zu bits)\n", totalSize,
+           metadataSize, bitsBytes, bitCount);
 
     // Set some edges (symmetric graph)
-    int edges[][2] = {{0,1}, {0,2}, {1,3}, {2,3}, {3,4}, {4,5}, {5,6}, {6,7}};
+    int edges[][2] = {{0, 1}, {0, 2}, {1, 3}, {2, 3},
+                      {3, 4}, {4, 5}, {5, 6}, {6, 7}};
     size_t edgeCount = sizeof(edges) / sizeof(edges[0]);
 
     for (size_t i = 0; i < edgeCount; i++) {
@@ -157,13 +165,15 @@ void example_bit_matrix() {
         int v = edges[i][1];
 
         varintDimensionPairEntrySetBit(adjMatrix, u, v, true, dim);
-        varintDimensionPairEntrySetBit(adjMatrix, v, u, true, dim);  // Symmetric
+        varintDimensionPairEntrySetBit(adjMatrix, v, u, true, dim); // Symmetric
     }
 
     // Display matrix
     printf("\nAdjacency matrix (1=edge, 0=no edge):\n");
     printf("   ");
-    for (size_t c = 0; c < size; c++) printf(" %zu", c);
+    for (size_t c = 0; c < size; c++) {
+        printf(" %zu", c);
+    }
     printf("\n");
 
     for (size_t r = 0; r < size; r++) {
@@ -199,7 +209,7 @@ void example_sparse_matrix() {
     varintDimensionPair dim = varintDimensionPairDimension(rows, cols);
     // Note: The sparse flag is the LSB. In practice, sparse matrices
     // would use different storage (COO/CSR), not just a flag.
-    dim |= 0x01;  // Set sparse bit (LSB)
+    dim |= 0x01; // Set sparse bit (LSB)
 
     printf("Matrix: %zu×%zu (sparse flag demonstration)\n", rows, cols);
     printf("Sparse flag: %s\n",
@@ -218,32 +228,30 @@ void example_dimension_encoding() {
         size_t rows;
         size_t cols;
     } tests[] = {
-        {10, 20},           // Small dimensions
-        {256, 256},         // 2-byte dimensions
-        {65536, 100},       // 3-byte row, 1-byte col
-        {1000000, 500000},  // Large dimensions
+        {10, 20},          // Small dimensions
+        {256, 256},        // 2-byte dimensions
+        {65536, 100},      // 3-byte row, 1-byte col
+        {1000000, 500000}, // Large dimensions
     };
 
     printf("Row Count | Col Count | Row Width | Col Width | Metadata Bytes\n");
     printf("----------|-----------|-----------|-----------|---------------\n");
 
-    for (size_t i = 0; i < sizeof(tests)/sizeof(tests[0]); i++) {
-        varintDimensionPair dim = varintDimensionPairDimension(tests[i].rows, tests[i].cols);
+    for (size_t i = 0; i < sizeof(tests) / sizeof(tests[0]); i++) {
+        varintDimensionPair dim =
+            varintDimensionPairDimension(tests[i].rows, tests[i].cols);
 
         varintWidth rowWidth = VARINT_DIMENSION_PAIR_WIDTH_ROW_COUNT(dim);
         varintWidth colWidth = VARINT_DIMENSION_PAIR_WIDTH_COL_COUNT(dim);
         size_t metadataSize = VARINT_DIMENSION_PAIR_BYTE_LENGTH(dim);
 
-        printf("%9zu | %9zu | %9d | %9d | %14zu\n",
-               tests[i].rows,
-               tests[i].cols,
-               rowWidth,
-               colWidth,
-               metadataSize);
+        printf("%9zu | %9zu | %9d | %9d | %14zu\n", tests[i].rows,
+               tests[i].cols, rowWidth, colWidth, metadataSize);
 
         // Encode creates the dimension metadata and stores it
         uint8_t buffer[32];
-        varintDimensionPair encoded = varintDimensionPairEncode(buffer, tests[i].rows, tests[i].cols);
+        varintDimensionPair encoded =
+            varintDimensionPairEncode(buffer, tests[i].rows, tests[i].cols);
 
         // Verify the metadata matches what we calculated
         assert(encoded == dim);
@@ -278,10 +286,10 @@ void example_ml_features() {
 
     printf("\nComparison:\n");
     printf("  varintDimension: %zu bytes\n", totalSize);
-    printf("  uint8_t array:   %zu bytes (%.1fx)\n",
-           uint8Size, (float)uint8Size / totalSize);
-    printf("  double array:    %zu bytes (%.1fx)\n",
-           doubleSize, (float)doubleSize / totalSize);
+    printf("  uint8_t array:   %zu bytes (%.1fx)\n", uint8Size,
+           (float)uint8Size / totalSize);
+    printf("  double array:    %zu bytes (%.1fx)\n", doubleSize,
+           (float)doubleSize / totalSize);
 
     printf("✓ ML feature matrix example\n");
 }
@@ -291,12 +299,7 @@ void example_dynamic_dimensions() {
     printf("\n=== Example 7: Dynamic Dimension Calculation ===\n");
 
     // Automatically determine dimensions from data
-    uint64_t dataset[] = {
-        10, 20, 30,
-        40, 50, 60,
-        70, 80, 90,
-        100, 110, 120
-    };
+    uint64_t dataset[] = {10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 110, 120};
     size_t rows = 4;
     size_t cols = 3;
     size_t count = rows * cols;
@@ -304,7 +307,9 @@ void example_dynamic_dimensions() {
     // Find maximum value to determine entry width
     uint64_t maxValue = 0;
     for (size_t i = 0; i < count; i++) {
-        if (dataset[i] > maxValue) maxValue = dataset[i];
+        if (dataset[i] > maxValue) {
+            maxValue = dataset[i];
+        }
     }
 
     // Determine entry width
@@ -317,7 +322,8 @@ void example_dynamic_dimensions() {
 
     // Create matrix
     varintDimensionPair dim = varintDimensionPairDimension(rows, cols);
-    size_t totalSize = VARINT_DIMENSION_PAIR_BYTE_LENGTH(dim) + (rows * cols * entryWidth);
+    size_t totalSize =
+        VARINT_DIMENSION_PAIR_BYTE_LENGTH(dim) + (rows * cols * entryWidth);
 
     uint8_t *matrix = calloc(1, totalSize);
     varintDimensionPairEncode(matrix, rows, cols);
@@ -326,7 +332,8 @@ void example_dynamic_dimensions() {
     for (size_t r = 0; r < rows; r++) {
         for (size_t c = 0; c < cols; c++) {
             size_t idx = r * cols + c;
-            varintDimensionPairEntrySetUnsigned(matrix, r, c, dataset[idx], entryWidth, dim);
+            varintDimensionPairEntrySetUnsigned(matrix, r, c, dataset[idx],
+                                                entryWidth, dim);
         }
     }
 
@@ -334,15 +341,18 @@ void example_dynamic_dimensions() {
     for (size_t r = 0; r < rows; r++) {
         printf("  [");
         for (size_t c = 0; c < cols; c++) {
-            uint64_t value = varintDimensionPairEntryGetUnsigned(matrix, r, c, entryWidth, dim);
+            uint64_t value = varintDimensionPairEntryGetUnsigned(
+                matrix, r, c, entryWidth, dim);
             printf("%3lu", value);
-            if (c < cols - 1) printf(", ");
+            if (c < cols - 1) {
+                printf(", ");
+            }
         }
         printf("]\n");
     }
 
-    printf("Total size: %zu bytes (vs %zu for uint64_t array)\n",
-           totalSize, count * sizeof(uint64_t));
+    printf("Total size: %zu bytes (vs %zu for uint64_t array)\n", totalSize,
+           count * sizeof(uint64_t));
 
     printf("✓ Dynamic dimension calculation works\n");
 

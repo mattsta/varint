@@ -1,11 +1,8 @@
 #include "varintDict.h"
-#include <inttypes.h>
 #include "ctest.h"
 #include <inttypes.h>
-#include <string.h>
-#include <inttypes.h>
 #include <stdlib.h>
-#include <inttypes.h>
+#include <string.h>
 
 int varintDictTest(int argc, char *argv[]) {
     (void)argc;
@@ -60,12 +57,14 @@ int varintDictTest(int argc, char *argv[]) {
         }
 
         if (decoded_count != count) {
-            ERR("Decoded count %zu != original count %zu", decoded_count, count);
+            ERR("Decoded count %zu != original count %zu", decoded_count,
+                count);
         }
 
         for (size_t i = 0; i < count; i++) {
             if (decoded[i] != values[i]) {
-                ERR("Decoded[%zu] = %" PRIu64 ", expected %" PRIu64 "", i, decoded[i], values[i]);
+                ERR("Decoded[%zu] = %" PRIu64 ", expected %" PRIu64 "", i,
+                    decoded[i], values[i]);
             }
         }
 
@@ -83,10 +82,12 @@ int varintDictTest(int argc, char *argv[]) {
         uint8_t buffer[2048];
         size_t encoded = varintDictEncode(buffer, values, 100);
 
-        /* Should be very efficient: ~5 dictionary entries + 100 small indices */
+        /* Should be very efficient: ~5 dictionary entries + 100 small indices
+         */
         /* Naive: 100 * 8 = 800 bytes */
         if (encoded >= 800) {
-            ERR("Dictionary not efficient for repetitive data: %zu bytes", encoded);
+            ERR("Dictionary not efficient for repetitive data: %zu bytes",
+                encoded);
         }
 
         size_t count = 0;
@@ -121,7 +122,8 @@ int varintDictTest(int argc, char *argv[]) {
 
         for (int i = 0; i < 50; i++) {
             if (decoded[i] != 777) {
-                ERR("Single value[%d] = %" PRIu64 ", expected 777", i, decoded[i]);
+                ERR("Single value[%d] = %" PRIu64 ", expected 777", i,
+                    decoded[i]);
                 break;
             }
         }
@@ -175,7 +177,8 @@ int varintDictTest(int argc, char *argv[]) {
 
         for (size_t i = 0; i < 5; i++) {
             if (decoded[i] != values[i]) {
-                ERR("Large value[%zu] = %" PRIu64 ", expected %" PRIu64 "", i, decoded[i], values[i]);
+                ERR("Large value[%zu] = %" PRIu64 ", expected %" PRIu64 "", i,
+                    decoded[i], values[i]);
             }
         }
 
@@ -202,7 +205,7 @@ int varintDictTest(int argc, char *argv[]) {
     TEST("Dictionary binary search correctness") {
         /* Create sorted dictionary manually */
         varintDict *dict = varintDictCreate();
-        free(dict->values);  /* Free the initial allocation from Create */
+        free(dict->values); /* Free the initial allocation from Create */
         dict->capacity = 10;
         dict->values = malloc(sizeof(uint64_t) * dict->capacity);
         dict->size = 5;
@@ -243,7 +246,8 @@ int varintDictTest(int argc, char *argv[]) {
 
         for (size_t i = 0; i < count; i++) {
             if (output[i] != values[i]) {
-                ERR("DecodeInto[%zu] = %" PRIu64 ", expected %" PRIu64 "", i, output[i], values[i]);
+                ERR("DecodeInto[%zu] = %" PRIu64 ", expected %" PRIu64 "", i,
+                    output[i], values[i]);
             }
         }
     }

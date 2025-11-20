@@ -41,12 +41,13 @@ typedef struct perfStateGlobal {
 } perfStateGlobal;
 
 /* Compile-time size guarantees to prevent regressions */
-_Static_assert(sizeof(perfStateGlobal) == 24,
+_Static_assert(
+    sizeof(perfStateGlobal) == 24,
     "perfStateGlobal size changed! Expected 24 bytes (3×8-byte, ZERO padding). "
     "This struct achieved 100% efficiency - do not break it!");
 _Static_assert(sizeof(perfStateGlobal) <= 64,
-    "perfStateGlobal exceeds single cache line (64 bytes)! "
-    "Keep performance measurement structs cache-friendly.");
+               "perfStateGlobal exceeds single cache line (64 bytes)! "
+               "Keep performance measurement structs cache-friendly.");
 
 typedef struct perfStateStat {
     uint64_t start;
@@ -58,12 +59,13 @@ typedef struct perfStateStat {
 } perfStateStat;
 
 /* Compile-time size guarantees to prevent regressions */
-_Static_assert(sizeof(perfStateStat) == 48,
+_Static_assert(
+    sizeof(perfStateStat) == 48,
     "perfStateStat size changed! Expected 48 bytes (6×8-byte, ZERO padding). "
     "This struct achieved 100% efficiency - do not break it!");
 _Static_assert(sizeof(perfStateStat) <= 64,
-    "perfStateStat exceeds single cache line (64 bytes)! "
-    "Keep performance statistics cache-friendly.");
+               "perfStateStat exceeds single cache line (64 bytes)! "
+               "Keep performance statistics cache-friendly.");
 
 typedef struct perfState {
     struct {
@@ -78,11 +80,13 @@ typedef struct perfState {
 
 /* Compile-time size guarantees to prevent regressions */
 _Static_assert(sizeof(perfState) == 144,
-    "perfState size changed! Expected 144 bytes (2×perfStateGlobal + 2×perfStateStat). "
-    "Struct contains nested performance measurement state.");
+               "perfState size changed! Expected 144 bytes (2×perfStateGlobal "
+               "+ 2×perfStateStat). "
+               "Struct contains nested performance measurement state.");
 _Static_assert(sizeof(perfState) <= 192,
-    "perfState exceeds 3 cache lines (192 bytes)! "
-    "Performance measurement struct spans multiple cache lines by design (global in line 1, stat across lines 2-3).");
+               "perfState exceeds 3 cache lines (192 bytes)! "
+               "Performance measurement struct spans multiple cache lines by "
+               "design (global in line 1, stat across lines 2-3).");
 
 /* local perf state */
 static perfState lps = {0};
@@ -114,11 +118,11 @@ enum firstThing { FIRST_SECONDS, FIRST_CYCLES, FIRST_RATE };
 #define _PERF_TIMERS_STAT_STOP(i, subField, dataPoint)                         \
     do {                                                                       \
         const double delta =                                                   \
-            (double)(dataPoint)-lps.stat.subField.runningMean;                 \
+            (double)(dataPoint) - lps.stat.subField.runningMean;               \
         lps.stat.subField.runningMean +=                                       \
             delta / (i + 1); /* assume zero-based indexing */                  \
         lps.stat.subField.runningVariance +=                                   \
-            delta * ((dataPoint)-lps.stat.subField.runningMean);               \
+            delta * ((dataPoint) - lps.stat.subField.runningMean);             \
     } while (0)
 
 #define PERF_TIMERS_STAT_STOP(i)                                               \
@@ -142,7 +146,8 @@ enum firstThing { FIRST_SECONDS, FIRST_CYCLES, FIRST_RATE };
 
 #define PERF_TIMERS_STAT_RESULT(totalLoops)                                    \
     do {                                                                       \
-        lps.stat.us.stddev = sqrt(lps.stat.us.runningVariance / (double)(totalLoops)); \
+        lps.stat.us.stddev =                                                   \
+            sqrt(lps.stat.us.runningVariance / (double)(totalLoops));          \
     } while (0)
 
 /* GCC -pedantic complains about the %'0.2f format specifier, so let's disable

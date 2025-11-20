@@ -19,8 +19,8 @@
  * Real-world relevance: This demonstrates how cryptocurrencies could achieve
  * massive space savings while maintaining cryptographic integrity.
  *
- * Compile: gcc -I../../src blockchain_ledger.c ../../build/src/libvarint.a -o blockchain_ledger -lm
- * Run: ./blockchain_ledger
+ * Compile: gcc -I../../src blockchain_ledger.c ../../build/src/libvarint.a -o
+ * blockchain_ledger -lm Run: ./blockchain_ledger
  */
 
 #include "varintChained.h"
@@ -38,7 +38,7 @@
 // ============================================================================
 
 typedef struct {
-    uint64_t hash[4];  // 256-bit hash (simplified to 4x 64-bit)
+    uint64_t hash[4]; // 256-bit hash (simplified to 4x 64-bit)
 } Hash256;
 
 // Simple hash function (NOT cryptographically secure - for demo only)
@@ -65,8 +65,8 @@ Hash256 combineHashes(Hash256 a, Hash256 b) {
 // ============================================================================
 
 typedef struct {
-    uint8_t address[32];  // 256-bit address
-    uint64_t amount;      // Amount in satoshis (1e-8 of base unit)
+    uint8_t address[32]; // 256-bit address
+    uint64_t amount;     // Amount in satoshis (1e-8 of base unit)
 } TransactionInput;
 
 typedef struct {
@@ -75,13 +75,13 @@ typedef struct {
 } TransactionOutput;
 
 typedef struct {
-    uint64_t txId;        // Transaction ID (varintTagged - sortable)
-    uint32_t timestamp;   // Unix timestamp
+    uint64_t txId;      // Transaction ID (varintTagged - sortable)
+    uint32_t timestamp; // Unix timestamp
     uint8_t numInputs;
     uint8_t numOutputs;
     TransactionInput *inputs;
     TransactionOutput *outputs;
-    Hash256 signature;    // Transaction signature (simulated)
+    Hash256 signature; // Transaction signature (simulated)
 } Transaction;
 
 // ============================================================================
@@ -108,7 +108,8 @@ size_t serializeTransaction(const Transaction *tx, uint8_t *buffer) {
         offset += 32;
 
         // Amount (varintExternal - adaptive width)
-        varintWidth amountWidth = varintExternalPut(buffer + offset, tx->inputs[i].amount);
+        varintWidth amountWidth =
+            varintExternalPut(buffer + offset, tx->inputs[i].amount);
         offset += amountWidth;
     }
 
@@ -153,7 +154,8 @@ void merkleTreeFree(MerkleTree *tree) {
     free(tree->hashes);
 }
 
-void merkleTreeBuild(MerkleTree *tree, Transaction *transactions, size_t count) {
+void merkleTreeBuild(MerkleTree *tree, Transaction *transactions,
+                     size_t count) {
     // Hash all transactions (leaf nodes)
     uint8_t txBuffer[1024];
     for (size_t i = 0; i < count; i++) {
@@ -172,9 +174,8 @@ void merkleTreeBuild(MerkleTree *tree, Transaction *transactions, size_t count) 
 
     while (levelSize > 1) {
         for (size_t i = 0; i < levelSize / 2; i++) {
-            tree->hashes[offset + levelSize + i] =
-                combineHashes(tree->hashes[offset + i * 2],
-                              tree->hashes[offset + i * 2 + 1]);
+            tree->hashes[offset + levelSize + i] = combineHashes(
+                tree->hashes[offset + i * 2], tree->hashes[offset + i * 2 + 1]);
         }
         offset += levelSize;
         levelSize /= 2;
@@ -193,8 +194,8 @@ typedef struct {
     uint32_t timestamp;
     Hash256 previousHash;
     Hash256 merkleRoot;
-    uint32_t nonce;          // Mining nonce
-    uint32_t difficulty;     // Mining difficulty
+    uint32_t nonce;      // Mining nonce
+    uint32_t difficulty; // Mining difficulty
     Transaction *transactions;
     size_t txCount;
 } Block;
@@ -248,11 +249,11 @@ bool mineBlock(Block *block, uint32_t targetDifficulty) {
         // Check if hash meets difficulty (simplified: just check first word)
         uint32_t leadingZeros = __builtin_clzll(blockHash.hash[0]);
         if (leadingZeros >= targetDifficulty) {
-            return true;  // Block mined!
+            return true; // Block mined!
         }
     }
 
-    return false;  // Failed to mine in iteration limit
+    return false; // Failed to mine in iteration limit
 }
 
 // ============================================================================
@@ -289,13 +290,14 @@ bool blockchainAddBlock(Blockchain *chain, Block block) {
     if (chain->blockCount > 0) {
         Hash256 expectedPrevHash;
         uint8_t prevHeaderBuffer[256];
-        size_t prevHeaderSize =
-            serializeBlockHeader(&chain->blocks[chain->blockCount - 1], prevHeaderBuffer);
+        size_t prevHeaderSize = serializeBlockHeader(
+            &chain->blocks[chain->blockCount - 1], prevHeaderBuffer);
         expectedPrevHash = simpleHash(prevHeaderBuffer, prevHeaderSize);
 
         // Verify previous hash matches
-        if (memcmp(&block.previousHash, &expectedPrevHash, sizeof(Hash256)) != 0) {
-            return false;  // Invalid chain
+        if (memcmp(&block.previousHash, &expectedPrevHash, sizeof(Hash256)) !=
+            0) {
+            return false; // Invalid chain
         }
     }
 
@@ -342,7 +344,8 @@ void utxoSetAdd(UTXOSet *set, uint64_t txId, uint8_t outputIndex,
 
 bool utxoSetRemove(UTXOSet *set, uint64_t txId, uint8_t outputIndex) {
     for (size_t i = 0; i < set->count; i++) {
-        if (set->utxos[i].txId == txId && set->utxos[i].outputIndex == outputIndex) {
+        if (set->utxos[i].txId == txId &&
+            set->utxos[i].outputIndex == outputIndex) {
             // Remove by swapping with last element
             set->utxos[i] = set->utxos[set->count - 1];
             set->count--;
@@ -390,9 +393,9 @@ void demonstrateBlockchain() {
         // Create outputs (split amount)
         txs[i].outputs = malloc(2 * sizeof(TransactionOutput));
         memset(txs[i].outputs[0].address, i + 1, 32);
-        txs[i].outputs[0].amount = txAmounts[i] * 60 / 100;  // 60%
+        txs[i].outputs[0].amount = txAmounts[i] * 60 / 100; // 60%
         memset(txs[i].outputs[1].address, i + 2, 32);
-        txs[i].outputs[1].amount = txAmounts[i] * 40 / 100;  // 40%
+        txs[i].outputs[1].amount = txAmounts[i] * 40 / 100; // 40%
 
         // Sign transaction
         uint8_t txBuffer[1024];
@@ -426,7 +429,7 @@ void demonstrateBlockchain() {
     block.txCount = 5;
     block.nonce = 0;
 
-    uint32_t difficulty = 8;  // 8 leading zero bits
+    uint32_t difficulty = 8; // 8 leading zero bits
     printf("   Difficulty: %u leading zero bits\n", difficulty);
     printf("   Mining... ");
     fflush(stdout);
@@ -438,7 +441,8 @@ void demonstrateBlockchain() {
     if (mined) {
         printf("SUCCESS!\n");
         printf("   Nonce found: %u\n", block.nonce);
-        printf("   Time: %.3f seconds\n", (double)(end - start) / CLOCKS_PER_SEC);
+        printf("   Time: %.3f seconds\n",
+               (double)(end - start) / CLOCKS_PER_SEC);
     } else {
         printf("FAILED (iteration limit)\n");
     }
@@ -461,7 +465,8 @@ void demonstrateBlockchain() {
     printf("   Total block size: %zu bytes\n", headerSize + totalTxSize);
 
     // Compare with naive encoding
-    size_t naiveSize = block.txCount * (8 + 4 + 1 + 1 + (32 + 8) + 2 * (32 + 8) + 32);
+    size_t naiveSize =
+        block.txCount * (8 + 4 + 1 + 1 + (32 + 8) + 2 * (32 + 8) + 32);
     printf("\n   Naive encoding: %zu bytes\n", naiveSize);
     printf("   Compact encoding: %zu bytes\n", totalTxSize);
     printf("   Compression ratio: %.2fx\n", (double)naiveSize / totalTxSize);
@@ -508,7 +513,7 @@ void demonstrateBlockchain() {
            (double)totalTxSize / block.txCount);
 
     // Simulate high-throughput scenario
-    size_t blockTarget = 1000000;  // 1 MB blocks
+    size_t blockTarget = 1000000; // 1 MB blocks
     size_t avgTxSize = totalTxSize / block.txCount;
     size_t txPerBlock = blockTarget / avgTxSize;
     printf("\n   High-throughput scenario (1 MB blocks):\n");
@@ -523,7 +528,8 @@ void demonstrateBlockchain() {
     printf("   Transaction ID encoding (varintTagged):\n");
     for (size_t i = 0; i < 3; i++) {
         varintWidth width = varintTaggedLen(txs[i].txId);
-        printf("   - TX %lu: %d bytes (vs 8 bytes fixed)\n", txs[i].txId, width);
+        printf("   - TX %lu: %d bytes (vs 8 bytes fixed)\n", txs[i].txId,
+               width);
     }
 
     printf("\n   Amount encoding (varintExternal):\n");
@@ -544,7 +550,8 @@ void demonstrateBlockchain() {
     printf("   Proof size for transaction: %zu hashes × 32 bytes = %zu bytes\n",
            (size_t)(log2(block.txCount) + 1),
            (size_t)(log2(block.txCount) + 1) * 32);
-    printf("   Can verify transaction in block without downloading full block!\n");
+    printf(
+        "   Can verify transaction in block without downloading full block!\n");
 
     merkleTreeFree(&merkleTree);
     utxoSetFree(&utxoSet);
@@ -555,7 +562,8 @@ void demonstrateBlockchain() {
         free(txs[i].outputs);
     }
 
-    // Clean up blockchain struct (blocks array was malloc'd but never populated)
+    // Clean up blockchain struct (blocks array was malloc'd but never
+    // populated)
     free(chain.blocks);
 
     printf("\n✓ Blockchain ledger demonstration complete\n");

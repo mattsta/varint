@@ -1,11 +1,8 @@
 #include "varintFOR.h"
-#include <inttypes.h>
 #include "ctest.h"
 #include <inttypes.h>
-#include <string.h>
-#include <inttypes.h>
 #include <stdlib.h>
-#include <inttypes.h>
+#include <string.h>
 
 int varintFORTest(int argc, char *argv[]) {
     (void)argc;
@@ -48,12 +45,14 @@ int varintFORTest(int argc, char *argv[]) {
         size_t decoded_count = varintFORDecode(buffer, decoded, 5);
 
         if (decoded_count != count) {
-            ERR("Decoded count %zu != original count %zu", decoded_count, count);
+            ERR("Decoded count %zu != original count %zu", decoded_count,
+                count);
         }
 
         for (size_t i = 0; i < count; i++) {
             if (decoded[i] != values[i]) {
-                ERR("Decoded[%zu] = %" PRIu64 ", expected %" PRIu64 "", i, decoded[i], values[i]);
+                ERR("Decoded[%zu] = %" PRIu64 ", expected %" PRIu64 "", i,
+                    decoded[i], values[i]);
             }
         }
     }
@@ -101,11 +100,12 @@ int varintFORTest(int argc, char *argv[]) {
         /* Verify correctness */
         uint64_t decoded[100];
         size_t decoded_count = varintFORDecode(buffer, decoded, 100);
-        (void)decoded_count;  /* Intentionally unused in test */
+        (void)decoded_count; /* Intentionally unused in test */
 
         for (int i = 0; i < 100; i++) {
             if (decoded[i] != values[i]) {
-                ERR("Value[%d] mismatch: %" PRIu64 " != %" PRIu64 "", i, decoded[i], values[i]);
+                ERR("Value[%d] mismatch: %" PRIu64 " != %" PRIu64 "", i,
+                    decoded[i], values[i]);
                 break;
             }
         }
@@ -123,7 +123,8 @@ int varintFORTest(int argc, char *argv[]) {
         for (size_t i = 0; i < count; i++) {
             uint64_t val = varintFORGetAt(buffer, i);
             if (val != values[i]) {
-                ERR("GetAt(%zu) = %" PRIu64 ", expected %" PRIu64 "", i, val, values[i]);
+                ERR("GetAt(%zu) = %" PRIu64 ", expected %" PRIu64 "", i, val,
+                    values[i]);
             }
         }
     }
@@ -134,7 +135,7 @@ int varintFORTest(int argc, char *argv[]) {
         varintFORMeta meta;
 
         size_t encoded = varintFOREncode(buffer, value, 1, &meta);
-        (void)encoded;  /* Intentionally unused in test */
+        (void)encoded; /* Intentionally unused in test */
         uint64_t decoded[1];
         size_t count = varintFORDecode(buffer, decoded, 1);
 
@@ -142,7 +143,8 @@ int varintFORTest(int argc, char *argv[]) {
             ERR("Decoded count = %zu, expected 1", count);
         }
         if (decoded[0] != value[0]) {
-            ERR("Decoded value = %" PRIu64 ", expected %" PRIu64 "", decoded[0], value[0]);
+            ERR("Decoded value = %" PRIu64 ", expected %" PRIu64 "", decoded[0],
+                value[0]);
         }
     }
 
@@ -154,13 +156,14 @@ int varintFORTest(int argc, char *argv[]) {
 
         size_t encoded = varintFOREncode(buffer, values, count, &meta);
         uint64_t decoded[3];
-        (void)encoded;  /* Intentionally unused in test */
+        (void)encoded; /* Intentionally unused in test */
         size_t decoded_count = varintFORDecode(buffer, decoded, 3);
-        (void)decoded_count;  /* Intentionally unused in test */
+        (void)decoded_count; /* Intentionally unused in test */
 
         for (size_t i = 0; i < count; i++) {
             if (decoded[i] != values[i]) {
-                ERR("Large value[%zu] = %" PRIu64 ", expected %" PRIu64 "", i, decoded[i], values[i]);
+                ERR("Large value[%zu] = %" PRIu64 ", expected %" PRIu64 "", i,
+                    decoded[i], values[i]);
             }
         }
     }
@@ -174,16 +177,17 @@ int varintFORTest(int argc, char *argv[]) {
         uint8_t buffer[256];
         varintFORMeta meta;
         size_t encoded = varintFOREncode(buffer, values, 10, &meta);
-        (void)encoded;  /* Intentionally unused in test */
+        (void)encoded; /* Intentionally unused in test */
 
         /* Should be very efficient (all offsets = 0) */
         uint64_t decoded[10];
         size_t count = varintFORDecode(buffer, decoded, 10);
-        (void)count;  /* Intentionally unused in test */
+        (void)count; /* Intentionally unused in test */
 
         for (int i = 0; i < 10; i++) {
             if (decoded[i] != 777) {
-                ERR("Identical value[%d] = %" PRIu64 ", expected 777", i, decoded[i]);
+                ERR("Identical value[%d] = %" PRIu64 ", expected 777", i,
+                    decoded[i]);
             }
         }
     }

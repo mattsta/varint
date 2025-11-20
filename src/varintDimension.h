@@ -45,7 +45,7 @@ typedef enum varintDimensionPacked {
 #define VARINT_DIMENSION_PAIR_IS_SPARSE(dim) ((dim) & 0x01)
 
 #define VARINT_DIMENSION_PAIR_PAIR(x, y, sparse)                               \
-    (((x) << 4) | (((y)-1) << 1) | (sparse))
+    (((x) << 4) | (((y) - 1) << 1) | (sparse))
 
 #define VARINT_DIMENSION_PAIR_DEPAIR(x, y, sparse)                             \
     do {                                                                       \
@@ -214,7 +214,7 @@ bool varintDimensionPack(const size_t row, const size_t col, uint64_t *result,
 void varintDimensionUnpack(size_t *rows, size_t *cols, const uint64_t packed,
                            const varintDimensionPacked dimension);
 
-#define VARINT_DIMENSION_PACKED_TO_BITS(dim) ((dim)*4)
+#define VARINT_DIMENSION_PACKED_TO_BITS(dim) ((dim) * 4)
 
 #define varintDimensionUnpack_(x, y, packed, dimension)                        \
     do {                                                                       \

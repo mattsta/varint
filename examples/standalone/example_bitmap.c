@@ -5,13 +5,13 @@
  * integer sets. Automatically adapts between ARRAY, BITMAP, and RUNS
  * containers based on data density for optimal space efficiency.
  *
- * Compile: gcc -I../../src example_bitmap.c ../../src/varintBitmap.c -o example_bitmap
- * Run: ./example_bitmap
+ * Compile: gcc -I../../src example_bitmap.c ../../src/varintBitmap.c -o
+ * example_bitmap Run: ./example_bitmap
  */
 
 #include "varintBitmap.h"
-#include <stdio.h>
 #include <assert.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -77,9 +77,10 @@ void example_container_types() {
     varintBitmapGetStats(sparse, &stats);
 
     printf("Added 10 sparse values\n");
-    printf("Container type: %s\n",
-           stats.type == VARINT_BITMAP_ARRAY ? "ARRAY" :
-           stats.type == VARINT_BITMAP_BITMAP ? "BITMAP" : "RUNS");
+    printf("Container type: %s\n", stats.type == VARINT_BITMAP_ARRAY ? "ARRAY"
+                                   : stats.type == VARINT_BITMAP_BITMAP
+                                       ? "BITMAP"
+                                       : "RUNS");
     printf("Cardinality: %u\n", stats.cardinality);
     printf("Memory used: %zu bytes\n", stats.sizeBytes);
 
@@ -97,9 +98,10 @@ void example_container_types() {
     varintBitmapGetStats(dense, &stats);
 
     printf("Added 5000 contiguous values\n");
-    printf("Container type: %s\n",
-           stats.type == VARINT_BITMAP_ARRAY ? "ARRAY" :
-           stats.type == VARINT_BITMAP_BITMAP ? "BITMAP" : "RUNS");
+    printf("Container type: %s\n", stats.type == VARINT_BITMAP_ARRAY ? "ARRAY"
+                                   : stats.type == VARINT_BITMAP_BITMAP
+                                       ? "BITMAP"
+                                       : "RUNS");
     printf("Cardinality: %u\n", stats.cardinality);
     printf("Memory used: %zu bytes\n", stats.sizeBytes);
 
@@ -146,7 +148,7 @@ void example_set_operations() {
         printf("%u ", it.currentValue);
     }
     printf("\n");
-    assert(varintBitmapCardinality(intersection) == 2);  /* {4, 5} */
+    assert(varintBitmapCardinality(intersection) == 2); /* {4, 5} */
     assert(varintBitmapContains(intersection, 4));
     assert(varintBitmapContains(intersection, 5));
 
@@ -158,7 +160,8 @@ void example_set_operations() {
         printf("%u ", it.currentValue);
     }
     printf("\n");
-    assert(varintBitmapCardinality(unionSet) == 8);  /* {1, 2, 3, 4, 5, 6, 7, 8} */
+    assert(varintBitmapCardinality(unionSet) ==
+           8); /* {1, 2, 3, 4, 5, 6, 7, 8} */
 
     /* Symmetric difference (XOR) */
     varintBitmap *xorSet = varintBitmapXor(setA, setB);
@@ -168,7 +171,7 @@ void example_set_operations() {
         printf("%u ", it.currentValue);
     }
     printf("\n");
-    assert(varintBitmapCardinality(xorSet) == 6);  /* {1, 2, 3, 6, 7, 8} */
+    assert(varintBitmapCardinality(xorSet) == 6); /* {1, 2, 3, 6, 7, 8} */
 
     /* Difference (AND-NOT) */
     varintBitmap *diff = varintBitmapAndNot(setA, setB);
@@ -178,7 +181,7 @@ void example_set_operations() {
         printf("%u ", it.currentValue);
     }
     printf("\n");
-    assert(varintBitmapCardinality(diff) == 3);  /* {1, 2, 3} */
+    assert(varintBitmapCardinality(diff) == 3); /* {1, 2, 3} */
 
     printf("✓ Set operations work correctly\n");
 
@@ -215,9 +218,10 @@ void example_ranges() {
     /* Check container type */
     varintBitmapStats stats;
     varintBitmapGetStats(vb, &stats);
-    printf("Container type: %s\n",
-           stats.type == VARINT_BITMAP_ARRAY ? "ARRAY" :
-           stats.type == VARINT_BITMAP_BITMAP ? "BITMAP" : "RUNS");
+    printf("Container type: %s\n", stats.type == VARINT_BITMAP_ARRAY ? "ARRAY"
+                                   : stats.type == VARINT_BITMAP_BITMAP
+                                       ? "BITMAP"
+                                       : "RUNS");
 
     /* Add another range */
     printf("Adding range [500, 600)\n");
@@ -299,7 +303,9 @@ void example_iteration() {
     varintBitmapIterator it = varintBitmapCreateIterator(vb);
     int count = 0;
     while (varintBitmapIteratorNext(&it)) {
-        if (count > 0) printf(", ");
+        if (count > 0) {
+            printf(", ");
+        }
         printf("%u", it.currentValue);
         count++;
     }
@@ -328,18 +334,16 @@ void example_iteration() {
  * ==================================================================== */
 typedef struct InvertedIndex {
     const char *term;
-    varintBitmap *postings;  /* Document IDs */
+    varintBitmap *postings; /* Document IDs */
 } InvertedIndex;
 
 void example_inverted_index() {
     printf("\n=== Example 7: Inverted Index ===\n");
 
     /* Create posting lists for terms */
-    InvertedIndex terms[3] = {
-        {"varint", varintBitmapCreate()},
-        {"bitmap", varintBitmapCreate()},
-        {"roaring", varintBitmapCreate()}
-    };
+    InvertedIndex terms[3] = {{"varint", varintBitmapCreate()},
+                              {"bitmap", varintBitmapCreate()},
+                              {"roaring", varintBitmapCreate()}};
 
     /* Document 1: "varint bitmap"
      * Document 2: "roaring bitmap"
@@ -347,21 +351,22 @@ void example_inverted_index() {
      * Document 100: "varint"
      * Document 200: "bitmap" */
 
-    varintBitmapAdd(terms[0].postings, 1);    /* varint: doc 1 */
-    varintBitmapAdd(terms[0].postings, 3);    /* varint: doc 3 */
-    varintBitmapAdd(terms[0].postings, 100);  /* varint: doc 100 */
+    varintBitmapAdd(terms[0].postings, 1);   /* varint: doc 1 */
+    varintBitmapAdd(terms[0].postings, 3);   /* varint: doc 3 */
+    varintBitmapAdd(terms[0].postings, 100); /* varint: doc 100 */
 
-    varintBitmapAdd(terms[1].postings, 1);    /* bitmap: doc 1 */
-    varintBitmapAdd(terms[1].postings, 2);    /* bitmap: doc 2 */
-    varintBitmapAdd(terms[1].postings, 3);    /* bitmap: doc 3 */
-    varintBitmapAdd(terms[1].postings, 200);  /* bitmap: doc 200 */
+    varintBitmapAdd(terms[1].postings, 1);   /* bitmap: doc 1 */
+    varintBitmapAdd(terms[1].postings, 2);   /* bitmap: doc 2 */
+    varintBitmapAdd(terms[1].postings, 3);   /* bitmap: doc 3 */
+    varintBitmapAdd(terms[1].postings, 200); /* bitmap: doc 200 */
 
-    varintBitmapAdd(terms[2].postings, 2);    /* roaring: doc 2 */
-    varintBitmapAdd(terms[2].postings, 3);    /* roaring: doc 3 */
+    varintBitmapAdd(terms[2].postings, 2); /* roaring: doc 2 */
+    varintBitmapAdd(terms[2].postings, 3); /* roaring: doc 3 */
 
     /* Query: "varint" AND "bitmap" */
     printf("\nQuery: 'varint' AND 'bitmap'\n");
-    varintBitmap *result = varintBitmapAnd(terms[0].postings, terms[1].postings);
+    varintBitmap *result =
+        varintBitmapAnd(terms[0].postings, terms[1].postings);
 
     printf("Matching documents: ");
     varintBitmapIterator it = varintBitmapCreateIterator(result);
@@ -370,7 +375,7 @@ void example_inverted_index() {
     }
     printf("\n");
 
-    assert(varintBitmapCardinality(result) == 2);  /* docs 1, 3 */
+    assert(varintBitmapCardinality(result) == 2); /* docs 1, 3 */
     assert(varintBitmapContains(result, 1));
     assert(varintBitmapContains(result, 3));
 
@@ -387,7 +392,7 @@ void example_inverted_index() {
     }
     printf("\n");
 
-    assert(varintBitmapCardinality(result) == 4);  /* docs 1, 2, 3, 100 */
+    assert(varintBitmapCardinality(result) == 4); /* docs 1, 2, 3, 100 */
 
     printf("✓ Inverted index queries work correctly\n");
 
@@ -403,8 +408,8 @@ void example_inverted_index() {
 void example_space_efficiency() {
     printf("\n=== Example 8: Space Efficiency ===\n");
 
-    printf("\n%-20s | %-12s | %-10s | %-10s\n",
-           "Data Pattern", "Container", "Elements", "Bytes");
+    printf("\n%-20s | %-12s | %-10s | %-10s\n", "Data Pattern", "Container",
+           "Elements", "Bytes");
     printf("---------------------|--------------|------------|------------\n");
 
     /* Sparse data */
@@ -414,8 +419,7 @@ void example_space_efficiency() {
     }
     varintBitmapStats stats;
     varintBitmapGetStats(sparse, &stats);
-    printf("%-20s | %-12s | %10u | %10zu\n",
-           "Sparse (10 vals)",
+    printf("%-20s | %-12s | %10u | %10zu\n", "Sparse (10 vals)",
            stats.type == VARINT_BITMAP_ARRAY ? "ARRAY" : "BITMAP",
            stats.cardinality, stats.sizeBytes);
 
@@ -425,8 +429,7 @@ void example_space_efficiency() {
         varintBitmapAdd(medSparse, (uint16_t)i);
     }
     varintBitmapGetStats(medSparse, &stats);
-    printf("%-20s | %-12s | %10u | %10zu\n",
-           "Med sparse (500)",
+    printf("%-20s | %-12s | %10u | %10zu\n", "Med sparse (500)",
            stats.type == VARINT_BITMAP_ARRAY ? "ARRAY" : "BITMAP",
            stats.cardinality, stats.sizeBytes);
 
@@ -436,8 +439,7 @@ void example_space_efficiency() {
         varintBitmapAdd(dense, (uint16_t)i);
     }
     varintBitmapGetStats(dense, &stats);
-    printf("%-20s | %-12s | %10u | %10zu\n",
-           "Dense (10K contig)",
+    printf("%-20s | %-12s | %10u | %10zu\n", "Dense (10K contig)",
            stats.type == VARINT_BITMAP_BITMAP ? "BITMAP" : "ARRAY",
            stats.cardinality, stats.sizeBytes);
 
@@ -445,10 +447,10 @@ void example_space_efficiency() {
     varintBitmap *range = varintBitmapCreate();
     varintBitmapAddRange(range, 1000, 2000);
     varintBitmapGetStats(range, &stats);
-    printf("%-20s | %-12s | %10u | %10zu\n",
-           "Range [1000-2000)",
-           stats.type == VARINT_BITMAP_RUNS ? "RUNS" :
-           stats.type == VARINT_BITMAP_BITMAP ? "BITMAP" : "ARRAY",
+    printf("%-20s | %-12s | %10u | %10zu\n", "Range [1000-2000)",
+           stats.type == VARINT_BITMAP_RUNS     ? "RUNS"
+           : stats.type == VARINT_BITMAP_BITMAP ? "BITMAP"
+                                                : "ARRAY",
            stats.cardinality, stats.sizeBytes);
 
     printf("\nComparison to naive uint16_t array:\n");
@@ -521,11 +523,11 @@ void test_round_trip() {
 
     /* Test various patterns */
     const uint16_t testPatterns[][5] = {
-        {1, 2, 3, 4, 5},                    /* Sequential */
-        {10, 100, 1000, 10000, 50000},      /* Exponential */
-        {100, 200, 300, 400, 500},          /* Linear sparse */
-        {0, 1, 2, 65534, 65535},            /* Boundaries */
-        {42, 42, 42, 42, 42}                /* Duplicates */
+        {1, 2, 3, 4, 5},               /* Sequential */
+        {10, 100, 1000, 10000, 50000}, /* Exponential */
+        {100, 200, 300, 400, 500},     /* Linear sparse */
+        {0, 1, 2, 65534, 65535},       /* Boundaries */
+        {42, 42, 42, 42, 42}           /* Duplicates */
     };
 
     for (size_t pattern = 0; pattern < 5; pattern++) {

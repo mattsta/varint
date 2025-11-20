@@ -37,26 +37,26 @@
 #define _POSIX_C_SOURCE 200809L
 #define _DEFAULT_SOURCE
 
+#include <arpa/inet.h>
+#include <assert.h>
+#include <ctype.h>
+#include <errno.h>
+#include <fcntl.h>
+#include <netinet/in.h>
+#include <signal.h>
+#include <stdbool.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <stdint.h>
-#include <stdbool.h>
-#include <ctype.h>
-#include <time.h>
-#include <errno.h>
-#include <assert.h>
-#include <unistd.h>
-#include <fcntl.h>
-#include <sys/socket.h>
 #include <sys/epoll.h>
-#include <netinet/in.h>
-#include <arpa/inet.h>
-#include <signal.h>
+#include <sys/socket.h>
+#include <time.h>
+#include <unistd.h>
 
 #include "../../src/varint.h"
-#include "../../src/varintTagged.h"
 #include "../../src/varintBitstream.h"
+#include "../../src/varintTagged.h"
 
 // ============================================================================
 // CONFIGURATION
@@ -64,22 +64,22 @@
 
 #define DEFAULT_PORT 9999
 #define MAX_CLIENTS 1024
-#define MAX_MESSAGE_SIZE (64 * 1024)  // 64KB max message
+#define MAX_MESSAGE_SIZE (64 * 1024) // 64KB max message
 #define READ_BUFFER_SIZE 8192
 #define WRITE_BUFFER_SIZE 8192
 #define AUTH_TOKEN_MAX_LEN 256
-#define RATE_LIMIT_WINDOW 1  // seconds
-#define RATE_LIMIT_MAX_COMMANDS 1000  // commands per window
-#define AUTO_SAVE_INTERVAL 60  // seconds
-#define AUTO_SAVE_THRESHOLD 1000  // commands
-#define CLIENT_TIMEOUT 300  // seconds (5 minutes idle)
+#define RATE_LIMIT_WINDOW 1          // seconds
+#define RATE_LIMIT_MAX_COMMANDS 1000 // commands per window
+#define AUTO_SAVE_INTERVAL 60        // seconds
+#define AUTO_SAVE_THRESHOLD 1000     // commands
+#define CLIENT_TIMEOUT 300           // seconds (5 minutes idle)
 
 // Debug logging (comment out for production)
 // #define ENABLE_DEBUG_LOGGING
 #ifdef ENABLE_DEBUG_LOGGING
-    #define DEBUG_LOG(...) fprintf(stderr, "DEBUG: " __VA_ARGS__)
+#define DEBUG_LOG(...) fprintf(stderr, "DEBUG: " __VA_ARGS__)
 #else
-    #define DEBUG_LOG(...) ((void)0)
+#define DEBUG_LOG(...) ((void)0)
 #endif
 
 // ============================================================================
@@ -224,12 +224,17 @@ typedef struct {
 
 void trieInit(PatternTrie *trie);
 void trieFree(PatternTrie *trie);
-bool trieInsert(PatternTrie *trie, const char *pattern, uint32_t subscriberId, const char *subscriberName);
+bool trieInsert(PatternTrie *trie, const char *pattern, uint32_t subscriberId,
+                const char *subscriberName);
 bool trieRemovePattern(PatternTrie *trie, const char *pattern);
-bool trieRemoveSubscriber(PatternTrie *trie, const char *pattern, uint32_t subscriberId);
+bool trieRemoveSubscriber(PatternTrie *trie, const char *pattern,
+                          uint32_t subscriberId);
 void trieMatch(PatternTrie *trie, const char *input, MatchResult *result);
-void trieListPatterns(const PatternTrie *trie, char patterns[][MAX_PATTERN_LENGTH], size_t *count, size_t maxCount);
-void trieStats(const PatternTrie *trie, size_t *totalNodes, size_t *terminalNodes, size_t *wildcardNodes, size_t *maxDepth);
+void trieListPatterns(const PatternTrie *trie,
+                      char patterns[][MAX_PATTERN_LENGTH], size_t *count,
+                      size_t maxCount);
+void trieStats(const PatternTrie *trie, size_t *totalNodes,
+               size_t *terminalNodes, size_t *wildcardNodes, size_t *maxDepth);
 bool trieSave(const PatternTrie *trie, const char *filename);
 bool trieLoad(PatternTrie *trie, const char *filename);
 
@@ -237,12 +242,15 @@ bool trieLoad(PatternTrie *trie, const char *filename);
 // FORWARD DECLARATIONS - SERVER
 // ============================================================================
 
-bool serverInit(TrieServer *server, uint16_t port, const char *authToken, const char *saveFilePath);
+bool serverInit(TrieServer *server, uint16_t port, const char *authToken,
+                const char *saveFilePath);
 void serverRun(TrieServer *server);
 void serverShutdown(TrieServer *server);
 void handleClient(TrieServer *server, ClientConnection *client);
-bool processCommand(TrieServer *server, ClientConnection *client, const uint8_t *data, size_t length);
-void sendResponse(int epollFd, ClientConnection *client, StatusCode status, const uint8_t *data, size_t dataLen);
+bool processCommand(TrieServer *server, ClientConnection *client,
+                    const uint8_t *data, size_t length);
+void sendResponse(int epollFd, ClientConnection *client, StatusCode status,
+                  const uint8_t *data, size_t dataLen);
 
 // ============================================================================
 // UTILITY FUNCTIONS
@@ -263,7 +271,7 @@ static bool checkRateLimit(ClientConnection *client) {
     }
 
     if (client->commandsInWindow >= RATE_LIMIT_MAX_COMMANDS) {
-        return false;  // Rate limited
+        return false; // Rate limited
     }
 
     client->commandsInWindow++;
@@ -289,7 +297,9 @@ static void resetClient(int epollFd, ClientConnection *client) {
 
 // Secure string copy with bounds checking (for null-terminated strings)
 static void secureStrCopy(char *dst, size_t dstSize, const char *src) {
-    if (!dst || !src || dstSize == 0) return;
+    if (!dst || !src || dstSize == 0) {
+        return;
+    }
 
     size_t i;
     for (i = 0; i < dstSize - 1 && src[i] != '\0'; i++) {
@@ -299,24 +309,29 @@ static void secureStrCopy(char *dst, size_t dstSize, const char *src) {
 }
 
 // Secure binary copy with explicit length (for non-null-terminated binary data)
-static void secureBinaryCopy(char *dst, size_t dstSize, const uint8_t *src, size_t srcLen) {
-    if (!dst || !src || dstSize == 0) return;
+static void secureBinaryCopy(char *dst, size_t dstSize, const uint8_t *src,
+                             size_t srcLen) {
+    if (!dst || !src || dstSize == 0) {
+        return;
+    }
 
     // Copy up to the smaller of srcLen or dstSize-1
     size_t copyLen = (srcLen < dstSize - 1) ? srcLen : (dstSize - 1);
     memcpy(dst, src, copyLen);
-    dst[copyLen] = '\0';  // Always null-terminate
+    dst[copyLen] = '\0'; // Always null-terminate
 }
 
 // Validate pattern string (alphanumeric, dots, wildcards only)
 static bool validatePattern(const char *pattern) {
-    if (!pattern || strlen(pattern) == 0 || strlen(pattern) >= MAX_PATTERN_LENGTH) {
+    if (!pattern || strlen(pattern) == 0 ||
+        strlen(pattern) >= MAX_PATTERN_LENGTH) {
         return false;
     }
 
     for (size_t i = 0; pattern[i] != '\0'; i++) {
         char c = pattern[i];
-        if (!isalnum(c) && c != '.' && c != '*' && c != '#' && c != '_' && c != '-') {
+        if (!isalnum(c) && c != '.' && c != '*' && c != '#' && c != '_' &&
+            c != '-') {
             return false;
         }
     }
@@ -352,7 +367,8 @@ static void subscriberListInit(SubscriberList *list) {
     list->count = 0;
 }
 
-static bool subscriberListAdd(SubscriberList *list, uint32_t id, const char *name) {
+static bool subscriberListAdd(SubscriberList *list, uint32_t id,
+                              const char *name) {
     if (list->count >= MAX_SUBSCRIBERS) {
         return false;
     }
@@ -365,7 +381,8 @@ static bool subscriberListAdd(SubscriberList *list, uint32_t id, const char *nam
     }
 
     list->subscribers[list->count].id = id;
-    secureStrCopy(list->subscribers[list->count].name, MAX_SUBSCRIBER_NAME, name);
+    secureStrCopy(list->subscribers[list->count].name, MAX_SUBSCRIBER_NAME,
+                  name);
     list->count++;
     return true;
 }
@@ -404,7 +421,9 @@ typedef struct {
 } ParsedPattern;
 
 static bool parsePattern(const char *pattern, ParsedPattern *parsed) {
-    if (!pattern || !parsed) return false;
+    if (!pattern || !parsed) {
+        return false;
+    }
 
     parsed->count = 0;
     const char *start = pattern;
@@ -470,7 +489,9 @@ static bool parsePattern(const char *pattern, ParsedPattern *parsed) {
 
 static TrieNode *trieNodeCreate(const char *segment, SegmentType type) {
     TrieNode *node = (TrieNode *)calloc(1, sizeof(TrieNode));
-    if (!node) return NULL;
+    if (!node) {
+        return NULL;
+    }
 
     secureStrCopy(node->segment, MAX_SEGMENT_LENGTH, segment);
     node->type = type;
@@ -484,7 +505,9 @@ static TrieNode *trieNodeCreate(const char *segment, SegmentType type) {
 }
 
 static void trieNodeFree(TrieNode *node) {
-    if (!node) return;
+    if (!node) {
+        return;
+    }
 
     for (size_t i = 0; i < node->childCount; i++) {
         trieNodeFree(node->children[i]);
@@ -494,12 +517,18 @@ static void trieNodeFree(TrieNode *node) {
 }
 
 static bool trieNodeAddChild(TrieNode *parent, TrieNode *child) {
-    if (!parent || !child) return false;
+    if (!parent || !child) {
+        return false;
+    }
 
     if (parent->childCount >= parent->childCapacity) {
-        size_t newCapacity = parent->childCapacity == 0 ? 4 : parent->childCapacity * 2;
-        TrieNode **newChildren = (TrieNode **)realloc(parent->children, newCapacity * sizeof(TrieNode *));
-        if (!newChildren) return false;
+        size_t newCapacity =
+            parent->childCapacity == 0 ? 4 : parent->childCapacity * 2;
+        TrieNode **newChildren = (TrieNode **)realloc(
+            parent->children, newCapacity * sizeof(TrieNode *));
+        if (!newChildren) {
+            return false;
+        }
 
         parent->children = newChildren;
         parent->childCapacity = newCapacity;
@@ -509,8 +538,11 @@ static bool trieNodeAddChild(TrieNode *parent, TrieNode *child) {
     return true;
 }
 
-static TrieNode *trieNodeFindChild(TrieNode *parent, const char *segment, SegmentType type) {
-    if (!parent) return NULL;
+static TrieNode *trieNodeFindChild(TrieNode *parent, const char *segment,
+                                   SegmentType type) {
+    if (!parent) {
+        return NULL;
+    }
 
     for (size_t i = 0; i < parent->childCount; i++) {
         TrieNode *child = parent->children[i];
@@ -541,12 +573,15 @@ void trieFree(PatternTrie *trie) {
 // ============================================================================
 
 static TrieNode *trieFindNode(TrieNode *root, const ParsedPattern *parsed) {
-    if (!root || !parsed) return NULL;
+    if (!root || !parsed) {
+        return NULL;
+    }
 
     TrieNode *current = root;
 
     for (size_t i = 0; i < parsed->count; i++) {
-        TrieNode *child = trieNodeFindChild(current, parsed->segments[i], parsed->types[i]);
+        TrieNode *child =
+            trieNodeFindChild(current, parsed->segments[i], parsed->types[i]);
         if (!child) {
             return NULL;
         }
@@ -556,8 +591,11 @@ static TrieNode *trieFindNode(TrieNode *root, const ParsedPattern *parsed) {
     return current;
 }
 
-bool trieInsert(PatternTrie *trie, const char *pattern, uint32_t subscriberId, const char *subscriberName) {
-    if (!trie || !validatePattern(pattern) || !validateSubscriberId(subscriberId) || !validateSubscriberName(subscriberName)) {
+bool trieInsert(PatternTrie *trie, const char *pattern, uint32_t subscriberId,
+                const char *subscriberName) {
+    if (!trie || !validatePattern(pattern) ||
+        !validateSubscriberId(subscriberId) ||
+        !validateSubscriberName(subscriberName)) {
         return false;
     }
 
@@ -569,11 +607,14 @@ bool trieInsert(PatternTrie *trie, const char *pattern, uint32_t subscriberId, c
     TrieNode *current = trie->root;
 
     for (size_t i = 0; i < parsed.count; i++) {
-        TrieNode *child = trieNodeFindChild(current, parsed.segments[i], parsed.types[i]);
+        TrieNode *child =
+            trieNodeFindChild(current, parsed.segments[i], parsed.types[i]);
 
         if (!child) {
             child = trieNodeCreate(parsed.segments[i], parsed.types[i]);
-            if (!child) return false;
+            if (!child) {
+                return false;
+            }
 
             if (!trieNodeAddChild(current, child)) {
                 trieNodeFree(child);
@@ -587,9 +628,11 @@ bool trieInsert(PatternTrie *trie, const char *pattern, uint32_t subscriberId, c
     }
 
     bool isNewPattern = !current->isTerminal;
-    bool isNewSubscriber = !subscriberListContains(&current->subscribers, subscriberId);
+    bool isNewSubscriber =
+        !subscriberListContains(&current->subscribers, subscriberId);
 
-    if (!subscriberListAdd(&current->subscribers, subscriberId, subscriberName)) {
+    if (!subscriberListAdd(&current->subscribers, subscriberId,
+                           subscriberName)) {
         return false;
     }
 
@@ -635,8 +678,10 @@ bool trieRemovePattern(PatternTrie *trie, const char *pattern) {
     return true;
 }
 
-bool trieRemoveSubscriber(PatternTrie *trie, const char *pattern, uint32_t subscriberId) {
-    if (!trie || !validatePattern(pattern) || !validateSubscriberId(subscriberId)) {
+bool trieRemoveSubscriber(PatternTrie *trie, const char *pattern,
+                          uint32_t subscriberId) {
+    if (!trie || !validatePattern(pattern) ||
+        !validateSubscriberId(subscriberId)) {
         return false;
     }
 
@@ -673,8 +718,10 @@ static void matchResultInit(MatchResult *result) {
     result->count = 0;
 }
 
-static void matchResultAdd(MatchResult *result, const SubscriberList *subscribers) {
-    for (size_t i = 0; i < subscribers->count && result->count < MAX_SUBSCRIBERS; i++) {
+static void matchResultAdd(MatchResult *result,
+                           const SubscriberList *subscribers) {
+    for (size_t i = 0;
+         i < subscribers->count && result->count < MAX_SUBSCRIBERS; i++) {
         // Check for duplicates
         bool exists = false;
         for (size_t j = 0; j < result->count; j++) {
@@ -685,16 +732,19 @@ static void matchResultAdd(MatchResult *result, const SubscriberList *subscriber
         }
 
         if (!exists) {
-            result->subscriberIds[result->count] = subscribers->subscribers[i].id;
-            secureStrCopy(result->subscriberNames[result->count], MAX_SUBSCRIBER_NAME,
-                         subscribers->subscribers[i].name);
+            result->subscriberIds[result->count] =
+                subscribers->subscribers[i].id;
+            secureStrCopy(result->subscriberNames[result->count],
+                          MAX_SUBSCRIBER_NAME,
+                          subscribers->subscribers[i].name);
             result->count++;
         }
     }
 }
 
-static void trieMatchRecursive(TrieNode *node, const char **segments, size_t segmentCount,
-                               size_t currentSegment, MatchResult *result) {
+static void trieMatchRecursive(TrieNode *node, const char **segments,
+                               size_t segmentCount, size_t currentSegment,
+                               MatchResult *result) {
     if (currentSegment >= segmentCount) {
         if (node->isTerminal) {
             matchResultAdd(result, &node->subscribers);
@@ -704,7 +754,8 @@ static void trieMatchRecursive(TrieNode *node, const char **segments, size_t seg
         for (size_t i = 0; i < node->childCount; i++) {
             TrieNode *child = node->children[i];
             if (child->type == SEGMENT_HASH) {
-                trieMatchRecursive(child, segments, segmentCount, currentSegment, result);
+                trieMatchRecursive(child, segments, segmentCount,
+                                   currentSegment, result);
             }
         }
         return;
@@ -717,23 +768,29 @@ static void trieMatchRecursive(TrieNode *node, const char **segments, size_t seg
 
         if (child->type == SEGMENT_LITERAL) {
             if (strcmp(child->segment, segment) == 0) {
-                trieMatchRecursive(child, segments, segmentCount, currentSegment + 1, result);
+                trieMatchRecursive(child, segments, segmentCount,
+                                   currentSegment + 1, result);
             }
         } else if (child->type == SEGMENT_STAR) {
-            trieMatchRecursive(child, segments, segmentCount, currentSegment + 1, result);
+            trieMatchRecursive(child, segments, segmentCount,
+                               currentSegment + 1, result);
         } else if (child->type == SEGMENT_HASH) {
             // Try matching 0 segments
-            trieMatchRecursive(child, segments, segmentCount, currentSegment, result);
+            trieMatchRecursive(child, segments, segmentCount, currentSegment,
+                               result);
             // Try matching 1+ segments
             for (size_t j = currentSegment; j < segmentCount; j++) {
-                trieMatchRecursive(child, segments, segmentCount, j + 1, result);
+                trieMatchRecursive(child, segments, segmentCount, j + 1,
+                                   result);
             }
         }
     }
 }
 
 void trieMatch(PatternTrie *trie, const char *input, MatchResult *result) {
-    if (!trie || !input || !result) return;
+    if (!trie || !input || !result) {
+        return;
+    }
 
     matchResultInit(result);
 
@@ -754,9 +811,13 @@ void trieMatch(PatternTrie *trie, const char *input, MatchResult *result) {
 // LISTING AND STATISTICS
 // ============================================================================
 
-static void trieListPatternsRecursive(TrieNode *node, char *currentPath, size_t pathLen,
-                                     char patterns[][MAX_PATTERN_LENGTH], size_t *count, size_t maxCount) {
-    if (!node || *count >= maxCount) return;
+static void trieListPatternsRecursive(TrieNode *node, char *currentPath,
+                                      size_t pathLen,
+                                      char patterns[][MAX_PATTERN_LENGTH],
+                                      size_t *count, size_t maxCount) {
+    if (!node || *count >= maxCount) {
+        return;
+    }
 
     if (node->isTerminal) {
         secureStrCopy(patterns[*count], MAX_PATTERN_LENGTH, currentPath);
@@ -778,24 +839,32 @@ static void trieListPatternsRecursive(TrieNode *node, char *currentPath, size_t 
             memcpy(currentPath + newLen, child->segment, segLen);
             currentPath[newLen + segLen] = '\0';
 
-            trieListPatternsRecursive(child, currentPath, newLen + segLen, patterns, count, maxCount);
+            trieListPatternsRecursive(child, currentPath, newLen + segLen,
+                                      patterns, count, maxCount);
             currentPath[pathLen] = '\0'; // Restore path
         }
     }
 }
 
-void trieListPatterns(const PatternTrie *trie, char patterns[][MAX_PATTERN_LENGTH], size_t *count, size_t maxCount) {
-    if (!trie || !patterns || !count) return;
+void trieListPatterns(const PatternTrie *trie,
+                      char patterns[][MAX_PATTERN_LENGTH], size_t *count,
+                      size_t maxCount) {
+    if (!trie || !patterns || !count) {
+        return;
+    }
 
     *count = 0;
     char currentPath[MAX_PATTERN_LENGTH] = "";
 
-    trieListPatternsRecursive(trie->root, currentPath, 0, patterns, count, maxCount);
+    trieListPatternsRecursive(trie->root, currentPath, 0, patterns, count,
+                              maxCount);
 }
 
-void trieStats(const PatternTrie *trie, size_t *totalNodes, size_t *terminalNodes,
-               size_t *wildcardNodes, size_t *maxDepth) {
-    if (!trie) return;
+void trieStats(const PatternTrie *trie, size_t *totalNodes,
+               size_t *terminalNodes, size_t *wildcardNodes, size_t *maxDepth) {
+    if (!trie) {
+        return;
+    }
 
     *totalNodes = 0;
     *terminalNodes = 0;
@@ -827,9 +896,15 @@ void trieStats(const PatternTrie *trie, size_t *totalNodes, size_t *terminalNode
         front++;
 
         (*totalNodes)++;
-        if (node->isTerminal) (*terminalNodes)++;
-        if (node->type != SEGMENT_LITERAL) (*wildcardNodes)++;
-        if (depth > *maxDepth) *maxDepth = depth;
+        if (node->isTerminal) {
+            (*terminalNodes)++;
+        }
+        if (node->type != SEGMENT_LITERAL) {
+            (*wildcardNodes)++;
+        }
+        if (depth > *maxDepth) {
+            *maxDepth = depth;
+        }
 
         for (size_t i = 0; i < node->childCount && back < queueSize; i++) {
             queue[back] = node->children[i];
@@ -865,7 +940,8 @@ static size_t trieNodeSerialize(const TrieNode *node, uint8_t *buffer) {
     // Subscriber count and data
     offset += varintTaggedPut64(buffer + offset, node->subscribers.count);
     for (size_t i = 0; i < node->subscribers.count; i++) {
-        offset += varintTaggedPut64(buffer + offset, node->subscribers.subscribers[i].id);
+        offset += varintTaggedPut64(buffer + offset,
+                                    node->subscribers.subscribers[i].id);
 
         size_t nameLen = strlen(node->subscribers.subscribers[i].name);
         offset += varintTaggedPut64(buffer + offset, nameLen);
@@ -888,7 +964,9 @@ static size_t trieNodeDeserialize(TrieNode **node, const uint8_t *buffer) {
     size_t offset = 0;
 
     *node = trieNodeCreate("", SEGMENT_LITERAL);
-    if (!*node) return 0;
+    if (!*node) {
+        return 0;
+    }
 
     // Read flags
     uint8_t flagsByte = buffer[offset++];
@@ -941,7 +1019,9 @@ static size_t trieNodeDeserialize(TrieNode **node, const uint8_t *buffer) {
     for (size_t i = 0; i < childCount; i++) {
         TrieNode *child;
         size_t childSize = trieNodeDeserialize(&child, buffer + offset);
-        if (childSize == 0) break;
+        if (childSize == 0) {
+            break;
+        }
 
         trieNodeAddChild(*node, child);
         offset += childSize;
@@ -951,7 +1031,9 @@ static size_t trieNodeDeserialize(TrieNode **node, const uint8_t *buffer) {
 }
 
 bool trieSave(const PatternTrie *trie, const char *filename) {
-    if (!trie || !filename) return false;
+    if (!trie || !filename) {
+        return false;
+    }
 
     FILE *file = fopen(filename, "wb");
     if (!file) {
@@ -1002,7 +1084,9 @@ bool trieSave(const PatternTrie *trie, const char *filename) {
 }
 
 bool trieLoad(PatternTrie *trie, const char *filename) {
-    if (!trie || !filename) return false;
+    if (!trie || !filename) {
+        return false;
+    }
 
     FILE *file = fopen(filename, "rb");
     if (!file) {
@@ -1103,7 +1187,8 @@ bool trieLoad(PatternTrie *trie, const char *filename) {
 // SERVER INITIALIZATION
 // ============================================================================
 
-bool serverInit(TrieServer *server, uint16_t port, const char *authToken, const char *saveFilePath) {
+bool serverInit(TrieServer *server, uint16_t port, const char *authToken,
+                const char *saveFilePath) {
     memset(server, 0, sizeof(TrieServer));
 
     server->port = port;
@@ -1137,7 +1222,8 @@ bool serverInit(TrieServer *server, uint16_t port, const char *authToken, const 
     if (server->saveFilePath && access(server->saveFilePath, F_OK) == 0) {
         printf("Loading existing trie from %s...\n", server->saveFilePath);
         if (!trieLoad(&server->trie, server->saveFilePath)) {
-            fprintf(stderr, "Warning: Failed to load trie from %s\n", server->saveFilePath);
+            fprintf(stderr, "Warning: Failed to load trie from %s\n",
+                    server->saveFilePath);
         }
     }
 
@@ -1146,8 +1232,12 @@ bool serverInit(TrieServer *server, uint16_t port, const char *authToken, const 
     if (server->listenFd < 0) {
         perror("socket");
         trieFree(&server->trie);
-        if (server->authToken) free(server->authToken);
-        if (server->saveFilePath) free(server->saveFilePath);
+        if (server->authToken) {
+            free(server->authToken);
+        }
+        if (server->saveFilePath) {
+            free(server->saveFilePath);
+        }
         return false;
     }
 
@@ -1166,8 +1256,12 @@ bool serverInit(TrieServer *server, uint16_t port, const char *authToken, const 
         perror("bind");
         close(server->listenFd);
         trieFree(&server->trie);
-        if (server->authToken) free(server->authToken);
-        if (server->saveFilePath) free(server->saveFilePath);
+        if (server->authToken) {
+            free(server->authToken);
+        }
+        if (server->saveFilePath) {
+            free(server->saveFilePath);
+        }
         return false;
     }
 
@@ -1176,8 +1270,12 @@ bool serverInit(TrieServer *server, uint16_t port, const char *authToken, const 
         perror("listen");
         close(server->listenFd);
         trieFree(&server->trie);
-        if (server->authToken) free(server->authToken);
-        if (server->saveFilePath) free(server->saveFilePath);
+        if (server->authToken) {
+            free(server->authToken);
+        }
+        if (server->saveFilePath) {
+            free(server->saveFilePath);
+        }
         return false;
     }
 
@@ -1189,8 +1287,12 @@ bool serverInit(TrieServer *server, uint16_t port, const char *authToken, const 
         perror("epoll_create1");
         close(server->listenFd);
         trieFree(&server->trie);
-        if (server->authToken) free(server->authToken);
-        if (server->saveFilePath) free(server->saveFilePath);
+        if (server->authToken) {
+            free(server->authToken);
+        }
+        if (server->saveFilePath) {
+            free(server->saveFilePath);
+        }
         return false;
     }
 
@@ -1198,19 +1300,26 @@ bool serverInit(TrieServer *server, uint16_t port, const char *authToken, const 
     struct epoll_event ev;
     ev.events = EPOLLIN;
     ev.data.fd = server->listenFd;
-    printf("DEBUG: Registering listen socket (fd=%d) with epoll (fd=%d)\n", server->listenFd, server->epollFd);
+    printf("DEBUG: Registering listen socket (fd=%d) with epoll (fd=%d)\n",
+           server->listenFd, server->epollFd);
     if (epoll_ctl(server->epollFd, EPOLL_CTL_ADD, server->listenFd, &ev) < 0) {
         perror("epoll_ctl: listen socket");
         close(server->epollFd);
         close(server->listenFd);
         trieFree(&server->trie);
-        if (server->authToken) free(server->authToken);
-        if (server->saveFilePath) free(server->saveFilePath);
+        if (server->authToken) {
+            free(server->authToken);
+        }
+        if (server->saveFilePath) {
+            free(server->saveFilePath);
+        }
         return false;
     }
     printf("DEBUG: Listen socket registered successfully\n");
 
-    printf("Trie server listening on port %d (using epoll for high-performance async I/O)\n", port);
+    printf("Trie server listening on port %d (using epoll for high-performance "
+           "async I/O)\n",
+           port);
     if (server->requireAuth) {
         printf("Authentication: ENABLED\n");
     }
@@ -1238,9 +1347,10 @@ void serverRun(TrieServer *server) {
     signal(SIGTERM, signalHandler);
 
     fprintf(stderr, "Server ready. Press Ctrl+C to stop.\n");
-    DEBUG_LOG("Entering event loop with epollFd=%d, listenFd=%d\n", server->epollFd, server->listenFd);
+    DEBUG_LOG("Entering event loop with epollFd=%d, listenFd=%d\n",
+              server->epollFd, server->listenFd);
 
-    #define MAX_EVENTS 64
+#define MAX_EVENTS 64
     struct epoll_event events[MAX_EVENTS];
 
     int loopCount = 0;
@@ -1249,12 +1359,15 @@ void serverRun(TrieServer *server) {
         int nfds = epoll_wait(server->epollFd, events, MAX_EVENTS, 1000);
 
         if (loopCount < 5 || nfds > 0) {
-            DEBUG_LOG("epoll_wait iteration %d returned nfds=%d\n", loopCount, nfds);
+            DEBUG_LOG("epoll_wait iteration %d returned nfds=%d\n", loopCount,
+                      nfds);
         }
         loopCount++;
 
         if (nfds < 0) {
-            if (errno == EINTR) continue;
+            if (errno == EINTR) {
+                continue;
+            }
             perror("epoll_wait");
             break;
         }
@@ -1273,7 +1386,8 @@ void serverRun(TrieServer *server) {
                 DEBUG_LOG("New connection attempt on listen socket\n");
                 struct sockaddr_in clientAddr;
                 socklen_t addrLen = sizeof(clientAddr);
-                int clientFd = accept(server->listenFd, (struct sockaddr *)&clientAddr, &addrLen);
+                int clientFd = accept(server->listenFd,
+                                      (struct sockaddr *)&clientAddr, &addrLen);
 
                 if (clientFd >= 0) {
                     // Find free slot
@@ -1297,19 +1411,25 @@ void serverRun(TrieServer *server) {
 
                         // Register client with epoll for edge-triggered reading
                         struct epoll_event ev;
-                        ev.events = EPOLLIN | EPOLLET;  // Edge-triggered prevents busy-loop
+                        ev.events =
+                            EPOLLIN |
+                            EPOLLET; // Edge-triggered prevents busy-loop
                         ev.data.fd = clientFd;
-                        if (epoll_ctl(server->epollFd, EPOLL_CTL_ADD, clientFd, &ev) < 0) {
+                        if (epoll_ctl(server->epollFd, EPOLL_CTL_ADD, clientFd,
+                                      &ev) < 0) {
                             perror("epoll_ctl: client socket");
                             close(clientFd);
                             client->fd = -1;
                         } else {
                             server->totalConnections++;
-                            printf("New connection from %s (slot %d, total connections: %lu)\n",
-                                   inet_ntoa(clientAddr.sin_addr), slot, server->totalConnections);
+                            printf("New connection from %s (slot %d, total "
+                                   "connections: %lu)\n",
+                                   inet_ntoa(clientAddr.sin_addr), slot,
+                                   server->totalConnections);
                         }
                     } else {
-                        fprintf(stderr, "Max clients reached, rejecting connection\n");
+                        fprintf(stderr,
+                                "Max clients reached, rejecting connection\n");
                         close(clientFd);
                     }
                 }
@@ -1327,7 +1447,9 @@ void serverRun(TrieServer *server) {
                 }
             }
 
-            if (!client) continue;
+            if (!client) {
+                continue;
+            }
 
             bool active = false;
 
@@ -1339,18 +1461,23 @@ void serverRun(TrieServer *server) {
 
             // Handle write events
             if (events[n].events & EPOLLOUT) {
-                DEBUG_LOG("EPOLLOUT event on fd=%d, state=%d\n", fd, client->state);
+                DEBUG_LOG("EPOLLOUT event on fd=%d, state=%d\n", fd,
+                          client->state);
             }
-            if (events[n].events & EPOLLOUT && client->state == CONN_WRITING_RESPONSE) {
-                DEBUG_LOG("Writing response, writeOffset=%zu, writeLength=%zu\n",
-                        client->writeOffset, client->writeLength);
-                ssize_t sent = write(client->fd,
-                                    client->writeBuffer + client->writeOffset,
-                                    client->writeLength - client->writeOffset);
-                DEBUG_LOG("write() returned %zd (errno=%d)\n", sent, sent < 0 ? errno : 0);
+            if (events[n].events & EPOLLOUT &&
+                client->state == CONN_WRITING_RESPONSE) {
+                DEBUG_LOG(
+                    "Writing response, writeOffset=%zu, writeLength=%zu\n",
+                    client->writeOffset, client->writeLength);
+                ssize_t sent =
+                    write(client->fd, client->writeBuffer + client->writeOffset,
+                          client->writeLength - client->writeOffset);
+                DEBUG_LOG("write() returned %zd (errno=%d)\n", sent,
+                          sent < 0 ? errno : 0);
                 if (sent > 0) {
                     client->writeOffset += sent;
-                    DEBUG_LOG("Sent %zd bytes, writeOffset now %zu\n", sent, client->writeOffset);
+                    DEBUG_LOG("Sent %zd bytes, writeOffset now %zu\n", sent,
+                              client->writeOffset);
                     if (client->writeOffset >= client->writeLength) {
                         // Response fully sent, switch back to reading
                         client->state = CONN_READING_LENGTH;
@@ -1358,14 +1485,17 @@ void serverRun(TrieServer *server) {
                         client->writeOffset = 0;
                         client->writeLength = 0;
 
-                        // Modify epoll to monitor for read only (edge-triggered)
+                        // Modify epoll to monitor for read only
+                        // (edge-triggered)
                         struct epoll_event ev;
                         ev.events = EPOLLIN | EPOLLET;
                         ev.data.fd = client->fd;
-                        epoll_ctl(server->epollFd, EPOLL_CTL_MOD, client->fd, &ev);
+                        epoll_ctl(server->epollFd, EPOLL_CTL_MOD, client->fd,
+                                  &ev);
                     }
                     active = true;
-                } else if (sent < 0 && errno != EAGAIN && errno != EWOULDBLOCK) {
+                } else if (sent < 0 && errno != EAGAIN &&
+                           errno != EWOULDBLOCK) {
                     resetClient(server->epollFd, client);
                 }
             }
@@ -1379,7 +1509,8 @@ void serverRun(TrieServer *server) {
         time_t now = time(NULL);
         for (int i = 0; i < MAX_CLIENTS; i++) {
             ClientConnection *client = &server->clients[i];
-            if (client->fd >= 0 && now - client->lastActivity > CLIENT_TIMEOUT) {
+            if (client->fd >= 0 &&
+                now - client->lastActivity > CLIENT_TIMEOUT) {
                 printf("Client %d timed out\n", i);
                 resetClient(server->epollFd, client);
             }
@@ -1453,15 +1584,17 @@ void serverShutdown(TrieServer *server) {
 // PROTOCOL HANDLING
 // ============================================================================
 
-void sendResponse(int epollFd, ClientConnection *client, StatusCode status, const uint8_t *data, size_t dataLen) {
-    DEBUG_LOG("sendResponse called - fd=%d status=0x%02X dataLen=%zu\n", client->fd, status, dataLen);
+void sendResponse(int epollFd, ClientConnection *client, StatusCode status,
+                  const uint8_t *data, size_t dataLen) {
+    DEBUG_LOG("sendResponse called - fd=%d status=0x%02X dataLen=%zu\n",
+              client->fd, status, dataLen);
     // Build response: [Length:varint][Status:1byte][Data]
     uint8_t tempBuf[MAX_MESSAGE_SIZE];
     size_t offset = 0;
 
     // Reserve space for length (will fill in later)
     size_t lengthOffset = 0;
-    offset += 5;  // Max varint size for length
+    offset += 5; // Max varint size for length
 
     // Status code
     tempBuf[offset++] = (uint8_t)status;
@@ -1469,7 +1602,7 @@ void sendResponse(int epollFd, ClientConnection *client, StatusCode status, cons
     // Data payload
     if (data && dataLen > 0) {
         if (offset + dataLen > sizeof(tempBuf)) {
-            return;  // Too large
+            return; // Too large
         }
         memcpy(tempBuf + offset, data, dataLen);
         offset += dataLen;
@@ -1484,7 +1617,7 @@ void sendResponse(int epollFd, ClientConnection *client, StatusCode status, cons
     // Copy to write buffer (length + status + data)
     size_t totalSize = lengthBytes + messageLen;
     if (totalSize > WRITE_BUFFER_SIZE) {
-        return;  // Response too large
+        return; // Response too large
     }
 
     // Shift message to remove extra length padding
@@ -1498,13 +1631,16 @@ void sendResponse(int epollFd, ClientConnection *client, StatusCode status, cons
     struct epoll_event ev;
     ev.events = EPOLLIN | EPOLLOUT | EPOLLET;
     ev.data.fd = client->fd;
-    DEBUG_LOG("Modifying epoll for fd=%d to EPOLLIN|EPOLLOUT|EPOLLET, writeLength=%zu\n",
-            client->fd, client->writeLength);
+    DEBUG_LOG("Modifying epoll for fd=%d to EPOLLIN|EPOLLOUT|EPOLLET, "
+              "writeLength=%zu\n",
+              client->fd, client->writeLength);
     int ret = epoll_ctl(epollFd, EPOLL_CTL_MOD, client->fd, &ev);
-    DEBUG_LOG("epoll_ctl MOD returned %d (errno=%d)\n", ret, ret < 0 ? errno : 0);
+    DEBUG_LOG("epoll_ctl MOD returned %d (errno=%d)\n", ret,
+              ret < 0 ? errno : 0);
 }
 
-bool processCommand(TrieServer *server, ClientConnection *client, const uint8_t *data, size_t length) {
+bool processCommand(TrieServer *server, ClientConnection *client,
+                    const uint8_t *data, size_t length) {
     DEBUG_LOG("processCommand called - length=%zu\n", length);
     if (length == 0) {
         sendResponse(server->epollFd, client, STATUS_ERROR, NULL, 0);
@@ -1535,340 +1671,370 @@ bool processCommand(TrieServer *server, ClientConnection *client, const uint8_t 
     size_t responseLen = 0;
 
     switch (cmd) {
-        case CMD_PING: {
-            // PING - just respond OK
+    case CMD_PING: {
+        // PING - just respond OK
+        sendResponse(server->epollFd, client, STATUS_OK, NULL, 0);
+        break;
+    }
+
+    case CMD_ADD: {
+        // ADD
+        // <pattern_len:varint><pattern:bytes><subscriber_id:varint><subscriber_name_len:varint><subscriber_name:bytes>
+        uint64_t patternLen;
+        varintWidth width = varintTaggedGet64(data + offset, &patternLen);
+        if (width == VARINT_WIDTH_INVALID) {
+            fprintf(stderr,
+                    "Error: Invalid varint for patternLen in CMD_ADD\n");
+            sendResponse(server->epollFd, client, STATUS_ERROR, NULL, 0);
+            server->totalErrors++;
+            return false;
+        }
+        offset += width;
+
+        if (offset + patternLen > length) {
+            sendResponse(server->epollFd, client, STATUS_ERROR, NULL, 0);
+            server->totalErrors++;
+            return false;
+        }
+
+        char pattern[MAX_PATTERN_LENGTH];
+        secureBinaryCopy(pattern, MAX_PATTERN_LENGTH, data + offset,
+                         patternLen);
+        offset += patternLen;
+
+        uint64_t subscriberId;
+        width = varintTaggedGet64(data + offset, &subscriberId);
+        if (width == VARINT_WIDTH_INVALID) {
+            fprintf(stderr,
+                    "Error: Invalid varint for subscriberId in CMD_ADD\n");
+            sendResponse(server->epollFd, client, STATUS_ERROR, NULL, 0);
+            server->totalErrors++;
+            return false;
+        }
+        offset += width;
+
+        uint64_t subscriberNameLen;
+        width = varintTaggedGet64(data + offset, &subscriberNameLen);
+        if (width == VARINT_WIDTH_INVALID) {
+            fprintf(stderr,
+                    "Error: Invalid varint for subscriberNameLen in CMD_ADD\n");
+            sendResponse(server->epollFd, client, STATUS_ERROR, NULL, 0);
+            server->totalErrors++;
+            return false;
+        }
+        offset += width;
+
+        if (offset + subscriberNameLen > length) {
+            sendResponse(server->epollFd, client, STATUS_ERROR, NULL, 0);
+            server->totalErrors++;
+            return false;
+        }
+
+        char subscriberName[MAX_SUBSCRIBER_NAME];
+        secureBinaryCopy(subscriberName, MAX_SUBSCRIBER_NAME, data + offset,
+                         subscriberNameLen);
+
+        if (trieInsert(&server->trie, pattern, (uint32_t)subscriberId,
+                       subscriberName)) {
+            sendResponse(server->epollFd, client, STATUS_OK, NULL, 0);
+        } else {
+            sendResponse(server->epollFd, client, STATUS_ERROR, NULL, 0);
+            server->totalErrors++;
+        }
+        break;
+    }
+
+    case CMD_REMOVE: {
+        // REMOVE <pattern_len:varint><pattern:bytes>
+        uint64_t patternLen;
+        varintWidth width = varintTaggedGet64(data + offset, &patternLen);
+        if (width == VARINT_WIDTH_INVALID) {
+            fprintf(stderr,
+                    "Error: Invalid varint for patternLen in CMD_REMOVE\n");
+            sendResponse(server->epollFd, client, STATUS_ERROR, NULL, 0);
+            server->totalErrors++;
+            return false;
+        }
+        offset += width;
+
+        if (offset + patternLen > length) {
+            sendResponse(server->epollFd, client, STATUS_ERROR, NULL, 0);
+            server->totalErrors++;
+            return false;
+        }
+
+        char pattern[MAX_PATTERN_LENGTH];
+        secureBinaryCopy(pattern, MAX_PATTERN_LENGTH, data + offset,
+                         patternLen);
+
+        if (trieRemovePattern(&server->trie, pattern)) {
+            sendResponse(server->epollFd, client, STATUS_OK, NULL, 0);
+        } else {
+            sendResponse(server->epollFd, client, STATUS_ERROR, NULL, 0);
+            server->totalErrors++;
+        }
+        break;
+    }
+
+    case CMD_SUBSCRIBE: {
+        // SUBSCRIBE
+        // <pattern_len:varint><pattern:bytes><subscriber_id:varint><subscriber_name_len:varint><subscriber_name:bytes>
+        uint64_t patternLen;
+        varintWidth width = varintTaggedGet64(data + offset, &patternLen);
+        if (width == VARINT_WIDTH_INVALID) {
+            fprintf(stderr,
+                    "Error: Invalid varint for patternLen in CMD_SUBSCRIBE\n");
+            sendResponse(server->epollFd, client, STATUS_ERROR, NULL, 0);
+            server->totalErrors++;
+            return false;
+        }
+        offset += width;
+
+        if (offset + patternLen > length) {
+            sendResponse(server->epollFd, client, STATUS_ERROR, NULL, 0);
+            server->totalErrors++;
+            return false;
+        }
+
+        char pattern[MAX_PATTERN_LENGTH];
+        secureBinaryCopy(pattern, MAX_PATTERN_LENGTH, data + offset,
+                         patternLen);
+        offset += patternLen;
+
+        uint64_t subscriberId;
+        width = varintTaggedGet64(data + offset, &subscriberId);
+        if (width == VARINT_WIDTH_INVALID) {
+            fprintf(
+                stderr,
+                "Error: Invalid varint for subscriberId in CMD_SUBSCRIBE\n");
+            sendResponse(server->epollFd, client, STATUS_ERROR, NULL, 0);
+            server->totalErrors++;
+            return false;
+        }
+        offset += width;
+
+        uint64_t subscriberNameLen;
+        width = varintTaggedGet64(data + offset, &subscriberNameLen);
+        if (width == VARINT_WIDTH_INVALID) {
+            fprintf(stderr, "Error: Invalid varint for subscriberNameLen in "
+                            "CMD_SUBSCRIBE\n");
+            sendResponse(server->epollFd, client, STATUS_ERROR, NULL, 0);
+            server->totalErrors++;
+            return false;
+        }
+        offset += width;
+
+        if (offset + subscriberNameLen > length) {
+            sendResponse(server->epollFd, client, STATUS_ERROR, NULL, 0);
+            server->totalErrors++;
+            return false;
+        }
+
+        char subscriberName[MAX_SUBSCRIBER_NAME];
+        secureBinaryCopy(subscriberName, MAX_SUBSCRIBER_NAME, data + offset,
+                         subscriberNameLen);
+
+        // CMD_SUBSCRIBE is the same as CMD_ADD - both insert pattern with
+        // subscriber
+        if (trieInsert(&server->trie, pattern, (uint32_t)subscriberId,
+                       subscriberName)) {
+            sendResponse(server->epollFd, client, STATUS_OK, NULL, 0);
+        } else {
+            sendResponse(server->epollFd, client, STATUS_ERROR, NULL, 0);
+            server->totalErrors++;
+        }
+        break;
+    }
+
+    case CMD_UNSUBSCRIBE: {
+        // UNSUBSCRIBE <pattern_len:varint><pattern:bytes><subscriber_id:varint>
+        uint64_t patternLen;
+        varintWidth width = varintTaggedGet64(data + offset, &patternLen);
+        if (width == VARINT_WIDTH_INVALID) {
+            fprintf(
+                stderr,
+                "Error: Invalid varint for patternLen in CMD_UNSUBSCRIBE\n");
+            sendResponse(server->epollFd, client, STATUS_ERROR, NULL, 0);
+            server->totalErrors++;
+            return false;
+        }
+        offset += width;
+
+        if (offset + patternLen > length) {
+            sendResponse(server->epollFd, client, STATUS_ERROR, NULL, 0);
+            server->totalErrors++;
+            return false;
+        }
+
+        char pattern[MAX_PATTERN_LENGTH];
+        secureBinaryCopy(pattern, MAX_PATTERN_LENGTH, data + offset,
+                         patternLen);
+        offset += patternLen;
+
+        uint64_t subscriberId;
+        width = varintTaggedGet64(data + offset, &subscriberId);
+        if (width == VARINT_WIDTH_INVALID) {
+            fprintf(
+                stderr,
+                "Error: Invalid varint for subscriberId in CMD_UNSUBSCRIBE\n");
+            sendResponse(server->epollFd, client, STATUS_ERROR, NULL, 0);
+            server->totalErrors++;
+            return false;
+        }
+        offset += width;
+
+        if (trieRemoveSubscriber(&server->trie, pattern,
+                                 (uint32_t)subscriberId)) {
+            sendResponse(server->epollFd, client, STATUS_OK, NULL, 0);
+        } else {
+            sendResponse(server->epollFd, client, STATUS_ERROR, NULL, 0);
+            server->totalErrors++;
+        }
+        break;
+    }
+
+    case CMD_MATCH: {
+        // MATCH <input_len:varint><input:bytes>
+        // Response:
+        // <count:varint>[<subscriber_id:varint><subscriber_name_len:varint><subscriber_name:bytes>]*
+        uint64_t inputLen;
+        varintWidth width = varintTaggedGet64(data + offset, &inputLen);
+        if (width == VARINT_WIDTH_INVALID) {
+            fprintf(stderr,
+                    "Error: Invalid varint for inputLen in CMD_MATCH\n");
+            sendResponse(server->epollFd, client, STATUS_ERROR, NULL, 0);
+            server->totalErrors++;
+            return false;
+        }
+        offset += width;
+
+        if (offset + inputLen > length) {
+            sendResponse(server->epollFd, client, STATUS_ERROR, NULL, 0);
+            server->totalErrors++;
+            return false;
+        }
+
+        char input[MAX_PATTERN_LENGTH];
+        secureBinaryCopy(input, MAX_PATTERN_LENGTH, data + offset, inputLen);
+
+        MatchResult result;
+        trieMatch(&server->trie, input, &result);
+
+        // Build response
+        size_t pos = 0;
+        pos += varintTaggedPut64(responseBuf + pos, result.count);
+
+        for (size_t i = 0; i < result.count; i++) {
+            pos +=
+                varintTaggedPut64(responseBuf + pos, result.subscriberIds[i]);
+            size_t nameLen = strlen(result.subscriberNames[i]);
+            pos += varintTaggedPut64(responseBuf + pos, nameLen);
+            memcpy(responseBuf + pos, result.subscriberNames[i], nameLen);
+            pos += nameLen;
+        }
+
+        sendResponse(server->epollFd, client, STATUS_OK, responseBuf, pos);
+        break;
+    }
+
+    case CMD_LIST: {
+        // LIST - return all patterns
+        // Response: <count:varint>[<pattern_len:varint><pattern:bytes>]*
+        char patterns[MAX_SUBSCRIBERS][MAX_PATTERN_LENGTH];
+        size_t count;
+        trieListPatterns(&server->trie, patterns, &count, MAX_SUBSCRIBERS);
+
+        size_t pos = 0;
+        pos += varintTaggedPut64(responseBuf + pos, count);
+
+        for (size_t i = 0; i < count; i++) {
+            size_t patternLen = strlen(patterns[i]);
+            pos += varintTaggedPut64(responseBuf + pos, patternLen);
+            memcpy(responseBuf + pos, patterns[i], patternLen);
+            pos += patternLen;
+        }
+
+        sendResponse(server->epollFd, client, STATUS_OK, responseBuf, pos);
+        break;
+    }
+
+    case CMD_AUTH: {
+        // AUTH <token_len:varint><token:bytes>
+        if (!server->requireAuth) {
             sendResponse(server->epollFd, client, STATUS_OK, NULL, 0);
             break;
         }
 
-        case CMD_ADD: {
-            // ADD <pattern_len:varint><pattern:bytes><subscriber_id:varint><subscriber_name_len:varint><subscriber_name:bytes>
-            uint64_t patternLen;
-            varintWidth width = varintTaggedGet64(data + offset, &patternLen);
-            if (width == VARINT_WIDTH_INVALID) {
-                fprintf(stderr, "Error: Invalid varint for patternLen in CMD_ADD\n");
-                sendResponse(server->epollFd, client, STATUS_ERROR, NULL, 0);
-                server->totalErrors++;
-                return false;
-            }
-            offset += width;
-
-            if (offset + patternLen > length) {
-                sendResponse(server->epollFd, client, STATUS_ERROR, NULL, 0);
-                server->totalErrors++;
-                return false;
-            }
-
-            char pattern[MAX_PATTERN_LENGTH];
-            secureBinaryCopy(pattern, MAX_PATTERN_LENGTH, data + offset, patternLen);
-            offset += patternLen;
-
-            uint64_t subscriberId;
-            width = varintTaggedGet64(data + offset, &subscriberId);
-            if (width == VARINT_WIDTH_INVALID) {
-                fprintf(stderr, "Error: Invalid varint for subscriberId in CMD_ADD\n");
-                sendResponse(server->epollFd, client, STATUS_ERROR, NULL, 0);
-                server->totalErrors++;
-                return false;
-            }
-            offset += width;
-
-            uint64_t subscriberNameLen;
-            width = varintTaggedGet64(data + offset, &subscriberNameLen);
-            if (width == VARINT_WIDTH_INVALID) {
-                fprintf(stderr, "Error: Invalid varint for subscriberNameLen in CMD_ADD\n");
-                sendResponse(server->epollFd, client, STATUS_ERROR, NULL, 0);
-                server->totalErrors++;
-                return false;
-            }
-            offset += width;
-
-            if (offset + subscriberNameLen > length) {
-                sendResponse(server->epollFd, client, STATUS_ERROR, NULL, 0);
-                server->totalErrors++;
-                return false;
-            }
-
-            char subscriberName[MAX_SUBSCRIBER_NAME];
-            secureBinaryCopy(subscriberName, MAX_SUBSCRIBER_NAME, data + offset, subscriberNameLen);
-
-            if (trieInsert(&server->trie, pattern, (uint32_t)subscriberId, subscriberName)) {
-                sendResponse(server->epollFd, client, STATUS_OK, NULL, 0);
-            } else {
-                sendResponse(server->epollFd, client, STATUS_ERROR, NULL, 0);
-                server->totalErrors++;
-            }
-            break;
-        }
-
-        case CMD_REMOVE: {
-            // REMOVE <pattern_len:varint><pattern:bytes>
-            uint64_t patternLen;
-            varintWidth width = varintTaggedGet64(data + offset, &patternLen);
-            if (width == VARINT_WIDTH_INVALID) {
-                fprintf(stderr, "Error: Invalid varint for patternLen in CMD_REMOVE\n");
-                sendResponse(server->epollFd, client, STATUS_ERROR, NULL, 0);
-                server->totalErrors++;
-                return false;
-            }
-            offset += width;
-
-            if (offset + patternLen > length) {
-                sendResponse(server->epollFd, client, STATUS_ERROR, NULL, 0);
-                server->totalErrors++;
-                return false;
-            }
-
-            char pattern[MAX_PATTERN_LENGTH];
-            secureBinaryCopy(pattern, MAX_PATTERN_LENGTH, data + offset, patternLen);
-
-            if (trieRemovePattern(&server->trie, pattern)) {
-                sendResponse(server->epollFd, client, STATUS_OK, NULL, 0);
-            } else {
-                sendResponse(server->epollFd, client, STATUS_ERROR, NULL, 0);
-                server->totalErrors++;
-            }
-            break;
-        }
-
-        case CMD_SUBSCRIBE: {
-            // SUBSCRIBE <pattern_len:varint><pattern:bytes><subscriber_id:varint><subscriber_name_len:varint><subscriber_name:bytes>
-            uint64_t patternLen;
-            varintWidth width = varintTaggedGet64(data + offset, &patternLen);
-            if (width == VARINT_WIDTH_INVALID) {
-                fprintf(stderr, "Error: Invalid varint for patternLen in CMD_SUBSCRIBE\n");
-                sendResponse(server->epollFd, client, STATUS_ERROR, NULL, 0);
-                server->totalErrors++;
-                return false;
-            }
-            offset += width;
-
-            if (offset + patternLen > length) {
-                sendResponse(server->epollFd, client, STATUS_ERROR, NULL, 0);
-                server->totalErrors++;
-                return false;
-            }
-
-            char pattern[MAX_PATTERN_LENGTH];
-            secureBinaryCopy(pattern, MAX_PATTERN_LENGTH, data + offset, patternLen);
-            offset += patternLen;
-
-            uint64_t subscriberId;
-            width = varintTaggedGet64(data + offset, &subscriberId);
-            if (width == VARINT_WIDTH_INVALID) {
-                fprintf(stderr, "Error: Invalid varint for subscriberId in CMD_SUBSCRIBE\n");
-                sendResponse(server->epollFd, client, STATUS_ERROR, NULL, 0);
-                server->totalErrors++;
-                return false;
-            }
-            offset += width;
-
-            uint64_t subscriberNameLen;
-            width = varintTaggedGet64(data + offset, &subscriberNameLen);
-            if (width == VARINT_WIDTH_INVALID) {
-                fprintf(stderr, "Error: Invalid varint for subscriberNameLen in CMD_SUBSCRIBE\n");
-                sendResponse(server->epollFd, client, STATUS_ERROR, NULL, 0);
-                server->totalErrors++;
-                return false;
-            }
-            offset += width;
-
-            if (offset + subscriberNameLen > length) {
-                sendResponse(server->epollFd, client, STATUS_ERROR, NULL, 0);
-                server->totalErrors++;
-                return false;
-            }
-
-            char subscriberName[MAX_SUBSCRIBER_NAME];
-            secureBinaryCopy(subscriberName, MAX_SUBSCRIBER_NAME, data + offset, subscriberNameLen);
-
-            // CMD_SUBSCRIBE is the same as CMD_ADD - both insert pattern with subscriber
-            if (trieInsert(&server->trie, pattern, (uint32_t)subscriberId, subscriberName)) {
-                sendResponse(server->epollFd, client, STATUS_OK, NULL, 0);
-            } else {
-                sendResponse(server->epollFd, client, STATUS_ERROR, NULL, 0);
-                server->totalErrors++;
-            }
-            break;
-        }
-
-        case CMD_UNSUBSCRIBE: {
-            // UNSUBSCRIBE <pattern_len:varint><pattern:bytes><subscriber_id:varint>
-            uint64_t patternLen;
-            varintWidth width = varintTaggedGet64(data + offset, &patternLen);
-            if (width == VARINT_WIDTH_INVALID) {
-                fprintf(stderr, "Error: Invalid varint for patternLen in CMD_UNSUBSCRIBE\n");
-                sendResponse(server->epollFd, client, STATUS_ERROR, NULL, 0);
-                server->totalErrors++;
-                return false;
-            }
-            offset += width;
-
-            if (offset + patternLen > length) {
-                sendResponse(server->epollFd, client, STATUS_ERROR, NULL, 0);
-                server->totalErrors++;
-                return false;
-            }
-
-            char pattern[MAX_PATTERN_LENGTH];
-            secureBinaryCopy(pattern, MAX_PATTERN_LENGTH, data + offset, patternLen);
-            offset += patternLen;
-
-            uint64_t subscriberId;
-            width = varintTaggedGet64(data + offset, &subscriberId);
-            if (width == VARINT_WIDTH_INVALID) {
-                fprintf(stderr, "Error: Invalid varint for subscriberId in CMD_UNSUBSCRIBE\n");
-                sendResponse(server->epollFd, client, STATUS_ERROR, NULL, 0);
-                server->totalErrors++;
-                return false;
-            }
-            offset += width;
-
-            if (trieRemoveSubscriber(&server->trie, pattern, (uint32_t)subscriberId)) {
-                sendResponse(server->epollFd, client, STATUS_OK, NULL, 0);
-            } else {
-                sendResponse(server->epollFd, client, STATUS_ERROR, NULL, 0);
-                server->totalErrors++;
-            }
-            break;
-        }
-
-        case CMD_MATCH: {
-            // MATCH <input_len:varint><input:bytes>
-            // Response: <count:varint>[<subscriber_id:varint><subscriber_name_len:varint><subscriber_name:bytes>]*
-            uint64_t inputLen;
-            varintWidth width = varintTaggedGet64(data + offset, &inputLen);
-            if (width == VARINT_WIDTH_INVALID) {
-                fprintf(stderr, "Error: Invalid varint for inputLen in CMD_MATCH\n");
-                sendResponse(server->epollFd, client, STATUS_ERROR, NULL, 0);
-                server->totalErrors++;
-                return false;
-            }
-            offset += width;
-
-            if (offset + inputLen > length) {
-                sendResponse(server->epollFd, client, STATUS_ERROR, NULL, 0);
-                server->totalErrors++;
-                return false;
-            }
-
-            char input[MAX_PATTERN_LENGTH];
-            secureBinaryCopy(input, MAX_PATTERN_LENGTH, data + offset, inputLen);
-
-            MatchResult result;
-            trieMatch(&server->trie, input, &result);
-
-            // Build response
-            size_t pos = 0;
-            pos += varintTaggedPut64(responseBuf + pos, result.count);
-
-            for (size_t i = 0; i < result.count; i++) {
-                pos += varintTaggedPut64(responseBuf + pos, result.subscriberIds[i]);
-                size_t nameLen = strlen(result.subscriberNames[i]);
-                pos += varintTaggedPut64(responseBuf + pos, nameLen);
-                memcpy(responseBuf + pos, result.subscriberNames[i], nameLen);
-                pos += nameLen;
-            }
-
-            sendResponse(server->epollFd, client, STATUS_OK, responseBuf, pos);
-            break;
-        }
-
-        case CMD_LIST: {
-            // LIST - return all patterns
-            // Response: <count:varint>[<pattern_len:varint><pattern:bytes>]*
-            char patterns[MAX_SUBSCRIBERS][MAX_PATTERN_LENGTH];
-            size_t count;
-            trieListPatterns(&server->trie, patterns, &count, MAX_SUBSCRIBERS);
-
-            size_t pos = 0;
-            pos += varintTaggedPut64(responseBuf + pos, count);
-
-            for (size_t i = 0; i < count; i++) {
-                size_t patternLen = strlen(patterns[i]);
-                pos += varintTaggedPut64(responseBuf + pos, patternLen);
-                memcpy(responseBuf + pos, patterns[i], patternLen);
-                pos += patternLen;
-            }
-
-            sendResponse(server->epollFd, client, STATUS_OK, responseBuf, pos);
-            break;
-        }
-
-        case CMD_AUTH: {
-            // AUTH <token_len:varint><token:bytes>
-            if (!server->requireAuth) {
-                sendResponse(server->epollFd, client, STATUS_OK, NULL, 0);
-                break;
-            }
-
-            uint64_t tokenLen;
-            varintWidth width = varintTaggedGet64(data + offset, &tokenLen);
-            if (width == VARINT_WIDTH_INVALID) {
-                fprintf(stderr, "Error: Invalid varint for tokenLen in CMD_AUTH\n");
-                sendResponse(server->epollFd, client, STATUS_ERROR, NULL, 0);
-                server->totalErrors++;
-                return false;
-            }
-            offset += width;
-
-            if (offset + tokenLen > length) {
-                sendResponse(server->epollFd, client, STATUS_ERROR, NULL, 0);
-                server->totalErrors++;
-                return false;
-            }
-
-            if (tokenLen == strlen(server->authToken) &&
-                memcmp(data + offset, server->authToken, tokenLen) == 0) {
-                client->authenticated = true;
-                sendResponse(server->epollFd, client, STATUS_OK, NULL, 0);
-            } else {
-                sendResponse(server->epollFd, client, STATUS_ERROR, NULL, 0);
-                server->totalErrors++;
-            }
-            break;
-        }
-
-        case CMD_STATS: {
-            // STATS - return server statistics
-            // Format: patterns:varint, subscribers:varint, nodes:varint,
-            //         connections:varint, commands:varint, uptime:varint
-            size_t pos = 0;
-            size_t totalNodes, terminalNodes, wildcardNodes, maxDepth;
-            trieStats(&server->trie, &totalNodes, &terminalNodes, &wildcardNodes, &maxDepth);
-
-            pos += varintTaggedPut64(responseBuf + pos, server->trie.patternCount);
-            pos += varintTaggedPut64(responseBuf + pos, server->trie.subscriberCount);
-            pos += varintTaggedPut64(responseBuf + pos, totalNodes);
-            pos += varintTaggedPut64(responseBuf + pos, server->totalConnections);
-            pos += varintTaggedPut64(responseBuf + pos, server->totalCommands);
-            pos += varintTaggedPut64(responseBuf + pos, time(NULL) - server->startTime);
-
-            sendResponse(server->epollFd, client, STATUS_OK, responseBuf, pos);
-            break;
-        }
-
-        case CMD_SAVE: {
-            // SAVE - trigger manual save
-            if (server->saveFilePath) {
-                if (trieSave(&server->trie, server->saveFilePath)) {
-                    server->lastSaveTime = time(NULL);
-                    server->commandsSinceLastSave = 0;
-                    sendResponse(server->epollFd, client, STATUS_OK, NULL, 0);
-                } else {
-                    sendResponse(server->epollFd, client, STATUS_ERROR, NULL, 0);
-                    server->totalErrors++;
-                }
-            } else {
-                sendResponse(server->epollFd, client, STATUS_ERROR, NULL, 0);
-            }
-            break;
-        }
-
-        default:
-            sendResponse(server->epollFd, client, STATUS_INVALID_CMD, NULL, 0);
+        uint64_t tokenLen;
+        varintWidth width = varintTaggedGet64(data + offset, &tokenLen);
+        if (width == VARINT_WIDTH_INVALID) {
+            fprintf(stderr, "Error: Invalid varint for tokenLen in CMD_AUTH\n");
+            sendResponse(server->epollFd, client, STATUS_ERROR, NULL, 0);
             server->totalErrors++;
             return false;
+        }
+        offset += width;
+
+        if (offset + tokenLen > length) {
+            sendResponse(server->epollFd, client, STATUS_ERROR, NULL, 0);
+            server->totalErrors++;
+            return false;
+        }
+
+        if (tokenLen == strlen(server->authToken) &&
+            memcmp(data + offset, server->authToken, tokenLen) == 0) {
+            client->authenticated = true;
+            sendResponse(server->epollFd, client, STATUS_OK, NULL, 0);
+        } else {
+            sendResponse(server->epollFd, client, STATUS_ERROR, NULL, 0);
+            server->totalErrors++;
+        }
+        break;
+    }
+
+    case CMD_STATS: {
+        // STATS - return server statistics
+        // Format: patterns:varint, subscribers:varint, nodes:varint,
+        //         connections:varint, commands:varint, uptime:varint
+        size_t pos = 0;
+        size_t totalNodes, terminalNodes, wildcardNodes, maxDepth;
+        trieStats(&server->trie, &totalNodes, &terminalNodes, &wildcardNodes,
+                  &maxDepth);
+
+        pos += varintTaggedPut64(responseBuf + pos, server->trie.patternCount);
+        pos +=
+            varintTaggedPut64(responseBuf + pos, server->trie.subscriberCount);
+        pos += varintTaggedPut64(responseBuf + pos, totalNodes);
+        pos += varintTaggedPut64(responseBuf + pos, server->totalConnections);
+        pos += varintTaggedPut64(responseBuf + pos, server->totalCommands);
+        pos += varintTaggedPut64(responseBuf + pos,
+                                 time(NULL) - server->startTime);
+
+        sendResponse(server->epollFd, client, STATUS_OK, responseBuf, pos);
+        break;
+    }
+
+    case CMD_SAVE: {
+        // SAVE - trigger manual save
+        if (server->saveFilePath) {
+            if (trieSave(&server->trie, server->saveFilePath)) {
+                server->lastSaveTime = time(NULL);
+                server->commandsSinceLastSave = 0;
+                sendResponse(server->epollFd, client, STATUS_OK, NULL, 0);
+            } else {
+                sendResponse(server->epollFd, client, STATUS_ERROR, NULL, 0);
+                server->totalErrors++;
+            }
+        } else {
+            sendResponse(server->epollFd, client, STATUS_ERROR, NULL, 0);
+        }
+        break;
+    }
+
+    default:
+        sendResponse(server->epollFd, client, STATUS_INVALID_CMD, NULL, 0);
+        server->totalErrors++;
+        return false;
     }
 
     return true;
@@ -1876,18 +2042,19 @@ bool processCommand(TrieServer *server, ClientConnection *client, const uint8_t 
 
 void handleClient(TrieServer *server, ClientConnection *client) {
     // In edge-triggered mode, we must read until EAGAIN
-    while (client->state == CONN_READING_LENGTH || client->state == CONN_READING_MESSAGE) {
-        ssize_t bytesRead = read(client->fd,
-                                 client->readBuffer + client->readOffset,
-                                 READ_BUFFER_SIZE - client->readOffset);
+    while (client->state == CONN_READING_LENGTH ||
+           client->state == CONN_READING_MESSAGE) {
+        ssize_t bytesRead =
+            read(client->fd, client->readBuffer + client->readOffset,
+                 READ_BUFFER_SIZE - client->readOffset);
 
         DEBUG_LOG("handleClient fd=%d bytesRead=%zd errno=%d state=%d\n",
-                client->fd, bytesRead, errno, client->state);
+                  client->fd, bytesRead, errno, client->state);
 
         if (bytesRead <= 0) {
             if (bytesRead < 0 && (errno == EAGAIN || errno == EWOULDBLOCK)) {
                 DEBUG_LOG("EAGAIN, returning\n");
-                return;  // No more data available
+                return; // No more data available
             }
             // Connection closed or error
             DEBUG_LOG("Connection closed or error, resetting client\n");
@@ -1895,12 +2062,14 @@ void handleClient(TrieServer *server, ClientConnection *client) {
             return;
         }
 
-        DEBUG_LOG("Read %zd bytes, readOffset=%zu\n", bytesRead, client->readOffset);
+        DEBUG_LOG("Read %zd bytes, readOffset=%zu\n", bytesRead,
+                  client->readOffset);
 #ifdef ENABLE_DEBUG_LOGGING
         // Print hex dump of what we read
         fprintf(stderr, "DEBUG: Data (hex): ");
         for (ssize_t i = 0; i < bytesRead && i < 16; i++) {
-            fprintf(stderr, "%02x ", client->readBuffer[client->readOffset + i]);
+            fprintf(stderr, "%02x ",
+                    client->readBuffer[client->readOffset + i]);
         }
         fprintf(stderr, "\n");
 #endif
@@ -1909,12 +2078,15 @@ void handleClient(TrieServer *server, ClientConnection *client) {
 
         // Parse message length if we're in that state
         if (client->state == CONN_READING_LENGTH) {
-            DEBUG_LOG("Trying to parse varint length from %zu bytes\n", client->readOffset);
+            DEBUG_LOG("Trying to parse varint length from %zu bytes\n",
+                      client->readOffset);
             // Try to read varint length
             if (client->readOffset > 0) {
                 uint64_t msgLen;
-                size_t varintLen = varintTaggedGet64(client->readBuffer, &msgLen);
-                DEBUG_LOG("varintTaggedGet64 returned %zu, msgLen=%lu\n", varintLen, msgLen);
+                size_t varintLen =
+                    varintTaggedGet64(client->readBuffer, &msgLen);
+                DEBUG_LOG("varintTaggedGet64 returned %zu, msgLen=%lu\n",
+                          varintLen, msgLen);
                 if (varintLen == 0) {
                     // Not enough bytes yet for complete varint
                     if (client->readOffset >= 9) {
@@ -1922,11 +2094,12 @@ void handleClient(TrieServer *server, ClientConnection *client) {
                         resetClient(server->epollFd, client);
                         return;
                     }
-                    continue;  // Try reading more data
+                    continue; // Try reading more data
                 }
 
                 client->messageLength = (size_t)msgLen;
-                if (client->messageLength == 0 || client->messageLength > MAX_MESSAGE_SIZE) {
+                if (client->messageLength == 0 ||
+                    client->messageLength > MAX_MESSAGE_SIZE) {
                     resetClient(server->epollFd, client);
                     return;
                 }
@@ -1937,7 +2110,9 @@ void handleClient(TrieServer *server, ClientConnection *client) {
 
                 // Move any extra bytes to beginning of buffer
                 if (client->messageBytesRead > 0) {
-                    memmove(client->readBuffer, client->readBuffer + lengthBytes, client->messageBytesRead);
+                    memmove(client->readBuffer,
+                            client->readBuffer + lengthBytes,
+                            client->messageBytesRead);
                 }
                 client->readOffset = client->messageBytesRead;
                 client->state = CONN_READING_MESSAGE;
@@ -1950,27 +2125,34 @@ void handleClient(TrieServer *server, ClientConnection *client) {
 
             if (client->messageBytesRead >= client->messageLength) {
                 // Complete message received, process it
-                processCommand(server, client, client->readBuffer, client->messageLength);
+                processCommand(server, client, client->readBuffer,
+                               client->messageLength);
 
                 // Reset for next message
-                // Only reset state if processCommand didn't change it (e.g., to CONN_WRITING_RESPONSE)
-                DEBUG_LOG("After processCommand, client state=%d\n", client->state);
+                // Only reset state if processCommand didn't change it (e.g., to
+                // CONN_WRITING_RESPONSE)
+                DEBUG_LOG("After processCommand, client state=%d\n",
+                          client->state);
                 if (client->state == CONN_READING_MESSAGE) {
-                    DEBUG_LOG("State is still CONN_READING_MESSAGE, resetting to CONN_READING_LENGTH\n");
-                    size_t extraBytes = client->messageBytesRead - client->messageLength;
+                    DEBUG_LOG("State is still CONN_READING_MESSAGE, resetting "
+                              "to CONN_READING_LENGTH\n");
+                    size_t extraBytes =
+                        client->messageBytesRead - client->messageLength;
                     if (extraBytes > 0) {
                         memmove(client->readBuffer,
-                               client->readBuffer + client->messageLength,
-                               extraBytes);
+                                client->readBuffer + client->messageLength,
+                                extraBytes);
                     }
                     client->readOffset = extraBytes;
                     client->messageLength = 0;
                     client->messageBytesRead = 0;
                     client->state = CONN_READING_LENGTH;
                 } else {
-                    DEBUG_LOG("State changed to %d, breaking out of loop\n", client->state);
+                    DEBUG_LOG("State changed to %d, breaking out of loop\n",
+                              client->state);
                 }
-                // If state changed to CONN_WRITING_RESPONSE, exit loop to let event loop handle it
+                // If state changed to CONN_WRITING_RESPONSE, exit loop to let
+                // event loop handle it
                 break;
             } else {
                 // Need more data, continue reading
@@ -2002,7 +2184,8 @@ int main(int argc, char *argv[]) {
         } else if (strcmp(argv[i], "--help") == 0) {
             printf("Usage: %s [OPTIONS]\n", argv[0]);
             printf("Options:\n");
-            printf("  --port <port>     Listen port (default: %d)\n", DEFAULT_PORT);
+            printf("  --port <port>     Listen port (default: %d)\n",
+                   DEFAULT_PORT);
             printf("  --auth <token>    Require authentication token\n");
             printf("  --save <file>     Auto-save file path\n");
             printf("  --help            Show this help\n");

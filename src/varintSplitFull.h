@@ -180,7 +180,7 @@ typedef enum varintSplitFullByte {
             (encodedLen) = 1 + 2;                                              \
         } else {                                                               \
             varintSplitFullLengthVAR_((encodedLen),                            \
-                                      (_val)-VARINT_SPLIT_FULL_MAX_22);        \
+                                      (_val) - VARINT_SPLIT_FULL_MAX_22);      \
         }                                                                      \
     } while (0)
 
@@ -189,27 +189,29 @@ typedef enum varintSplitFullByte {
         uint64_t _vimp__val = (_val);                                          \
         if (_vimp__val <= VARINT_SPLIT_FULL_MAX_6) {                           \
             /* buf[0] = 00[val] */                                             \
-            (dst)[0] = (uint8_t)(VARINT_SPLIT_FULL_6 | _vimp__val);           \
+            (dst)[0] = (uint8_t)(VARINT_SPLIT_FULL_6 | _vimp__val);            \
             (encodedLen) = 1;                                                  \
         } else if (_vimp__val <= VARINT_SPLIT_FULL_MAX_14) {                   \
             _vimp__val -= VARINT_SPLIT_FULL_MAX_6; /* Remove 63 */             \
             /* buf[0] = 01[val][val] */                                        \
-            (dst)[0] = (uint8_t)(VARINT_SPLIT_FULL_14 |                        \
-                       ((_vimp__val >> 8) & VARINT_SPLIT_FULL_6_MASK));        \
+            (dst)[0] =                                                         \
+                (uint8_t)(VARINT_SPLIT_FULL_14 |                               \
+                          ((_vimp__val >> 8) & VARINT_SPLIT_FULL_6_MASK));     \
             (dst)[1] = (uint8_t)(_vimp__val & 0xff);                           \
             (encodedLen) = 2;                                                  \
         } else if (_vimp__val <= VARINT_SPLIT_FULL_MAX_22) {                   \
             _vimp__val -= VARINT_SPLIT_FULL_MAX_14; /* Remove 16446 */         \
             /* buf[0] = 01[val][val][val] */                                   \
-            (dst)[0] = (uint8_t)(VARINT_SPLIT_FULL_22 |                        \
-                       ((_vimp__val >> 16) & VARINT_SPLIT_FULL_6_MASK));       \
+            (dst)[0] =                                                         \
+                (uint8_t)(VARINT_SPLIT_FULL_22 |                               \
+                          ((_vimp__val >> 16) & VARINT_SPLIT_FULL_6_MASK));    \
             (dst)[1] = (uint8_t)((_vimp__val >> 8) & 0xff);                    \
             (dst)[2] = (uint8_t)(_vimp__val & 0xff);                           \
             (encodedLen) = 3;                                                  \
         } else {                                                               \
             _vimp__val -= VARINT_SPLIT_FULL_MAX_22; /* Remove (16383 + 63) */  \
             varintSplitFullLengthVAR_((encodedLen), _vimp__val);               \
-            varintWidth _vimp_width = (encodedLen)-1;                          \
+            varintWidth _vimp_width = (encodedLen) - 1;                        \
             /* buf[0] = 10[width][val]...[val] */                              \
             (dst)[0] = (uint8_t)(VARINT_SPLIT_FULL_VAR | _vimp_width);         \
             varintExternalPutFixedWidthQuickMedium_((dst) + 1, _vimp__val,     \
@@ -260,7 +262,8 @@ typedef enum varintSplitFullByte {
             break;                                                             \
         case VARINT_SPLIT_FULL_14:                                             \
             (valsize) = 1 + 1;                                                 \
-            (val) = ((uint64_t)((ptr)[0] & VARINT_SPLIT_FULL_6_MASK) << 8) | (uint64_t)(ptr)[1];   \
+            (val) = ((uint64_t)((ptr)[0] & VARINT_SPLIT_FULL_6_MASK) << 8) |   \
+                    (uint64_t)(ptr)[1];                                        \
             (val) += VARINT_SPLIT_FULL_MAX_6; /* Restore 63 */                 \
             break;                                                             \
         case VARINT_SPLIT_FULL_22:                                             \
@@ -271,7 +274,7 @@ typedef enum varintSplitFullByte {
             break;                                                             \
         case VARINT_SPLIT_FULL_VAR:                                            \
             (valsize) = 1 + varintSplitFullEncodingWidthBytesExternal_(ptr);   \
-            varintExternalGetQuickMedium_((ptr) + 1, (valsize)-1, (val));      \
+            varintExternalGetQuickMedium_((ptr) + 1, (valsize) - 1, (val));    \
             (val) += VARINT_SPLIT_FULL_MAX_22; /* Restore MAX_22 */            \
             break;                                                             \
         default:                                                               \
@@ -299,21 +302,23 @@ typedef enum varintSplitFullByte {
         } else if (_vimp__val <= VARINT_SPLIT_FULL_MAX_14) {                   \
             _vimp__val -= VARINT_SPLIT_FULL_MAX_6; /* Remove 63 */             \
             (encodedLen) = 2;                                                  \
-            (dst)[0] = (uint8_t)(VARINT_SPLIT_FULL_14 |                        \
-                       ((_vimp__val >> 8) & VARINT_SPLIT_FULL_6_MASK));        \
+            (dst)[0] =                                                         \
+                (uint8_t)(VARINT_SPLIT_FULL_14 |                               \
+                          ((_vimp__val >> 8) & VARINT_SPLIT_FULL_6_MASK));     \
             (dst)[-1] = (uint8_t)(_vimp__val & 0xff);                          \
         } else if (_vimp__val <= VARINT_SPLIT_FULL_MAX_22) {                   \
             _vimp__val -= VARINT_SPLIT_FULL_MAX_14; /* Remove 16446 */         \
             (encodedLen) = 3;                                                  \
-            (dst)[0] = (uint8_t)(VARINT_SPLIT_FULL_22 |                        \
-                       ((_vimp__val >> 16) & VARINT_SPLIT_FULL_6_MASK));       \
+            (dst)[0] =                                                         \
+                (uint8_t)(VARINT_SPLIT_FULL_22 |                               \
+                          ((_vimp__val >> 16) & VARINT_SPLIT_FULL_6_MASK));    \
             (dst)[-1] = (uint8_t)((_vimp__val >> 8) & 0xff);                   \
             (dst)[-2] = (uint8_t)(_vimp__val & 0xff);                          \
         } else {                                                               \
             _vimp__val -= VARINT_SPLIT_FULL_MAX_22; /* Remove (16383 + 63) */  \
             varintSplitFullLengthVAR_((encodedLen), _vimp__val);               \
-            varintWidth _vimp_width = (encodedLen)-1;                          \
-            varintExternalPutFixedWidthQuickMedium_((dst)-_vimp_width,         \
+            varintWidth _vimp_width = (encodedLen) - 1;                        \
+            varintExternalPutFixedWidthQuickMedium_((dst) - _vimp_width,       \
                                                     _vimp__val, _vimp_width);  \
             (dst)[0] = (uint8_t)(VARINT_SPLIT_FULL_VAR | _vimp_width);         \
         }                                                                      \
@@ -329,21 +334,24 @@ typedef enum varintSplitFullByte {
         } else if (_vimp__val <= VARINT_SPLIT_FULL_MAX_14) {                   \
             _vimp__val -= VARINT_SPLIT_FULL_MAX_6; /* Remove 63 */             \
             (encodedLen) = 2;                                                  \
-            (dst)[1] = (uint8_t)(VARINT_SPLIT_FULL_14 |                        \
-                       ((_vimp__val >> 8) & VARINT_SPLIT_FULL_6_MASK));        \
+            (dst)[1] =                                                         \
+                (uint8_t)(VARINT_SPLIT_FULL_14 |                               \
+                          ((_vimp__val >> 8) & VARINT_SPLIT_FULL_6_MASK));     \
             (dst)[0] = (uint8_t)(_vimp__val & 0xff);                           \
         } else if (_vimp__val <= VARINT_SPLIT_FULL_MAX_22) {                   \
             _vimp__val -= VARINT_SPLIT_FULL_MAX_14; /* Remove 16446 */         \
             (encodedLen) = 3;                                                  \
-            (dst)[2] = (uint8_t)(VARINT_SPLIT_FULL_22 |                        \
-                       ((_vimp__val >> 16) & VARINT_SPLIT_FULL_6_MASK));       \
+            (dst)[2] =                                                         \
+                (uint8_t)(VARINT_SPLIT_FULL_22 |                               \
+                          ((_vimp__val >> 16) & VARINT_SPLIT_FULL_6_MASK));    \
             (dst)[1] = (uint8_t)((_vimp__val >> 8) & 0xff);                    \
             (dst)[0] = (uint8_t)(_vimp__val & 0xff);                           \
         } else {                                                               \
             _vimp__val -= VARINT_SPLIT_FULL_MAX_22; /* Remove MAX_22 */        \
             varintSplitFullLengthVAR_((encodedLen), _vimp__val);               \
-            varintWidth _vimp_width = (encodedLen)-1;                          \
-            (dst)[_vimp_width] = (uint8_t)(VARINT_SPLIT_FULL_VAR | _vimp_width); \
+            varintWidth _vimp_width = (encodedLen) - 1;                        \
+            (dst)[_vimp_width] =                                               \
+                (uint8_t)(VARINT_SPLIT_FULL_VAR | _vimp_width);                \
             varintExternalPutFixedWidthQuickMedium_((dst), _vimp__val,         \
                                                     _vimp_width);              \
         }                                                                      \
@@ -358,7 +366,8 @@ typedef enum varintSplitFullByte {
             break;                                                             \
         case VARINT_SPLIT_FULL_14:                                             \
             (valsize) = 1 + 1;                                                 \
-            (val) = ((uint64_t)((ptr)[0] & VARINT_SPLIT_FULL_6_MASK) << 8) | (uint64_t)(ptr)[-1];  \
+            (val) = ((uint64_t)((ptr)[0] & VARINT_SPLIT_FULL_6_MASK) << 8) |   \
+                    (uint64_t)(ptr)[-1];                                       \
             (val) += VARINT_SPLIT_FULL_MAX_6; /* Restore 63 */                 \
             break;                                                             \
         case VARINT_SPLIT_FULL_22:                                             \
@@ -371,7 +380,7 @@ typedef enum varintSplitFullByte {
             varintWidth _vimp_width =                                          \
                 varintSplitFullEncodingWidthBytesExternal_(ptr);               \
             (valsize) = 1 + _vimp_width;                                       \
-            varintExternalGetQuickMedium_((ptr)-_vimp_width, _vimp_width,      \
+            varintExternalGetQuickMedium_((ptr) - _vimp_width, _vimp_width,    \
                                           (val));                              \
             (val) += VARINT_SPLIT_FULL_MAX_22; /* Restore MAX_22 */            \
             break;                                                             \

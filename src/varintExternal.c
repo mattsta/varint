@@ -11,9 +11,9 @@
  * We can copy to/from storage and system just by copying bytes in order. */
 /* Suppress false positive warnings from aggressive optimization.
  * The switch statement ensures we only access valid array indices.
- * -Wstringop-overflow: False positive when compiler doesn't track that widths > 64B
- *                      are handled separately with larger buffers
- * -Wstringop-overread: False positive for __uint128_t case (16 bytes from 8-byte pointer) */
+ * -Wstringop-overflow: False positive when compiler doesn't track that widths >
+ * 64B are handled separately with larger buffers -Wstringop-overread: False
+ * positive for __uint128_t case (16 bytes from 8-byte pointer) */
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Warray-bounds"
 #pragma GCC diagnostic ignored "-Wstringop-overflow"

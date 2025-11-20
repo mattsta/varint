@@ -21,7 +21,8 @@ Packed for order quantities
  * Real-world relevance: Stock exchanges like NASDAQ, NYSE process billions
  * of orders daily using similar compact encoding for speed and storage.
  *
- * Compile: gcc -I../../src financial_orderbook.c ../../build/src/libvarint.a -o financial_orderbook -lm
+ * Compile: gcc -I../../src financial_orderbook.c ../../build/src/libvarint.a -o
+financial_orderbook -lm
  * Run: ./financial_orderbook
  */
 
@@ -71,10 +72,12 @@ typedef enum {
 } OrderType;
 
 typedef struct {
-    uint16_t flags;  // Packed: side(1) + type(2) + tif(3) + visible(1) + reserved(9)
+    uint16_t
+        flags; // Packed: side(1) + type(2) + tif(3) + visible(1) + reserved(9)
 } OrderFlags;
 
-void setOrderFlags(OrderFlags *flags, OrderSide side, OrderType type, bool visible) {
+void setOrderFlags(OrderFlags *flags, OrderSide side, OrderType type,
+                   bool visible) {
     uint64_t packed = 0;
     varintBitstreamSet(&packed, 0, 1, side);
     varintBitstreamSet(&packed, 1, 2, type);
@@ -104,13 +107,13 @@ OrderType getOrderType(const OrderFlags *flags) {
 // ============================================================================
 
 typedef struct Order {
-    uint64_t orderId;       // Unique order ID (varintTagged - sortable)
-    uint64_t timestamp;     // Microseconds since epoch
-    char symbol[8];         // Stock symbol (e.g., "AAPL")
-    Price price;            // Price in cents
-    uint32_t quantity;      // Number of shares
+    uint64_t orderId;   // Unique order ID (varintTagged - sortable)
+    uint64_t timestamp; // Microseconds since epoch
+    char symbol[8];     // Stock symbol (e.g., "AAPL")
+    Price price;        // Price in cents
+    uint32_t quantity;  // Number of shares
     OrderFlags flags;
-    struct Order *next;     // Linked list for order book levels
+    struct Order *next; // Linked list for order book levels
 } Order;
 
 // ============================================================================
@@ -119,8 +122,8 @@ typedef struct Order {
 
 typedef struct BookLevel {
     Price price;
-    uint64_t totalQuantity;  // Sum of all orders at this level
-    Order *orders;           // Linked list of orders (price-time priority)
+    uint64_t totalQuantity; // Sum of all orders at this level
+    Order *orders;          // Linked list of orders (price-time priority)
     struct BookLevel *next;
 } BookLevel;
 
@@ -130,8 +133,8 @@ typedef struct BookLevel {
 
 typedef struct {
     char symbol[8];
-    BookLevel *bids;  // Sorted descending (highest first)
-    BookLevel *asks;  // Sorted ascending (lowest first)
+    BookLevel *bids; // Sorted descending (highest first)
+    BookLevel *asks; // Sorted ascending (lowest first)
     size_t bidLevels;
     size_t askLevels;
     uint64_t lastTradePrice;
@@ -191,11 +194,11 @@ BookLevel *findOrCreateLevel(BookLevel **levelList, Price price, bool isBid) {
     // Find insertion point (maintain sorted order)
     while (*current) {
         if ((*current)->price == price) {
-            return *current;  // Found existing level
+            return *current; // Found existing level
         }
 
-        bool shouldInsertBefore = isBid ? (price > (*current)->price)
-                                        : (price < (*current)->price);
+        bool shouldInsertBefore =
+            isBid ? (price > (*current)->price) : (price < (*current)->price);
         if (shouldInsertBefore) {
             break;
         }
@@ -216,7 +219,8 @@ BookLevel *findOrCreateLevel(BookLevel **levelList, Price price, bool isBid) {
 
 void addOrderToBook(OrderBook *book, Order *order) {
     OrderSide side = getOrderSide(&order->flags);
-    BookLevel **levelList = (side == ORDER_SIDE_BUY) ? &book->bids : &book->asks;
+    BookLevel **levelList =
+        (side == ORDER_SIDE_BUY) ? &book->bids : &book->asks;
     bool isBid = (side == ORDER_SIDE_BUY);
 
     BookLevel *level = findOrCreateLevel(levelList, order->price, isBid);
@@ -227,8 +231,9 @@ void addOrderToBook(OrderBook *book, Order *order) {
         level->orders = order;
     } else {
         Order *last = level->orders;
-        while (last->next)
+        while (last->next) {
             last = last->next;
+        }
         last->next = order;
     }
 
@@ -337,8 +342,9 @@ void demonstrateOrderBook() {
     fflush(stdout);
 
     Order *buyOrders[5];
-    Price buyPrices[] = {encodePrice(150.00), encodePrice(149.95), encodePrice(149.90),
-                         encodePrice(149.85), encodePrice(149.80)};
+    Price buyPrices[] = {encodePrice(150.00), encodePrice(149.95),
+                         encodePrice(149.90), encodePrice(149.85),
+                         encodePrice(149.80)};
     uint32_t buyQtys[] = {100, 200, 150, 300, 250};
 
     for (size_t i = 0; i < 5; i++) {
@@ -348,7 +354,8 @@ void demonstrateOrderBook() {
         strcpy(buyOrders[i]->symbol, "AAPL");
         buyOrders[i]->price = buyPrices[i];
         buyOrders[i]->quantity = buyQtys[i];
-        setOrderFlags(&buyOrders[i]->flags, ORDER_SIDE_BUY, ORDER_TYPE_LIMIT, true);
+        setOrderFlags(&buyOrders[i]->flags, ORDER_SIDE_BUY, ORDER_TYPE_LIMIT,
+                      true);
 
         addOrderToBook(&book, buyOrders[i]);
 
@@ -360,18 +367,21 @@ void demonstrateOrderBook() {
     printf("\n3. Adding sell orders (asks)...\n");
 
     Order *sellOrders[5];
-    Price sellPrices[] = {encodePrice(150.05), encodePrice(150.10), encodePrice(150.15),
-                          encodePrice(150.20), encodePrice(150.25)};
+    Price sellPrices[] = {encodePrice(150.05), encodePrice(150.10),
+                          encodePrice(150.15), encodePrice(150.20),
+                          encodePrice(150.25)};
     uint32_t sellQtys[] = {150, 100, 200, 175, 225};
 
     for (size_t i = 0; i < 5; i++) {
         sellOrders[i] = malloc(sizeof(Order));
         sellOrders[i]->orderId = 2000 + i;
-        sellOrders[i]->timestamp = (uint64_t)time(NULL) * 1000000 + 5000 + i * 1000;
+        sellOrders[i]->timestamp =
+            (uint64_t)time(NULL) * 1000000 + 5000 + i * 1000;
         strcpy(sellOrders[i]->symbol, "AAPL");
         sellOrders[i]->price = sellPrices[i];
         sellOrders[i]->quantity = sellQtys[i];
-        setOrderFlags(&sellOrders[i]->flags, ORDER_SIDE_SELL, ORDER_TYPE_LIMIT, true);
+        setOrderFlags(&sellOrders[i]->flags, ORDER_SIDE_SELL, ORDER_TYPE_LIMIT,
+                      true);
 
         addOrderToBook(&book, sellOrders[i]);
 
@@ -386,7 +396,8 @@ void demonstrateOrderBook() {
     printf("   --- ASKS (Sell Orders) ---\n");
     BookLevel *level = book.asks;
     while (level) {
-        printf("   $%.2f: %lu shares\n", decodePrice(level->price), level->totalQuantity);
+        printf("   $%.2f: %lu shares\n", decodePrice(level->price),
+               level->totalQuantity);
         level = level->next;
     }
 
@@ -398,7 +409,8 @@ void demonstrateOrderBook() {
     printf("   --- BIDS (Buy Orders) ---\n");
     level = book.bids;
     while (level) {
-        printf("   $%.2f: %lu shares\n", decodePrice(level->price), level->totalQuantity);
+        printf("   $%.2f: %lu shares\n", decodePrice(level->price),
+               level->totalQuantity);
         level = level->next;
     }
 
@@ -411,7 +423,8 @@ void demonstrateOrderBook() {
     printf("   Snapshot size: %zu bytes\n", snapshotSize);
     printf("   Uncompressed (JSON-like): ~800 bytes\n");
     printf("   Compression ratio: %.2fx\n", 800.0 / snapshotSize);
-    printf("   Space savings: %.1f%%\n", 100.0 * (1.0 - (double)snapshotSize / 800.0));
+    printf("   Space savings: %.1f%%\n",
+           100.0 * (1.0 - (double)snapshotSize / 800.0));
 
     // 6. Simulate trade execution
     printf("\n6. Simulating trade execution...\n");
@@ -443,8 +456,8 @@ void demonstrateOrderBook() {
     // 7. Price encoding efficiency
     printf("\n7. Price encoding analysis...\n");
 
-    Price prices[] = {encodePrice(10.00), encodePrice(100.00), encodePrice(1000.00),
-                      encodePrice(10000.00)};
+    Price prices[] = {encodePrice(10.00), encodePrice(100.00),
+                      encodePrice(1000.00), encodePrice(10000.00)};
 
     for (size_t i = 0; i < 4; i++) {
         varintWidth width = varintExternalLen(prices[i]);
@@ -458,7 +471,8 @@ void demonstrateOrderBook() {
     uint64_t orderIds[] = {1, 100, 10000, 1000000};
     for (size_t i = 0; i < 4; i++) {
         varintWidth width = varintTaggedLen(orderIds[i]);
-        printf("   Order %lu: %d bytes (vs 8 bytes fixed)\n", orderIds[i], width);
+        printf("   Order %lu: %d bytes (vs 8 bytes fixed)\n", orderIds[i],
+               width);
     }
 
     printf("\n   Benefits of sortable encoding:\n");

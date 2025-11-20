@@ -1,11 +1,8 @@
 #include "varintPFOR.h"
-#include <inttypes.h>
 #include "ctest.h"
 #include <inttypes.h>
-#include <string.h>
-#include <inttypes.h>
 #include <stdlib.h>
-#include <inttypes.h>
+#include <string.h>
 
 int varintPFORTest(int argc, char *argv[]) {
     (void)argc;
@@ -16,10 +13,10 @@ int varintPFORTest(int argc, char *argv[]) {
     TEST("Basic PFOR encode/decode with 95th percentile") {
         uint64_t values[100];
         for (int i = 0; i < 95; i++) {
-            values[i] = 100 + (uint64_t)i;  /* Clustered 100-194 */
+            values[i] = 100 + (uint64_t)i; /* Clustered 100-194 */
         }
         for (int i = 95; i < 100; i++) {
-            values[i] = 50000 + (uint64_t)i;  /* Outliers */
+            values[i] = 50000 + (uint64_t)i; /* Outliers */
         }
         size_t count = 100;
         uint8_t buffer[2048];
@@ -38,7 +35,8 @@ int varintPFORTest(int argc, char *argv[]) {
         }
 
         uint64_t decoded[100];
-        uint32_t decoded_count = (uint32_t)varintPFORDecode(buffer, decoded, &meta);
+        uint32_t decoded_count =
+            (uint32_t)varintPFORDecode(buffer, decoded, &meta);
 
         if (decoded_count != count) {
             ERR("Decoded count %u != expected count %zu", decoded_count, count);
@@ -46,7 +44,8 @@ int varintPFORTest(int argc, char *argv[]) {
 
         for (size_t i = 0; i < count; i++) {
             if (decoded[i] != values[i]) {
-                ERR("Decoded[%zu] = %" PRIu64 ", expected %" PRIu64 "", i, decoded[i], values[i]);
+                ERR("Decoded[%zu] = %" PRIu64 ", expected %" PRIu64 "", i,
+                    decoded[i], values[i]);
                 break;
             }
         }
@@ -55,17 +54,17 @@ int varintPFORTest(int argc, char *argv[]) {
     TEST("PFOR with 90th percentile threshold") {
         uint64_t values[100];
         for (int i = 0; i < 90; i++) {
-            values[i] = 1000 + (uint64_t)i;  /* Clustered */
+            values[i] = 1000 + (uint64_t)i; /* Clustered */
         }
         for (int i = 90; i < 100; i++) {
-            values[i] = 100000 + (uint64_t)i;  /* Outliers */
+            values[i] = 100000 + (uint64_t)i; /* Outliers */
         }
 
         uint8_t buffer[2048];
         varintPFORMeta meta;
         size_t encoded = varintPFOREncode(buffer, values, 100,
                                           VARINT_PFOR_THRESHOLD_90, &meta);
-        (void)encoded;  /* Intentionally unused in test */
+        (void)encoded; /* Intentionally unused in test */
 
         /* Should have ~10 exceptions */
         if (meta.exceptionCount < 9 || meta.exceptionCount > 11) {
@@ -89,7 +88,7 @@ int varintPFORTest(int argc, char *argv[]) {
             values[i] = 500 + (uint64_t)i;
         }
         for (int i = 990; i < 1000; i++) {
-            values[i] = 500000 + (uint64_t)i;  /* 10 outliers (1% of 1000) */
+            values[i] = 500000 + (uint64_t)i; /* 10 outliers (1% of 1000) */
         }
 
         uint8_t buffer[8192];
@@ -97,10 +96,11 @@ int varintPFORTest(int argc, char *argv[]) {
         size_t encoded = varintPFOREncode(buffer, values, 1000,
                                           VARINT_PFOR_THRESHOLD_99, &meta);
 
-        (void)encoded;  /* Intentionally unused in test */
+        (void)encoded; /* Intentionally unused in test */
         /* Should have ~10 exceptions (1% of 1000) */
         if (meta.exceptionCount < 9 || meta.exceptionCount > 11) {
-            ERR("99th percentile exception count = %u, expected ~10", meta.exceptionCount);
+            ERR("99th percentile exception count = %u, expected ~10",
+                meta.exceptionCount);
         }
 
         uint64_t decoded[1000];
@@ -108,7 +108,8 @@ int varintPFORTest(int argc, char *argv[]) {
 
         for (int i = 0; i < 1000; i++) {
             if (decoded[i] != values[i]) {
-                ERR("99th percentile: value[%d] = %" PRIu64 ", expected %" PRIu64 "",
+                ERR("99th percentile: value[%d] = %" PRIu64
+                    ", expected %" PRIu64 "",
                     i, decoded[i], values[i]);
                 break;
             }
@@ -121,13 +122,15 @@ int varintPFORTest(int argc, char *argv[]) {
         uint8_t buffer[512];
 
         varintPFORMeta meta;
-        varintPFOREncode(buffer, values, (uint32_t)count, VARINT_PFOR_THRESHOLD_95, &meta);
+        varintPFOREncode(buffer, values, (uint32_t)count,
+                         VARINT_PFOR_THRESHOLD_95, &meta);
 
         /* Access each value individually */
         for (size_t i = 0; i < count; i++) {
             uint64_t val = varintPFORGetAt(buffer, (uint32_t)i, &meta);
             if (val != values[i]) {
-                ERR("GetAt(%zu) = %" PRIu64 ", expected %" PRIu64 "", i, val, values[i]);
+                ERR("GetAt(%zu) = %" PRIu64 ", expected %" PRIu64 "", i, val,
+                    values[i]);
             }
         }
     }
@@ -145,7 +148,8 @@ int varintPFORTest(int argc, char *argv[]) {
 
         /* Should have 0 exceptions (or very few) */
         if (meta.exceptionCount > 3) {
-            ERR("Too many exceptions for tight cluster: %u", meta.exceptionCount);
+            ERR("Too many exceptions for tight cluster: %u",
+                meta.exceptionCount);
         }
 
         uint64_t decoded[50];
@@ -178,15 +182,16 @@ int varintPFORTest(int argc, char *argv[]) {
         uint8_t buffer[256];
 
         varintPFORMeta meta;
-        size_t encoded = varintPFOREncode(buffer, value, 1,
-                                          VARINT_PFOR_THRESHOLD_95, &meta);
-        (void)encoded;  /* Intentionally unused in test */
+        size_t encoded =
+            varintPFOREncode(buffer, value, 1, VARINT_PFOR_THRESHOLD_95, &meta);
+        (void)encoded; /* Intentionally unused in test */
 
         uint64_t decoded[1];
         varintPFORDecode(buffer, decoded, &meta);
 
         if (decoded[0] != value[0]) {
-            ERR("Single value = %" PRIu64 ", expected %" PRIu64 "", decoded[0], value[0]);
+            ERR("Single value = %" PRIu64 ", expected %" PRIu64 "", decoded[0],
+                value[0]);
         }
     }
 
@@ -195,7 +200,8 @@ int varintPFORTest(int argc, char *argv[]) {
         uint8_t buffer[512];
 
         varintPFORMeta meta_encode;
-        varintPFOREncode(buffer, values, 5, VARINT_PFOR_THRESHOLD_95, &meta_encode);
+        varintPFOREncode(buffer, values, 5, VARINT_PFOR_THRESHOLD_95,
+                         &meta_encode);
 
         varintPFORMeta meta_read;
         varintPFORReadMeta(buffer, &meta_read);
@@ -206,8 +212,8 @@ int varintPFORTest(int argc, char *argv[]) {
         }
 
         if (meta_read.width != meta_encode.width) {
-            ERR("Read width %d != encoded width %d",
-                meta_read.width, meta_encode.width);
+            ERR("Read width %d != encoded width %d", meta_read.width,
+                meta_encode.width);
         }
 
         if (meta_read.exceptionCount != meta_encode.exceptionCount) {
@@ -222,9 +228,9 @@ int varintPFORTest(int argc, char *argv[]) {
         for (int i = 0; i < 95; i++) {
             values[i] = 100 + (uint64_t)(i % 50);
         }
-        values[95] = 1000;  /* Flash crash */
+        values[95] = 1000; /* Flash crash */
         values[96] = 120;
-        values[97] = 5000;  /* Spike */
+        values[97] = 5000; /* Spike */
         values[98] = 110;
         values[99] = 130;
 

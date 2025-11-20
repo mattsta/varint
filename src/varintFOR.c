@@ -42,7 +42,8 @@ void varintFORAnalyze(const uint64_t *values, size_t count,
     meta->encodedSize = varintFORSize(meta);
 }
 
-/* Calculate encoded size: min_value + offset_width + count + (count * offset_width) */
+/* Calculate encoded size: min_value + offset_width + count + (count *
+ * offset_width) */
 size_t varintFORSize(const varintFORMeta *meta) {
     /* Use tagged varints for self-describing header */
     varintWidth minWidth = varintTaggedLen(meta->minValue);
@@ -123,7 +124,8 @@ void varintFORReadMetadata(const uint8_t *src, varintFORMeta *meta) {
     /* Range and max will be computed if needed */
     meta->range = 0;
     meta->maxValue = minValue;
-    meta->encodedSize = minWidth + 1 + countWidth + ((size_t)count * offsetWidth);
+    meta->encodedSize =
+        minWidth + 1 + countWidth + ((size_t)count * offsetWidth);
 }
 
 /* Decode entire FOR-encoded array */
@@ -169,8 +171,8 @@ uint64_t varintFORGetAt(const uint8_t *src, size_t index) {
     varintWidth minWidth = varintTaggedLen(meta.minValue);
     varintWidth countWidth = varintTaggedLen(meta.count);
 
-    const uint8_t *dataPtr = src + minWidth + 1 + countWidth +
-                             (index * meta.offsetWidth);
+    const uint8_t *dataPtr =
+        src + minWidth + 1 + countWidth + (index * meta.offsetWidth);
 
     /* Decode offset and add min value */
     uint64_t offset;

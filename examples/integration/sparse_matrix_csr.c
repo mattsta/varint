@@ -29,8 +29,8 @@
  *   column_indices[] = [0,   2,   1,   0,   2,   3  ]  (varint encoded)
  *   row_pointers[]   = [0,   2,   3,   6]              (varint encoded)
  *
- * Compile: gcc -I../../src sparse_matrix_csr.c ../../build/src/varint.a -o sparse_matrix_csr -lm
- * Run: ./sparse_matrix_csr
+ * Compile: gcc -I../../src sparse_matrix_csr.c ../../build/src/varint.a -o
+ * sparse_matrix_csr -lm Run: ./sparse_matrix_csr
  */
 
 #include "varintDimension.h"
@@ -47,15 +47,15 @@
 // ============================================================================
 
 typedef struct {
-    double *values;              // Non-zero values [nnz]
-    uint8_t *columnIndices;      // Column indices (varint encoded) [nnz * colWidth]
-    uint8_t *rowPointers;        // Cumulative nnz count (varint) [(rows+1) * ptrWidth]
-    size_t rows;                 // Number of rows
-    size_t cols;                 // Number of columns
-    size_t nnz;                  // Number of non-zeros
-    size_t capacity;             // Allocated capacity for values/indices
-    varintWidth colWidth;        // Bytes per column index
-    varintWidth ptrWidth;        // Bytes per row pointer
+    double *values;         // Non-zero values [nnz]
+    uint8_t *columnIndices; // Column indices (varint encoded) [nnz * colWidth]
+    uint8_t *rowPointers; // Cumulative nnz count (varint) [(rows+1) * ptrWidth]
+    size_t rows;          // Number of rows
+    size_t cols;          // Number of columns
+    size_t nnz;           // Number of non-zeros
+    size_t capacity;      // Allocated capacity for values/indices
+    varintWidth colWidth; // Bytes per column index
+    varintWidth ptrWidth; // Bytes per row pointer
     varintDimensionPair dimensionEncoding;
 } CSRMatrix;
 
@@ -63,7 +63,8 @@ typedef struct {
 // CSR MATRIX INITIALIZATION
 // ============================================================================
 
-void csrMatrixInit(CSRMatrix *matrix, size_t rows, size_t cols, size_t estimatedNnz) {
+void csrMatrixInit(CSRMatrix *matrix, size_t rows, size_t cols,
+                   size_t estimatedNnz) {
     matrix->rows = rows;
     matrix->cols = cols;
     matrix->nnz = 0;
@@ -81,7 +82,7 @@ void csrMatrixInit(CSRMatrix *matrix, size_t rows, size_t cols, size_t estimated
     }
 
     // Determine row pointer width (based on max nnz value)
-    size_t maxNnz = rows * cols;  // Worst case
+    size_t maxNnz = rows * cols; // Worst case
     if (maxNnz <= 255) {
         matrix->ptrWidth = VARINT_WIDTH_8B;
     } else if (maxNnz <= 65535) {
@@ -123,8 +124,8 @@ void csrMatrixFree(CSRMatrix *matrix) {
 void csrMatrixGrow(CSRMatrix *matrix) {
     matrix->capacity *= 2;
     matrix->values = realloc(matrix->values, matrix->capacity * sizeof(double));
-    matrix->columnIndices = realloc(matrix->columnIndices,
-                                     matrix->capacity * matrix->colWidth);
+    matrix->columnIndices =
+        realloc(matrix->columnIndices, matrix->capacity * matrix->colWidth);
 }
 
 // ============================================================================
@@ -132,10 +133,11 @@ void csrMatrixGrow(CSRMatrix *matrix) {
 // ============================================================================
 
 // Add a non-zero element (must be added in row-major order)
-void csrMatrixAddElement(CSRMatrix *matrix, size_t row, size_t col, double value) {
+void csrMatrixAddElement(CSRMatrix *matrix, size_t row, size_t col,
+                         double value) {
     assert(row < matrix->rows);
     assert(col < matrix->cols);
-    assert(value != 0.0);  // Only store non-zeros
+    assert(value != 0.0); // Only store non-zeros
 
     if (matrix->nnz >= matrix->capacity) {
         csrMatrixGrow(matrix);
@@ -145,8 +147,9 @@ void csrMatrixAddElement(CSRMatrix *matrix, size_t row, size_t col, double value
     matrix->values[matrix->nnz] = value;
 
     // Store column index (varint encoded)
-    varintExternalPutFixedWidth(matrix->columnIndices + (matrix->nnz * matrix->colWidth),
-                                 col, matrix->colWidth);
+    varintExternalPutFixedWidth(matrix->columnIndices +
+                                    (matrix->nnz * matrix->colWidth),
+                                col, matrix->colWidth);
 
     matrix->nnz++;
 }
@@ -160,15 +163,18 @@ void csrMatrixFinalizeRowPointers(CSRMatrix *matrix) {
     // In practice, track current row during insertion
     size_t currentNnz = 0;
     for (size_t row = 0; row <= matrix->rows; row++) {
-        varintExternalPutFixedWidth(matrix->rowPointers + (row * matrix->ptrWidth),
-                                     currentNnz, matrix->ptrWidth);
+        varintExternalPutFixedWidth(matrix->rowPointers +
+                                        (row * matrix->ptrWidth),
+                                    currentNnz, matrix->ptrWidth);
 
         // Count nnz in this row by scanning column indices
         if (row < matrix->rows) {
             while (currentNnz < matrix->nnz) {
                 // Simplified: assumes elements added in order
                 currentNnz++;
-                if (currentNnz >= matrix->nnz) break;
+                if (currentNnz >= matrix->nnz) {
+                    break;
+                }
             }
         }
     }
@@ -178,14 +184,14 @@ void csrMatrixFinalizeRowPointers(CSRMatrix *matrix) {
 uint64_t csrMatrixGetRowPointer(const CSRMatrix *matrix, size_t row) {
     assert(row <= matrix->rows);
     return varintExternalGet(matrix->rowPointers + (row * matrix->ptrWidth),
-                              matrix->ptrWidth);
+                             matrix->ptrWidth);
 }
 
 // Get column index for a non-zero element
 uint64_t csrMatrixGetColumnIndex(const CSRMatrix *matrix, size_t nzIndex) {
     assert(nzIndex < matrix->nnz);
-    return varintExternalGet(matrix->columnIndices + (nzIndex * matrix->colWidth),
-                              matrix->colWidth);
+    return varintExternalGet(
+        matrix->columnIndices + (nzIndex * matrix->colWidth), matrix->colWidth);
 }
 
 // Get element at (row, col) - returns 0.0 if not found
@@ -203,18 +209,19 @@ double csrMatrixGet(const CSRMatrix *matrix, size_t row, size_t col) {
         }
     }
 
-    return 0.0;  // Not found (implicit zero)
+    return 0.0; // Not found (implicit zero)
 }
 
 // ============================================================================
 // DENSE TO CSR CONVERSION
 // ============================================================================
 
-void csrMatrixFromDense(CSRMatrix *matrix, const double *dense, size_t rows, size_t cols) {
+void csrMatrixFromDense(CSRMatrix *matrix, const double *dense, size_t rows,
+                        size_t cols) {
     // Count non-zeros first
     size_t nnz = 0;
     for (size_t i = 0; i < rows * cols; i++) {
-        if (fabs(dense[i]) > 1e-10) {  // Threshold for zero
+        if (fabs(dense[i]) > 1e-10) { // Threshold for zero
             nnz++;
         }
     }
@@ -224,8 +231,9 @@ void csrMatrixFromDense(CSRMatrix *matrix, const double *dense, size_t rows, siz
     // Build CSR structure
     for (size_t row = 0; row < rows; row++) {
         // Store row start pointer
-        varintExternalPutFixedWidth(matrix->rowPointers + (row * matrix->ptrWidth),
-                                     matrix->nnz, matrix->ptrWidth);
+        varintExternalPutFixedWidth(matrix->rowPointers +
+                                        (row * matrix->ptrWidth),
+                                    matrix->nnz, matrix->ptrWidth);
 
         for (size_t col = 0; col < cols; col++) {
             double value = dense[row * cols + col];
@@ -245,7 +253,7 @@ void csrMatrixFromDense(CSRMatrix *matrix, const double *dense, size_t rows, siz
 
     // Store final row pointer
     varintExternalPutFixedWidth(matrix->rowPointers + (rows * matrix->ptrWidth),
-                                 matrix->nnz, matrix->ptrWidth);
+                                matrix->nnz, matrix->ptrWidth);
 }
 
 // ============================================================================
@@ -272,7 +280,8 @@ void csrMatrixToDense(const CSRMatrix *matrix, double *dense) {
 // MATRIX-VECTOR MULTIPLY (SpMV)
 // ============================================================================
 
-void csrMatrixVectorMultiply(const CSRMatrix *matrix, const double *x, double *y) {
+void csrMatrixVectorMultiply(const CSRMatrix *matrix, const double *x,
+                             double *y) {
     // Compute y = A * x where A is sparse (CSR format)
     for (size_t row = 0; row < matrix->rows; row++) {
         double sum = 0.0;
@@ -306,8 +315,9 @@ void csrMatrixTranspose(const CSRMatrix *matrix, CSRMatrix *result) {
     // Build row pointers for transposed matrix
     uint64_t cumsum = 0;
     for (size_t col = 0; col <= matrix->cols; col++) {
-        varintExternalPutFixedWidth(result->rowPointers + (col * result->ptrWidth),
-                                     cumsum, result->ptrWidth);
+        varintExternalPutFixedWidth(result->rowPointers +
+                                        (col * result->ptrWidth),
+                                    cumsum, result->ptrWidth);
         if (col < matrix->cols) {
             cumsum += colCounts[col];
         }
@@ -326,9 +336,9 @@ void csrMatrixTranspose(const CSRMatrix *matrix, CSRMatrix *result) {
             uint64_t destIdx = destRowStart + colOffsets[col];
 
             result->values[destIdx] = matrix->values[i];
-            varintExternalPutFixedWidth(
-                result->columnIndices + (destIdx * result->colWidth),
-                row, result->colWidth);
+            varintExternalPutFixedWidth(result->columnIndices +
+                                            (destIdx * result->colWidth),
+                                        row, result->colWidth);
 
             colOffsets[col]++;
         }
@@ -378,12 +388,12 @@ void demonstrateGraphAdjacency() {
     // Small social network: 6 users, sparse connections
     size_t numUsers = 6;
     double dense[36] = {
-        0, 1, 1, 0, 0, 0,  // User 0 follows users 1, 2
-        1, 0, 0, 1, 0, 0,  // User 1 follows users 0, 3
-        0, 0, 0, 1, 1, 0,  // User 2 follows users 3, 4
-        0, 0, 0, 0, 1, 1,  // User 3 follows users 4, 5
-        0, 0, 1, 0, 0, 1,  // User 4 follows users 2, 5
-        1, 0, 0, 0, 0, 0   // User 5 follows user 0
+        0, 1, 1, 0, 0, 0, // User 0 follows users 1, 2
+        1, 0, 0, 1, 0, 0, // User 1 follows users 0, 3
+        0, 0, 0, 1, 1, 0, // User 2 follows users 3, 4
+        0, 0, 0, 0, 1, 1, // User 3 follows users 4, 5
+        0, 0, 1, 0, 0, 1, // User 4 follows users 2, 5
+        1, 0, 0, 0, 0, 0  // User 5 follows user 0
     };
 
     printf("Creating adjacency matrix for 6-user social network...\n");
@@ -441,12 +451,12 @@ void demonstrateFiniteElementMesh() {
 
     // Band diagonal: each row has ~3 non-zeros (diagonal + neighbors)
     for (size_t i = 0; i < n; i++) {
-        dense[i * n + i] = 4.0;  // Diagonal
+        dense[i * n + i] = 4.0; // Diagonal
         if (i > 0) {
-            dense[i * n + (i - 1)] = -1.0;  // Lower diagonal
+            dense[i * n + (i - 1)] = -1.0; // Lower diagonal
         }
         if (i < n - 1) {
-            dense[i * n + (i + 1)] = -1.0;  // Upper diagonal
+            dense[i * n + (i + 1)] = -1.0; // Upper diagonal
         }
     }
 
@@ -466,10 +476,12 @@ void demonstrateFiniteElementMesh() {
 
     csrMatrixVectorMultiply(&stiffness, force, displacement);
 
-    printf("   Force vector:        [%.1f, %.1f, %.1f, %.1f, %.1f, %.1f, %.1f, %.1f]\n",
-           force[0], force[1], force[2], force[3],
-           force[4], force[5], force[6], force[7]);
-    printf("   Displacement result: [%.1f, %.1f, %.1f, %.1f, %.1f, %.1f, %.1f, %.1f]\n",
+    printf("   Force vector:        [%.1f, %.1f, %.1f, %.1f, %.1f, %.1f, %.1f, "
+           "%.1f]\n",
+           force[0], force[1], force[2], force[3], force[4], force[5], force[6],
+           force[7]);
+    printf("   Displacement result: [%.1f, %.1f, %.1f, %.1f, %.1f, %.1f, %.1f, "
+           "%.1f]\n",
            displacement[0], displacement[1], displacement[2], displacement[3],
            displacement[4], displacement[5], displacement[6], displacement[7]);
 
@@ -500,7 +512,7 @@ void demonstrateDocumentTermMatrix() {
     // 5 documents, 10 terms (very sparse)
     size_t numDocs = 5;
     size_t numTerms = 10;
-    double dense[50] = {0};  // Initialize to zero
+    double dense[50] = {0}; // Initialize to zero
 
     // Document 0: terms {0, 2, 5}
     dense[0 * numTerms + 0] = 3.0;
@@ -555,8 +567,8 @@ void demonstrateDocumentTermMatrix() {
     CSRMatrix invertedIndex;
     csrMatrixTranspose(&docTerm, &invertedIndex);
 
-    printf("   Inverted index: %zu terms x %zu docs\n",
-           invertedIndex.rows, invertedIndex.cols);
+    printf("   Inverted index: %zu terms x %zu docs\n", invertedIndex.rows,
+           invertedIndex.cols);
 
     printf("\nTerm document postings:\n");
     for (size_t term = 0; term < (numTerms < 6 ? numTerms : 6); term++) {
@@ -592,22 +604,23 @@ void demonstrateDocumentTermMatrix() {
 // ============================================================================
 
 void demonstrateLargeSparseMatrix() {
-    printf("\n=== Use Case 4: Large Sparse Matrix (1000x1000, 1%% density) ===\n\n");
+    printf("\n=== Use Case 4: Large Sparse Matrix (1000x1000, 1%% density) "
+           "===\n\n");
 
     size_t n = 1000;
-    double density = 0.01;  // 1% density
+    double density = 0.01; // 1% density
     size_t targetNnz = (size_t)(n * n * density);
 
     printf("Creating large sparse matrix...\n");
     printf("   Dimensions: %zu x %zu\n", n, n);
-    printf("   Target density: %.1f%% (~%zu non-zeros)\n",
-           density * 100, targetNnz);
+    printf("   Target density: %.1f%% (~%zu non-zeros)\n", density * 100,
+           targetNnz);
 
     CSRMatrix large;
     csrMatrixInit(&large, n, n, targetNnz);
 
     // Generate random sparse pattern
-    srand(12345);  // Fixed seed for reproducibility
+    srand(12345); // Fixed seed for reproducibility
     size_t *rowNnzCounts = calloc(n, sizeof(size_t));
     size_t actualNnz = 0;
 
@@ -620,7 +633,7 @@ void demonstrateLargeSparseMatrix() {
     // Build CSR structure
     for (size_t row = 0; row < n; row++) {
         varintExternalPutFixedWidth(large.rowPointers + (row * large.ptrWidth),
-                                     actualNnz, large.ptrWidth);
+                                    actualNnz, large.ptrWidth);
 
         for (size_t j = 0; j < rowNnzCounts[row]; j++) {
             size_t col = rand() % n;
@@ -631,20 +644,19 @@ void demonstrateLargeSparseMatrix() {
             }
 
             large.values[actualNnz] = value;
-            varintExternalPutFixedWidth(
-                large.columnIndices + (actualNnz * large.colWidth),
-                col, large.colWidth);
+            varintExternalPutFixedWidth(large.columnIndices +
+                                            (actualNnz * large.colWidth),
+                                        col, large.colWidth);
             actualNnz++;
         }
     }
 
     varintExternalPutFixedWidth(large.rowPointers + (n * large.ptrWidth),
-                                 actualNnz, large.ptrWidth);
+                                actualNnz, large.ptrWidth);
     large.nnz = actualNnz;
 
     printf("   Actual non-zeros: %zu\n", large.nnz);
-    printf("   Actual density: %.2f%%\n",
-           100.0 * large.nnz / (n * n));
+    printf("   Actual density: %.2f%%\n", 100.0 * large.nnz / (n * n));
 
     // Varint encoding efficiency
     printf("\nVarint encoding:\n");
@@ -659,7 +671,7 @@ void demonstrateLargeSparseMatrix() {
     double *y = malloc(n * sizeof(double));
 
     for (size_t i = 0; i < n; i++) {
-        x[i] = 1.0;  // Unit vector
+        x[i] = 1.0; // Unit vector
     }
 
     clock_t start = clock();
@@ -668,19 +680,18 @@ void demonstrateLargeSparseMatrix() {
 
     double elapsed = (double)(end - start) / CLOCKS_PER_SEC * 1000.0;
     printf("   SpMV completed in %.3f ms\n", elapsed);
-    printf("   Result sample: y[0]=%.2f, y[500]=%.2f, y[999]=%.2f\n",
-           y[0], y[500], y[999]);
+    printf("   Result sample: y[0]=%.2f, y[500]=%.2f, y[999]=%.2f\n", y[0],
+           y[500], y[999]);
 
     // Storage analysis
     size_t denseBytes = n * n * sizeof(double);
-    size_t csrBytes = large.nnz * sizeof(double) +
-                      large.nnz * large.colWidth +
+    size_t csrBytes = large.nnz * sizeof(double) + large.nnz * large.colWidth +
                       (large.rows + 1) * large.ptrWidth;
 
     printf("\nComprehensive storage analysis:\n");
     printf("   Dense storage:\n");
-    printf("   - Matrix data: %zu bytes (%.2f MB)\n",
-           denseBytes, (double)denseBytes / (1024 * 1024));
+    printf("   - Matrix data: %zu bytes (%.2f MB)\n", denseBytes,
+           (double)denseBytes / (1024 * 1024));
 
     printf("   CSR storage:\n");
     printf("   - Values:         %zu bytes (%.2f KB)\n",
@@ -692,12 +703,11 @@ void demonstrateLargeSparseMatrix() {
     printf("   - Row pointers:   %zu bytes (%.2f KB)\n",
            (large.rows + 1) * large.ptrWidth,
            (double)((large.rows + 1) * large.ptrWidth) / 1024);
-    printf("   - Total:          %zu bytes (%.2f KB)\n",
-           csrBytes, (double)csrBytes / 1024);
+    printf("   - Total:          %zu bytes (%.2f KB)\n", csrBytes,
+           (double)csrBytes / 1024);
 
     printf("\n   Compression ratio: %.2fx\n", (double)denseBytes / csrBytes);
-    printf("   Space savings: %zu bytes (%.1f%%)\n",
-           denseBytes - csrBytes,
+    printf("   Space savings: %zu bytes (%.1f%%)\n", denseBytes - csrBytes,
            100.0 * (1.0 - (double)csrBytes / denseBytes));
 
     // Compare with fixed-width column indices (no varint)
@@ -705,8 +715,8 @@ void demonstrateLargeSparseMatrix() {
                              large.nnz * sizeof(uint32_t) +
                              (large.rows + 1) * sizeof(uint32_t);
     printf("\n   vs. fixed 32-bit indices:\n");
-    printf("   - Fixed-width CSR: %zu bytes (%.2f KB)\n",
-           fixedWidthBytes, (double)fixedWidthBytes / 1024);
+    printf("   - Fixed-width CSR: %zu bytes (%.2f KB)\n", fixedWidthBytes,
+           (double)fixedWidthBytes / 1024);
     printf("   - Varint savings: %zu bytes (%.1f%%)\n",
            fixedWidthBytes - csrBytes,
            100.0 * (1.0 - (double)csrBytes / fixedWidthBytes));
@@ -733,38 +743,40 @@ void demonstrateRecommenderSystem() {
     printf("   Users: %zu, Items: %zu\n", numUsers, numItems);
 
     CSRMatrix ratings;
-    csrMatrixInit(&ratings, numUsers, numItems, 150);  // ~3% density
+    csrMatrixInit(&ratings, numUsers, numItems, 150); // ~3% density
 
     // Generate sparse ratings pattern
     srand(54321);
     for (size_t user = 0; user < numUsers; user++) {
-        varintExternalPutFixedWidth(ratings.rowPointers + (user * ratings.ptrWidth),
-                                     ratings.nnz, ratings.ptrWidth);
+        varintExternalPutFixedWidth(ratings.rowPointers +
+                                        (user * ratings.ptrWidth),
+                                    ratings.nnz, ratings.ptrWidth);
 
         // Each user rates 1-3 items
         size_t numRatings = (rand() % 3) + 1;
         for (size_t i = 0; i < numRatings; i++) {
             size_t item = rand() % numItems;
-            double rating = 1.0 + ((double)rand() / RAND_MAX) * 4.0;  // 1-5 stars
+            double rating =
+                1.0 + ((double)rand() / RAND_MAX) * 4.0; // 1-5 stars
 
             if (ratings.nnz >= ratings.capacity) {
                 csrMatrixGrow(&ratings);
             }
 
             ratings.values[ratings.nnz] = rating;
-            varintExternalPutFixedWidth(
-                ratings.columnIndices + (ratings.nnz * ratings.colWidth),
-                item, ratings.colWidth);
+            varintExternalPutFixedWidth(ratings.columnIndices +
+                                            (ratings.nnz * ratings.colWidth),
+                                        item, ratings.colWidth);
             ratings.nnz++;
         }
     }
 
-    varintExternalPutFixedWidth(ratings.rowPointers + (numUsers * ratings.ptrWidth),
-                                 ratings.nnz, ratings.ptrWidth);
+    varintExternalPutFixedWidth(ratings.rowPointers +
+                                    (numUsers * ratings.ptrWidth),
+                                ratings.nnz, ratings.ptrWidth);
 
-    printf("   Total ratings: %zu / %zu (%.2f%% density)\n",
-           ratings.nnz, numUsers * numItems,
-           100.0 * ratings.nnz / (numUsers * numItems));
+    printf("   Total ratings: %zu / %zu (%.2f%% density)\n", ratings.nnz,
+           numUsers * numItems, 100.0 * ratings.nnz / (numUsers * numItems));
 
     // Show sample ratings
     printf("\nSample user ratings:\n");
@@ -786,12 +798,11 @@ void demonstrateRecommenderSystem() {
                          (ratings.rows + 1) * ratings.ptrWidth;
 
     printf("\nStorage comparison:\n");
-    printf("   Dense: %zu bytes (%.2f KB)\n",
-           denseBytes, (double)denseBytes / 1024);
-    printf("   CSR:   %zu bytes (%.2f KB)\n",
-           sparseBytes, (double)sparseBytes / 1024);
-    printf("   Savings: %zu bytes (%.1f%%)\n",
-           denseBytes - sparseBytes,
+    printf("   Dense: %zu bytes (%.2f KB)\n", denseBytes,
+           (double)denseBytes / 1024);
+    printf("   CSR:   %zu bytes (%.2f KB)\n", sparseBytes,
+           (double)sparseBytes / 1024);
+    printf("   Savings: %zu bytes (%.1f%%)\n", denseBytes - sparseBytes,
            100.0 * (1.0 - (double)sparseBytes / denseBytes));
 
     csrMatrixFree(&ratings);
@@ -803,9 +814,11 @@ void demonstrateRecommenderSystem() {
 // ============================================================================
 
 int main() {
-    printf("=================================================================\n");
+    printf(
+        "=================================================================\n");
     printf("  Sparse Matrix (CSR Format) Integration Example\n");
-    printf("=================================================================\n");
+    printf(
+        "=================================================================\n");
 
     demonstrateGraphAdjacency();
     demonstrateFiniteElementMesh();
@@ -813,7 +826,8 @@ int main() {
     demonstrateLargeSparseMatrix();
     demonstrateRecommenderSystem();
 
-    printf("\n=================================================================\n");
+    printf("\n================================================================="
+           "\n");
     printf("This example demonstrated:\n");
     printf("  • CSR (Compressed Sparse Row) matrix format\n");
     printf("  • varintExternal for adaptive-width column indices\n");
@@ -829,7 +843,8 @@ int main() {
     printf("  • Compression analysis: 50-99%% space savings\n");
     printf("  • Varint encoding: 2-byte indices for 1000x1000 matrix\n");
     printf("  • Access pattern efficiency for sparse operations\n");
-    printf("=================================================================\n");
+    printf(
+        "=================================================================\n");
 
     return 0;
 }

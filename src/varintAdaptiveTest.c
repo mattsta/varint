@@ -1,13 +1,9 @@
 #include "varintAdaptive.h"
-#include <inttypes.h>
 #include "ctest.h"
 #include <inttypes.h>
-#include <string.h>
-#include <inttypes.h>
-#include <stdlib.h>
-#include <inttypes.h>
 #include <math.h>
-#include <inttypes.h>
+#include <stdlib.h>
+#include <string.h>
 
 int varintAdaptiveTest(int argc, char *argv[]) {
     (void)argc;
@@ -20,7 +16,7 @@ int varintAdaptiveTest(int argc, char *argv[]) {
         uint64_t values[100];
         uint64_t base = 1700000000000ULL;
         for (int i = 0; i < 100; i++) {
-            values[i] = base + ((uint64_t)i * 1000);  /* 1 second increments */
+            values[i] = base + ((uint64_t)i * 1000); /* 1 second increments */
         }
 
         uint8_t buffer[2048];
@@ -32,7 +28,7 @@ int varintAdaptiveTest(int argc, char *argv[]) {
         }
 
         /* Should achieve good compression */
-        if (encoded >= 800) {  /* Naive would be 100*8=800 */
+        if (encoded >= 800) { /* Naive would be 100*8=800 */
             ERR("Poor compression for timestamps: %zu bytes", encoded);
         }
 
@@ -42,7 +38,8 @@ int varintAdaptiveTest(int argc, char *argv[]) {
 
         for (size_t i = 0; i < 100; i++) {
             if (decoded[i] != values[i]) {
-                ERR("Timestamp[%zu] = %" PRIu64 ", expected %" PRIu64 "", i, decoded[i], values[i]);
+                ERR("Timestamp[%zu] = %" PRIu64 ", expected %" PRIu64 "", i,
+                    decoded[i], values[i]);
                 break;
             }
         }
@@ -88,11 +85,11 @@ int varintAdaptiveTest(int argc, char *argv[]) {
         /* Mostly clustered with a few outliers */
         uint64_t values[100];
         for (int i = 0; i < 97; i++) {
-            values[i] = 1000 + (uint64_t)i;  /* Clustered 1000-1096 */
+            values[i] = 1000 + (uint64_t)i; /* Clustered 1000-1096 */
         }
-        values[97] = 100000;  /* Outlier */
-        values[98] = 100001;  /* Outlier */
-        values[99] = 100002;  /* Outlier */
+        values[97] = 100000; /* Outlier */
+        values[98] = 100001; /* Outlier */
+        values[99] = 100002; /* Outlier */
 
         uint8_t buffer[2048];
         varintAdaptiveMeta meta;
@@ -101,7 +98,8 @@ int varintAdaptiveTest(int argc, char *argv[]) {
         /* Should choose PFOR or FOR */
         if (meta.encodingType != VARINT_ADAPTIVE_PFOR &&
             meta.encodingType != VARINT_ADAPTIVE_FOR) {
-            ERR("Outlier encoding = %d, expected PFOR or FOR", meta.encodingType);
+            ERR("Outlier encoding = %d, expected PFOR or FOR",
+                meta.encodingType);
         }
 
         /* Should compress well */
@@ -126,10 +124,7 @@ int varintAdaptiveTest(int argc, char *argv[]) {
             const char *name;
             uint64_t values[50];
         } patterns[] = {
-            {"Sequential", {0}},
-            {"Repetitive", {0}},
-            {"Random range", {0}}
-        };
+            {"Sequential", {0}}, {"Repetitive", {0}}, {"Random range", {0}}};
 
         /* Initialize sequential */
         for (int i = 0; i < 50; i++) {
@@ -150,7 +145,8 @@ int varintAdaptiveTest(int argc, char *argv[]) {
 
         for (int p = 0; p < 3; p++) {
             varintAdaptiveMeta meta;
-            size_t encoded = varintAdaptiveEncode(buffer, patterns[p].values, 50, &meta);
+            size_t encoded =
+                varintAdaptiveEncode(buffer, patterns[p].values, 50, &meta);
 
             if (encoded == 0) {
                 ERR("Failed to encode pattern: %s", patterns[p].name);
@@ -163,7 +159,8 @@ int varintAdaptiveTest(int argc, char *argv[]) {
 
             for (int i = 0; i < 50; i++) {
                 if (decoded[i] != patterns[p].values[i]) {
-                    ERR("Pattern '%s' value[%d] mismatch: %" PRIu64 " != %" PRIu64 "",
+                    ERR("Pattern '%s' value[%d] mismatch: %" PRIu64
+                        " != %" PRIu64 "",
                         patterns[p].name, i, decoded[i], patterns[p].values[i]);
                     break;
                 }
@@ -186,7 +183,8 @@ int varintAdaptiveTest(int argc, char *argv[]) {
         varintAdaptiveDecode(buffer, decoded, 1, NULL);
 
         if (decoded[0] != value[0]) {
-            ERR("Decoded value = %" PRIu64 ", expected %" PRIu64 "", decoded[0], value[0]);
+            ERR("Decoded value = %" PRIu64 ", expected %" PRIu64 "", decoded[0],
+                value[0]);
         }
     }
 
@@ -199,7 +197,7 @@ int varintAdaptiveTest(int argc, char *argv[]) {
         uint8_t buffer[1024];
         varintAdaptiveMeta meta;
         size_t encoded = varintAdaptiveEncode(buffer, values, 100, &meta);
-        (void)encoded;  /* Intentionally unused in test */
+        (void)encoded; /* Intentionally unused in test */
 
         /* Should compress very well (uniqueRatio = 1/100 < 15%) */
         if (meta.encodingType != VARINT_ADAPTIVE_DICT) {
@@ -213,7 +211,8 @@ int varintAdaptiveTest(int argc, char *argv[]) {
 
         for (size_t i = 0; i < 100; i++) {
             if (decoded[i] != 777) {
-                ERR("Identical value[%zu] = %" PRIu64 ", expected 777", i, decoded[i]);
+                ERR("Identical value[%zu] = %" PRIu64 ", expected 777", i,
+                    decoded[i]);
                 break;
             }
         }
@@ -256,7 +255,7 @@ int varintAdaptiveTest(int argc, char *argv[]) {
         varintAdaptiveMeta meta;
         size_t encoded = varintAdaptiveEncodeWith(buffer, values, 5,
                                                   VARINT_ADAPTIVE_DELTA, &meta);
-        (void)encoded;  /* Intentionally unused in test */
+        (void)encoded; /* Intentionally unused in test */
 
         if (meta.encodingType != VARINT_ADAPTIVE_DELTA) {
             ERR("EncodeWith DELTA: got %d", meta.encodingType);
@@ -280,7 +279,8 @@ int varintAdaptiveTest(int argc, char *argv[]) {
 
         for (int i = 0; i < 1000; i++) {
             /* 1-60 second deltas */
-            values[i] = base + ((uint64_t)i * 1000) + ((uint64_t)(i * 37) % 60000);
+            values[i] =
+                base + ((uint64_t)i * 1000) + ((uint64_t)(i * 37) % 60000);
         }
 
         uint8_t *buffer = malloc(16384);
@@ -304,8 +304,8 @@ int varintAdaptiveTest(int argc, char *argv[]) {
 
         for (int i = 0; i < 1000; i++) {
             if (decoded[i] != values[i]) {
-                ERR("Large dataset[%d] = %" PRIu64 ", expected %" PRIu64 "",
-                    i, decoded[i], values[i]);
+                ERR("Large dataset[%d] = %" PRIu64 ", expected %" PRIu64 "", i,
+                    decoded[i], values[i]);
                 break;
             }
         }

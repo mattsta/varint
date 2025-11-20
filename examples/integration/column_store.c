@@ -1,5 +1,6 @@
 /**
- * column_store.c - Columnar data storage using varintExternal and varintDimension
+ * column_store.c - Columnar data storage using varintExternal and
+ * varintDimension
  *
  * This example demonstrates a column-oriented database combining:
  * - varintExternal: Column data with schema-driven width selection
@@ -13,8 +14,8 @@
  * - Dynamic column addition
  * - Aggregate operations optimized for column access
  *
- * Compile: gcc -I../../src column_store.c ../../build/src/libvarint.a -o column_store
- * Run: ./column_store
+ * Compile: gcc -I../../src column_store.c ../../build/src/libvarint.a -o
+ * column_store Run: ./column_store
  */
 
 #include "varintDimension.h"
@@ -29,23 +30,23 @@
 // ============================================================================
 
 typedef enum {
-    COL_TYPE_INT8,    // 1-byte integers
-    COL_TYPE_INT16,   // 2-byte integers
-    COL_TYPE_INT32,   // 4-byte integers
-    COL_TYPE_INT64,   // 8-byte integers
-    COL_TYPE_UINT8,   // 1-byte unsigned
-    COL_TYPE_UINT16,  // 2-byte unsigned
-    COL_TYPE_UINT32,  // 4-byte unsigned
-    COL_TYPE_UINT64,  // 8-byte unsigned
-    COL_TYPE_FLOAT,   // 4-byte float
-    COL_TYPE_DOUBLE,  // 8-byte double
+    COL_TYPE_INT8,   // 1-byte integers
+    COL_TYPE_INT16,  // 2-byte integers
+    COL_TYPE_INT32,  // 4-byte integers
+    COL_TYPE_INT64,  // 8-byte integers
+    COL_TYPE_UINT8,  // 1-byte unsigned
+    COL_TYPE_UINT16, // 2-byte unsigned
+    COL_TYPE_UINT32, // 4-byte unsigned
+    COL_TYPE_UINT64, // 8-byte unsigned
+    COL_TYPE_FLOAT,  // 4-byte float
+    COL_TYPE_DOUBLE, // 8-byte double
 } ColumnType;
 
 typedef struct {
     char name[32];
     ColumnType type;
     bool nullable;
-    varintWidth defaultWidth;  // Encoding width for this column
+    varintWidth defaultWidth; // Encoding width for this column
 } ColumnSchema;
 
 typedef struct {
@@ -53,7 +54,7 @@ typedef struct {
     size_t columnCount;
     size_t rowCount;
     size_t capacity;
-    varintDimensionPair dimensionEncoding;  // Encodes table dimensions
+    varintDimensionPair dimensionEncoding; // Encodes table dimensions
 } TableSchema;
 
 // ============================================================================
@@ -61,11 +62,11 @@ typedef struct {
 // ============================================================================
 
 typedef struct {
-    uint8_t *data;       // Column values (varintExternal encoded)
-    uint8_t *nullBits;   // Null bitmap (1 bit per row)
+    uint8_t *data;     // Column values (varintExternal encoded)
+    uint8_t *nullBits; // Null bitmap (1 bit per row)
     size_t dataSize;
     size_t dataCapacity;
-    varintWidth width;   // Fixed width for this column
+    varintWidth width; // Fixed width for this column
 } Column;
 
 typedef struct {
@@ -118,8 +119,8 @@ varintWidth getTypeWidth(ColumnType type) {
 
 void schemaAddColumn(TableSchema *schema, const char *name, ColumnType type,
                      bool nullable) {
-    schema->columns =
-        realloc(schema->columns, (schema->columnCount + 1) * sizeof(ColumnSchema));
+    schema->columns = realloc(schema->columns,
+                              (schema->columnCount + 1) * sizeof(ColumnSchema));
 
     ColumnSchema *col = &schema->columns[schema->columnCount];
     strncpy(col->name, name, sizeof(col->name) - 1);
@@ -191,7 +192,8 @@ bool isNull(const Column *col, size_t row) {
 // DATA INSERTION
 // ============================================================================
 
-void columnStoreInsertInt64(ColumnStore *store, size_t colIndex, int64_t value) {
+void columnStoreInsertInt64(ColumnStore *store, size_t colIndex,
+                            int64_t value) {
     assert(colIndex < store->schema.columnCount);
     Column *col = &store->columns[colIndex];
 
@@ -206,11 +208,13 @@ void columnStoreInsertInt64(ColumnStore *store, size_t colIndex, int64_t value) 
     }
 
     // Store using varintExternal with fixed width
-    varintExternalPutFixedWidth(col->data + col->dataSize, unsignedValue, col->width);
+    varintExternalPutFixedWidth(col->data + col->dataSize, unsignedValue,
+                                col->width);
     col->dataSize += col->width;
 }
 
-void columnStoreInsertUInt64(ColumnStore *store, size_t colIndex, uint64_t value) {
+void columnStoreInsertUInt64(ColumnStore *store, size_t colIndex,
+                             uint64_t value) {
     assert(colIndex < store->schema.columnCount);
     Column *col = &store->columns[colIndex];
 
@@ -219,7 +223,8 @@ void columnStoreInsertUInt64(ColumnStore *store, size_t colIndex, uint64_t value
     col->dataSize += col->width;
 }
 
-void columnStoreInsertDouble(ColumnStore *store, size_t colIndex, double value) {
+void columnStoreInsertDouble(ColumnStore *store, size_t colIndex,
+                             double value) {
     assert(colIndex < store->schema.columnCount);
     Column *col = &store->columns[colIndex];
 
@@ -248,13 +253,14 @@ void columnStoreCommitRow(ColumnStore *store) {
 // DATA RETRIEVAL
 // ============================================================================
 
-int64_t columnStoreGetInt64(const ColumnStore *store, size_t row, size_t colIndex) {
+int64_t columnStoreGetInt64(const ColumnStore *store, size_t row,
+                            size_t colIndex) {
     assert(row < store->schema.rowCount);
     assert(colIndex < store->schema.columnCount);
 
     const Column *col = &store->columns[colIndex];
     if (isNull(col, row)) {
-        return 0;  // Return 0 for NULL
+        return 0; // Return 0 for NULL
     }
 
     size_t offset = row * col->width;
@@ -271,7 +277,7 @@ int64_t columnStoreGetInt64(const ColumnStore *store, size_t row, size_t colInde
 }
 
 uint64_t columnStoreGetUInt64(const ColumnStore *store, size_t row,
-                               size_t colIndex) {
+                              size_t colIndex) {
     assert(row < store->schema.rowCount);
     assert(colIndex < store->schema.columnCount);
 
@@ -284,7 +290,8 @@ uint64_t columnStoreGetUInt64(const ColumnStore *store, size_t row,
     return varintExternalGet(col->data + offset, col->width);
 }
 
-double columnStoreGetDouble(const ColumnStore *store, size_t row, size_t colIndex) {
+double columnStoreGetDouble(const ColumnStore *store, size_t row,
+                            size_t colIndex) {
     assert(row < store->schema.rowCount);
     assert(colIndex < store->schema.columnCount);
 
@@ -360,7 +367,7 @@ void demonstrateColumnStore() {
     printf("1. Creating table schema...\n");
 
     TableSchema schema;
-    schemaInit(&schema, 1000, 10);  // Max 1000 rows, 10 columns
+    schemaInit(&schema, 1000, 10); // Max 1000 rows, 10 columns
 
     schemaAddColumn(&schema, "user_id", COL_TYPE_UINT32, false);
     schemaAddColumn(&schema, "age", COL_TYPE_UINT8, true);
@@ -400,15 +407,15 @@ void demonstrateColumnStore() {
     printf("\n3. Inserting sample data...\n");
 
     // Row 0
-    columnStoreInsertUInt64(&store, 0, 1001);  // user_id
-    columnStoreInsertUInt64(&store, 1, 25);    // age
-    columnStoreInsertInt64(&store, 2, 50000);  // balance
-    columnStoreInsertDouble(&store, 3, 95.5);  // score
+    columnStoreInsertUInt64(&store, 0, 1001); // user_id
+    columnStoreInsertUInt64(&store, 1, 25);   // age
+    columnStoreInsertInt64(&store, 2, 50000); // balance
+    columnStoreInsertDouble(&store, 3, 95.5); // score
     columnStoreCommitRow(&store);
 
     // Row 1
     columnStoreInsertUInt64(&store, 0, 1002);
-    columnStoreInsertNull(&store, 1);  // age NULL
+    columnStoreInsertNull(&store, 1); // age NULL
     columnStoreInsertInt64(&store, 2, -1500);
     columnStoreInsertDouble(&store, 3, 72.3);
     columnStoreCommitRow(&store);
@@ -423,7 +430,7 @@ void demonstrateColumnStore() {
     // Row 3
     columnStoreInsertUInt64(&store, 0, 1004);
     columnStoreInsertUInt64(&store, 1, 22);
-    columnStoreInsertNull(&store, 2);  // balance NULL
+    columnStoreInsertNull(&store, 2); // balance NULL
     columnStoreInsertDouble(&store, 3, 91.7);
     columnStoreCommitRow(&store);
 
@@ -437,12 +444,14 @@ void demonstrateColumnStore() {
         bool ageIsNull = isNull(&store.columns[1], row);
         uint64_t age = ageIsNull ? 0 : columnStoreGetUInt64(&store, row, 1);
         bool balanceIsNull = isNull(&store.columns[2], row);
-        int64_t balance = balanceIsNull ? 0 : columnStoreGetInt64(&store, row, 2);
+        int64_t balance =
+            balanceIsNull ? 0 : columnStoreGetInt64(&store, row, 2);
         double score = columnStoreGetDouble(&store, row, 3);
 
         printf("   Row %zu: user_id=%lu, age=%s, balance=%s, score=%.1f\n", row,
                userId, ageIsNull ? "NULL" : (char[]){(char)('0' + age), '\0'},
-               balanceIsNull ? "NULL" : (char[]){(char)('0' + (balance / 1000)), '\0'},
+               balanceIsNull ? "NULL"
+                             : (char[]){(char)('0' + (balance / 1000)), '\0'},
                score);
     }
 
@@ -475,7 +484,8 @@ void demonstrateColumnStore() {
     printf("   Total storage: %zu bytes\n", totalDataBytes + totalNullBytes);
 
     // Compare with row-oriented storage
-    size_t rowOrientedSize = store.schema.rowCount * (4 + 1 + 8 + 8);  // Per-row overhead
+    size_t rowOrientedSize =
+        store.schema.rowCount * (4 + 1 + 8 + 8); // Per-row overhead
     printf("\n   Row-oriented equivalent: %zu bytes\n", rowOrientedSize);
     printf("   Space savings: %.1f%%\n",
            100.0 * (1.0 - (double)(totalDataBytes + totalNullBytes) /
@@ -488,8 +498,7 @@ void demonstrateColumnStore() {
            store.schema.rowCount, 4 * store.schema.rowCount);
     printf("   - Actual usage: All values fit in 2 bytes\n");
     printf("   - Potential savings: Could use COL_TYPE_UINT16 (2 bytes)\n");
-    printf("   - Would save: %zu bytes (50%%)\n",
-           2 * store.schema.rowCount);
+    printf("   - Would save: %zu bytes (50%%)\n", 2 * store.schema.rowCount);
 
     printf("   age column (UINT8):\n");
     printf("   - Fixed width: 1 byte × %zu rows = %zu bytes\n",

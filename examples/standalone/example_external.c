@@ -5,23 +5,25 @@
  * width metadata is stored externally. Most space-efficient encoding.
  * Perfect for columnar storage, arrays with external metadata, and caches.
  *
- * Compile: gcc -I../src example_external.c ../src/varintExternal.c -o example_external
- * Run: ./example_external
+ * Compile: gcc -I../src example_external.c ../src/varintExternal.c -o
+ * example_external Run: ./example_external
  */
 
 #include "varintExternal.h"
-#include <stdio.h>
 #include <assert.h>
-#include <string.h>
+#include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 /* Memory allocation check macro for demo programs */
-#define CHECK_ALLOC(ptr) do { \
-    if (!(ptr)) { \
-        fprintf(stderr, "Error: Memory allocation failed at %s:%d\n", __FILE__, __LINE__); \
-        exit(EXIT_FAILURE); \
-    } \
-} while(0)
+#define CHECK_ALLOC(ptr)                                                       \
+    do {                                                                       \
+        if (!(ptr)) {                                                          \
+            fprintf(stderr, "Error: Memory allocation failed at %s:%d\n",      \
+                    __FILE__, __LINE__);                                       \
+            exit(EXIT_FAILURE);                                                \
+        }                                                                      \
+    } while (0)
 
 // Example 1: Basic encode/decode with external width
 void example_basic() {
@@ -70,7 +72,7 @@ void example_width_detection() {
         {UINT64_MAX, 8, "uint64_t max"},
     };
 
-    for (size_t i = 0; i < sizeof(tests)/sizeof(tests[0]); i++) {
+    for (size_t i = 0; i < sizeof(tests) / sizeof(tests[0]); i++) {
         varintWidth width;
         varintExternalUnsignedEncoding(tests[i].value, width);
 
@@ -92,20 +94,20 @@ void example_width_detection() {
 
 // Example 3: Column store with external metadata
 typedef struct {
-    varintWidth *widths;      // Width for each column
-    uint8_t **columns;        // Column data
+    varintWidth *widths; // Width for each column
+    uint8_t **columns;   // Column data
     size_t numRows;
     size_t numCols;
 } ColumnStore;
 
-ColumnStore* createColumnStore(size_t rows, size_t cols) {
+ColumnStore *createColumnStore(size_t rows, size_t cols) {
     ColumnStore *store = malloc(sizeof(ColumnStore));
     CHECK_ALLOC(store);
     store->numRows = rows;
     store->numCols = cols;
     store->widths = calloc(cols, sizeof(varintWidth));
     CHECK_ALLOC(store->widths);
-    store->columns = calloc(cols, sizeof(uint8_t*));
+    store->columns = calloc(cols, sizeof(uint8_t *));
     CHECK_ALLOC(store->columns);
     return store;
 }
@@ -116,7 +118,9 @@ void setColumn(ColumnStore *store, size_t col, const uint64_t *values) {
     for (size_t i = 0; i < store->numRows; i++) {
         varintWidth width;
         varintExternalUnsignedEncoding(values[i], width);
-        if (width > maxWidth) maxWidth = width;
+        if (width > maxWidth) {
+            maxWidth = width;
+        }
     }
 
     store->widths[col] = maxWidth;
@@ -125,21 +129,15 @@ void setColumn(ColumnStore *store, size_t col, const uint64_t *values) {
 
     // Encode all values at same width
     for (size_t i = 0; i < store->numRows; i++) {
-        varintExternalPutFixedWidthQuick_(
-            store->columns[col] + (i * maxWidth),
-            values[i],
-            maxWidth
-        );
+        varintExternalPutFixedWidthQuick_(store->columns[col] + (i * maxWidth),
+                                          values[i], maxWidth);
     }
 }
 
 uint64_t getColumnValue(const ColumnStore *store, size_t row, size_t col) {
     uint64_t value;
-    varintExternalGetQuick_(
-        store->columns[col] + (row * store->widths[col]),
-        store->widths[col],
-        value
-    );
+    varintExternalGetQuick_(store->columns[col] + (row * store->widths[col]),
+                            store->widths[col], value);
     return value;
 }
 
@@ -169,8 +167,8 @@ void example_column_store() {
     uint64_t col2[] = {1000000, 2000000, 3000000, 4000000, 5000000};
     setColumn(store, 2, col2);
 
-    printf("Column widths: %d, %d, %d bytes\n",
-           store->widths[0], store->widths[1], store->widths[2]);
+    printf("Column widths: %d, %d, %d bytes\n", store->widths[0],
+           store->widths[1], store->widths[2]);
 
     // Calculate space savings
     size_t varintSize = 0;
@@ -180,8 +178,10 @@ void example_column_store() {
         uint64Size += 8 * store->numRows;
     }
 
-    printf("Space used: %zu bytes (vs %zu with uint64_t)\n", varintSize, uint64Size);
-    printf("Savings: %.1f%%\n", ((float)(uint64Size - varintSize) / uint64Size) * 100);
+    printf("Space used: %zu bytes (vs %zu with uint64_t)\n", varintSize,
+           uint64Size);
+    printf("Savings: %.1f%%\n",
+           ((float)(uint64Size - varintSize) / uint64Size) * 100);
 
     // Verify data
     for (size_t row = 0; row < store->numRows; row++) {
@@ -201,11 +201,7 @@ void example_array_compression() {
 
     // Array of timestamps (40-bit values)
     uint64_t timestamps[] = {
-        1700000000UL,
-        1700000060UL,
-        1700000120UL,
-        1700000180UL,
-        1700000240UL,
+        1700000000UL, 1700000060UL, 1700000120UL, 1700000180UL, 1700000240UL,
     };
     size_t count = sizeof(timestamps) / sizeof(timestamps[0]);
 
@@ -214,7 +210,9 @@ void example_array_compression() {
     for (size_t i = 0; i < count; i++) {
         varintWidth w;
         varintExternalUnsignedEncoding(timestamps[i], w);
-        if (w > width) width = w;
+        if (w > width) {
+            width = w;
+        }
     }
 
     printf("Array of %zu timestamps requires %d bytes each\n", count, width);
@@ -223,11 +221,8 @@ void example_array_compression() {
     uint8_t *compressed = malloc(width * count);
     CHECK_ALLOC(compressed);
     for (size_t i = 0; i < count; i++) {
-        varintExternalPutFixedWidthQuick_(
-            compressed + (i * width),
-            timestamps[i],
-            width
-        );
+        varintExternalPutFixedWidthQuick_(compressed + (i * width),
+                                          timestamps[i], width);
     }
 
     // Decompress and verify
@@ -240,8 +235,8 @@ void example_array_compression() {
     size_t compressedSize = width * count;
     size_t originalSize = sizeof(uint64_t) * count;
 
-    printf("Compressed: %zu bytes (vs %zu uncompressed)\n",
-           compressedSize, originalSize);
+    printf("Compressed: %zu bytes (vs %zu uncompressed)\n", compressedSize,
+           originalSize);
     printf("Compression ratio: %.1fx\n", (float)originalSize / compressedSize);
     printf("✓ Array compressed successfully\n");
 
@@ -279,12 +274,14 @@ void example_signed() {
 
     printf("Signed values stored as unsigned:\n");
 
-    for (size_t i = 0; i < sizeof(signedValues)/sizeof(signedValues[0]); i++) {
+    for (size_t i = 0; i < sizeof(signedValues) / sizeof(signedValues[0]);
+         i++) {
         varintWidth width = varintExternalSignedEncoding(signedValues[i]);
         uint8_t buffer[8];
 
         // Store as unsigned (since values are positive)
-        varintExternalPutFixedWidthQuick_(buffer, (uint64_t)signedValues[i], width);
+        varintExternalPutFixedWidthQuick_(buffer, (uint64_t)signedValues[i],
+                                          width);
 
         uint64_t decoded;
         varintExternalGetQuick_(buffer, width, decoded);
@@ -305,13 +302,13 @@ void example_performance() {
     printf("Value      | External | uint64_t | Savings\n");
     printf("-----------|----------|----------|--------\n");
 
-    for (size_t i = 0; i < sizeof(testValues)/sizeof(testValues[0]); i++) {
+    for (size_t i = 0; i < sizeof(testValues) / sizeof(testValues[0]); i++) {
         varintWidth width;
         varintExternalUnsignedEncoding(testValues[i], width);
         float savings = ((8.0 - width) / 8.0) * 100.0;
 
-        printf("%10lu | %2d       | 8        | %5.1f%%\n",
-               testValues[i], width, savings);
+        printf("%10lu | %2d       | 8        | %5.1f%%\n", testValues[i], width,
+               savings);
     }
 }
 

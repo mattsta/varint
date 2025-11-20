@@ -1,11 +1,8 @@
 #include "varintGroup.h"
-#include <inttypes.h>
 #include "ctest.h"
 #include <inttypes.h>
-#include <string.h>
-#include <inttypes.h>
 #include <stdlib.h>
-#include <inttypes.h>
+#include <string.h>
 
 int varintGroupTest(int argc, char *argv[]) {
     (void)argc;
@@ -15,16 +12,20 @@ int varintGroupTest(int argc, char *argv[]) {
 
     TEST("Width encoding/decoding") {
         /* Test that width encoding/decoding works correctly */
-        if (varintGroupWidthDecode_(varintGroupWidthEncode_(VARINT_WIDTH_8B)) != VARINT_WIDTH_8B) {
+        if (varintGroupWidthDecode_(varintGroupWidthEncode_(VARINT_WIDTH_8B)) !=
+            VARINT_WIDTH_8B) {
             ERRR("Encode/Decode 8B failed");
         }
-        if (varintGroupWidthDecode_(varintGroupWidthEncode_(VARINT_WIDTH_16B)) != VARINT_WIDTH_16B) {
+        if (varintGroupWidthDecode_(varintGroupWidthEncode_(
+                VARINT_WIDTH_16B)) != VARINT_WIDTH_16B) {
             ERRR("Encode/Decode 16B failed");
         }
-        if (varintGroupWidthDecode_(varintGroupWidthEncode_(VARINT_WIDTH_32B)) != VARINT_WIDTH_32B) {
+        if (varintGroupWidthDecode_(varintGroupWidthEncode_(
+                VARINT_WIDTH_32B)) != VARINT_WIDTH_32B) {
             ERRR("Encode/Decode 32B failed");
         }
-        if (varintGroupWidthDecode_(varintGroupWidthEncode_(VARINT_WIDTH_64B)) != VARINT_WIDTH_64B) {
+        if (varintGroupWidthDecode_(varintGroupWidthEncode_(
+                VARINT_WIDTH_64B)) != VARINT_WIDTH_64B) {
             ERRR("Encode/Decode 64B failed");
         }
     }
@@ -41,19 +42,22 @@ int varintGroupTest(int argc, char *argv[]) {
 
         uint64_t decoded[4];
         uint8_t decoded_count;
-        size_t decoded_size = varintGroupDecode(buffer, decoded, &decoded_count, 4);
+        size_t decoded_size =
+            varintGroupDecode(buffer, decoded, &decoded_count, 4);
 
         if (decoded_size != encoded) {
             ERR("Decoded size %zu != encoded size %zu", decoded_size, encoded);
         }
 
         if (decoded_count != fieldCount) {
-            ERR("Decoded count %d != field count %d", decoded_count, fieldCount);
+            ERR("Decoded count %d != field count %d", decoded_count,
+                fieldCount);
         }
 
         for (int i = 0; i < fieldCount; i++) {
             if (decoded[i] != values[i]) {
-                ERR("Decoded[%d] = %" PRIu64 ", expected %" PRIu64 "", i, decoded[i], values[i]);
+                ERR("Decoded[%d] = %" PRIu64 ", expected %" PRIu64 "", i,
+                    decoded[i], values[i]);
             }
         }
     }
@@ -63,7 +67,7 @@ int varintGroupTest(int argc, char *argv[]) {
         uint8_t buffer[64];
 
         size_t encoded = varintGroupEncode(buffer, value, 1);
-        (void)encoded;  /* Intentionally unused in test */
+        (void)encoded; /* Intentionally unused in test */
         uint64_t decoded[1];
         uint8_t count;
         varintGroupDecode(buffer, decoded, &count, 1);
@@ -72,7 +76,8 @@ int varintGroupTest(int argc, char *argv[]) {
             ERR("Decoded count = %d, expected 1", count);
         }
         if (decoded[0] != value[0]) {
-            ERR("Decoded value = %" PRIu64 ", expected %" PRIu64 "", decoded[0], value[0]);
+            ERR("Decoded value = %" PRIu64 ", expected %" PRIu64 "", decoded[0],
+                value[0]);
         }
     }
 
@@ -90,7 +95,8 @@ int varintGroupTest(int argc, char *argv[]) {
                 ERR("Failed to get field %d", i);
             }
             if (val != values[i]) {
-                ERR("GetField(%d) = %" PRIu64 ", expected %" PRIu64 "", i, val, values[i]);
+                ERR("GetField(%d) = %" PRIu64 ", expected %" PRIu64 "", i, val,
+                    values[i]);
             }
         }
     }
@@ -101,14 +107,15 @@ int varintGroupTest(int argc, char *argv[]) {
         uint8_t buffer[256];
 
         size_t encoded = varintGroupEncode(buffer, values, 4);
-        (void)encoded;  /* Intentionally unused in test */
+        (void)encoded; /* Intentionally unused in test */
         uint64_t decoded[4];
         uint8_t count;
         varintGroupDecode(buffer, decoded, &count, 4);
 
         for (int i = 0; i < 4; i++) {
             if (decoded[i] != values[i]) {
-                ERR("Mixed value[%d] = %" PRIu64 ", expected %" PRIu64 "", i, decoded[i], values[i]);
+                ERR("Mixed value[%d] = %" PRIu64 ", expected %" PRIu64 "", i,
+                    decoded[i], values[i]);
             }
         }
     }
@@ -118,7 +125,7 @@ int varintGroupTest(int argc, char *argv[]) {
         uint8_t buffer[256];
 
         size_t encoded = varintGroupEncode(buffer, values, 8);
-        (void)encoded;  /* Intentionally unused in test */
+        (void)encoded; /* Intentionally unused in test */
         uint64_t decoded[8];
         uint8_t count;
         varintGroupDecode(buffer, decoded, &count, 8);
@@ -141,7 +148,8 @@ int varintGroupTest(int argc, char *argv[]) {
         }
 
         uint8_t buffer[2048];
-        size_t encoded = varintGroupEncode(buffer, values, VARINT_GROUP_MAX_FIELDS);
+        size_t encoded =
+            varintGroupEncode(buffer, values, VARINT_GROUP_MAX_FIELDS);
 
         if (encoded == 0) {
             ERRR("Failed to encode max fields");
@@ -152,7 +160,8 @@ int varintGroupTest(int argc, char *argv[]) {
         varintGroupDecode(buffer, decoded, &count, VARINT_GROUP_MAX_FIELDS);
 
         if (count != VARINT_GROUP_MAX_FIELDS) {
-            ERR("Max fields count = %d, expected %d", count, VARINT_GROUP_MAX_FIELDS);
+            ERR("Max fields count = %d, expected %d", count,
+                VARINT_GROUP_MAX_FIELDS);
         }
 
         for (int i = 0; i < VARINT_GROUP_MAX_FIELDS; i++) {
@@ -168,7 +177,7 @@ int varintGroupTest(int argc, char *argv[]) {
         uint8_t buffer[256];
 
         size_t encoded = varintGroupEncode(buffer, values, 4);
-        (void)encoded;  /* Intentionally unused in test */
+        (void)encoded; /* Intentionally unused in test */
         size_t calculated = varintGroupGetSize(buffer);
 
         if (calculated != encoded) {
@@ -178,7 +187,8 @@ int varintGroupTest(int argc, char *argv[]) {
 
     TEST("Round-trip encoding verification") {
         /* Verify group encoding produces correct round-trip results */
-        uint64_t values[] = {100000, 200000, 300000, 400000, 500000, 600000, 700000, 800000};
+        uint64_t values[] = {100000, 200000, 300000, 400000,
+                             500000, 600000, 700000, 800000};
         uint8_t buffer[256];
 
         /* Encode */
@@ -198,7 +208,8 @@ int varintGroupTest(int argc, char *argv[]) {
 
         for (int i = 0; i < 8; i++) {
             if (decoded[i] != values[i]) {
-                ERR("Round-trip failed: decoded[%d] = %" PRIu64 ", expected %" PRIu64 "",
+                ERR("Round-trip failed: decoded[%d] = %" PRIu64
+                    ", expected %" PRIu64 "",
                     i, decoded[i], values[i]);
             }
         }

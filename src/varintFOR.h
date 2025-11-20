@@ -12,7 +12,8 @@ __BEGIN_DECLS
 /* varint model Frame-of-Reference:
  *   Type encoded by: tagged varint header + offset width byte
  *   Size: 3-19 bytes header + (count * offset_width) bytes
- *   Layout: [min_value:tagged][offset_width:1byte][count:tagged][offset1]...[offsetN]
+ *   Layout:
+ * [min_value:tagged][offset_width:1byte][count:tagged][offset1]...[offsetN]
  *   Meaning: All values stored as fixed-width offsets from minimum value
  *   Pros: Extremely efficient for clustered values (timestamps, IDs, prices)
  *         SIMD-friendly (all offsets same width), supports random access
@@ -34,9 +35,11 @@ typedef struct varintFORMeta {
 
 /* Compile-time size guarantees to prevent regressions */
 _Static_assert(sizeof(varintFORMeta) == 48,
-    "varintFORMeta size changed! Expected 48 bytes (5×8-byte + 1×4-byte + 4 padding). "
-    "Review field ordering if this fails.");
-_Static_assert(sizeof(varintFORMeta) <= 64,
+               "varintFORMeta size changed! Expected 48 bytes (5×8-byte + "
+               "1×4-byte + 4 padding). "
+               "Review field ordering if this fails.");
+_Static_assert(
+    sizeof(varintFORMeta) <= 64,
     "varintFORMeta exceeds single cache line (64 bytes)! "
     "This will hurt performance - keep metadata structs cache-friendly.");
 

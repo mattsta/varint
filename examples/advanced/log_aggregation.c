@@ -18,8 +18,8 @@
  * Real-world relevance: Systems like Splunk, Elasticsearch (ELK), and
  * Datadog use similar compression for storing billions of logs daily.
  *
- * Compile: gcc -I../../src log_aggregation.c ../../build/src/libvarint.a -o log_aggregation
- * Run: ./log_aggregation
+ * Compile: gcc -I../../src log_aggregation.c ../../build/src/libvarint.a -o
+ * log_aggregation Run: ./log_aggregation
  */
 
 #define _POSIX_C_SOURCE 200809L
@@ -44,18 +44,19 @@ typedef enum {
     LOG_LEVEL_FATAL = 5,
 } LogLevel;
 
-const char *logLevelNames[] = {"TRACE", "DEBUG", "INFO", "WARN", "ERROR", "FATAL"};
+const char *logLevelNames[] = {"TRACE", "DEBUG", "INFO",
+                               "WARN",  "ERROR", "FATAL"};
 
 // ============================================================================
 // LOG ENTRY
 // ============================================================================
 
 typedef struct {
-    uint64_t timestamp;   // Microseconds since epoch
+    uint64_t timestamp; // Microseconds since epoch
     LogLevel level;
-    char source[64];      // Service/component name
+    char source[64]; // Service/component name
     char message[512];
-    char *fields;         // JSON-like key-value pairs
+    char *fields; // JSON-like key-value pairs
     size_t fieldsLen;
 } LogEntry;
 
@@ -143,7 +144,7 @@ size_t serializeLogEntry(const LogEntry *entry, uint8_t *buffer,
 // ============================================================================
 
 typedef struct {
-    uint64_t baseTimestamp;  // First log timestamp
+    uint64_t baseTimestamp; // First log timestamp
     uint8_t *data;
     size_t dataSize;
     size_t dataCapacity;
@@ -153,7 +154,7 @@ typedef struct {
 
 void logBatchInit(LogBatch *batch, uint64_t startTime) {
     batch->baseTimestamp = startTime;
-    batch->data = malloc(1024 * 1024);  // 1 MB initial
+    batch->data = malloc(1024 * 1024); // 1 MB initial
     batch->dataSize = 0;
     batch->dataCapacity = 1024 * 1024;
     batch->logCount = 0;
@@ -211,7 +212,8 @@ void logStreamFree(LogStream *stream) {
 void logStreamFlushBatch(LogStream *stream, LogBatch *batch) {
     if (stream->batchCount >= stream->batchCapacity) {
         stream->batchCapacity *= 2;
-        stream->batches = realloc(stream->batches, stream->batchCapacity * sizeof(LogBatch));
+        stream->batches =
+            realloc(stream->batches, stream->batchCapacity * sizeof(LogBatch));
     }
 
     stream->batches[stream->batchCount++] = *batch;
@@ -238,7 +240,8 @@ void demonstrateLogAggregation() {
     // 2. Generate sample logs
     printf("\n2. Generating sample application logs...\n");
 
-    const char *sources[] = {"api-server", "database", "cache", "worker", "scheduler"};
+    const char *sources[] = {"api-server", "database", "cache", "worker",
+                             "scheduler"};
     const char *messages[] = {
         "Request processed successfully",
         "Database query executed",
@@ -251,7 +254,8 @@ void demonstrateLogAggregation() {
     };
 
     LogBatch batch;
-    uint64_t startTime = (uint64_t)time(NULL) * 1000000;  // Current time in microseconds
+    uint64_t startTime =
+        (uint64_t)time(NULL) * 1000000; // Current time in microseconds
     logBatchInit(&batch, startTime);
 
     // Generate 10,000 logs
@@ -259,7 +263,7 @@ void demonstrateLogAggregation() {
 
     for (size_t i = 0; i < 10000; i++) {
         LogEntry entry;
-        entry.timestamp = startTime + i * 1000;  // 1ms apart
+        entry.timestamp = startTime + i * 1000; // 1ms apart
         entry.level = (LogLevel)(i % 6);
         strcpy(entry.source, sources[i % 5]);
         strcpy(entry.message, messages[i % 8]);
@@ -279,13 +283,15 @@ void demonstrateLogAggregation() {
     // Calculate uncompressed size
     size_t uncompressedSize = 0;
     for (size_t i = 0; i < 10000; i++) {
-        // timestamp (8) + level (1) + source (64) + message (avg 30) + fields_len (4)
+        // timestamp (8) + level (1) + source (64) + message (avg 30) +
+        // fields_len (4)
         uncompressedSize += 8 + 1 + 64 + 30 + 4;
     }
 
     printf("   Uncompressed size: %zu bytes\n", uncompressedSize);
     printf("   Compressed size: %zu bytes\n", batch.dataSize);
-    printf("   Compression ratio: %.1fx\n", (double)uncompressedSize / batch.dataSize);
+    printf("   Compression ratio: %.1fx\n",
+           (double)uncompressedSize / batch.dataSize);
     printf("   Space savings: %.1f%%\n",
            100.0 * (1.0 - (double)batch.dataSize / uncompressedSize));
 
@@ -327,15 +333,15 @@ void demonstrateLogAggregation() {
     }
 
     for (LogLevel level = LOG_LEVEL_TRACE; level <= LOG_LEVEL_FATAL; level++) {
-        printf("   %s: %zu logs (%.1f%%)\n", logLevelNames[level], levelCounts[level],
-               100.0 * levelCounts[level] / 10000.0);
+        printf("   %s: %zu logs (%.1f%%)\n", logLevelNames[level],
+               levelCounts[level], 100.0 * levelCounts[level] / 10000.0);
     }
 
     // 7. Query performance simulation
     printf("\n7. Query performance (time-range filtering)...\n");
 
-    uint64_t queryStart = startTime + 5000 * 1000;   // After 5 seconds
-    uint64_t queryEnd = startTime + 6000 * 1000;     // 1-second window
+    uint64_t queryStart = startTime + 5000 * 1000; // After 5 seconds
+    uint64_t queryEnd = startTime + 6000 * 1000;   // 1-second window
 
     printf("   Query: logs between T+5s and T+6s\n");
     printf("   Expected results: ~1000 logs\n");

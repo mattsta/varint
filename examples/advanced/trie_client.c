@@ -6,15 +6,15 @@
 
 #define _POSIX_C_SOURCE 200809L
 
+#include <arpa/inet.h>
+#include <netinet/in.h>
+#include <stdbool.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <stdint.h>
-#include <stdbool.h>
-#include <unistd.h>
 #include <sys/socket.h>
-#include <netinet/in.h>
-#include <arpa/inet.h>
+#include <unistd.h>
 
 #include "../../src/varint.h"
 #include "../../src/varintTagged.h"
@@ -96,7 +96,8 @@ void clientClose(TrieClient *client) {
     }
 }
 
-bool sendCommand(TrieClient *client, CommandType cmd, const uint8_t *payload, size_t payloadLen) {
+bool sendCommand(TrieClient *client, CommandType cmd, const uint8_t *payload,
+                 size_t payloadLen) {
     if (!client->connected) {
         fprintf(stderr, "Not connected\n");
         return false;
@@ -148,7 +149,8 @@ bool sendCommand(TrieClient *client, CommandType cmd, const uint8_t *payload, si
     return true;
 }
 
-bool receiveResponse(TrieClient *client, StatusCode *status, uint8_t *data, size_t *dataLen, size_t maxDataLen) {
+bool receiveResponse(TrieClient *client, StatusCode *status, uint8_t *data,
+                     size_t *dataLen, size_t maxDataLen) {
     if (!client->connected) {
         return false;
     }
@@ -165,7 +167,8 @@ bool receiveResponse(TrieClient *client, StatusCode *status, uint8_t *data, size
     bytesRead = 1;
 
     // Keep reading until we have a complete varint
-    while (varintTaggedGet64(lengthBuf, &messageLen) == 0 && bytesRead < sizeof(lengthBuf)) {
+    while (varintTaggedGet64(lengthBuf, &messageLen) == 0 &&
+           bytesRead < sizeof(lengthBuf)) {
         if (read(client->sockfd, lengthBuf + bytesRead, 1) != 1) {
             return false;
         }
@@ -185,7 +188,8 @@ bool receiveResponse(TrieClient *client, StatusCode *status, uint8_t *data, size
 
     size_t totalRead = 0;
     while (totalRead < messageLen) {
-        ssize_t n = read(client->sockfd, msgBuf + totalRead, messageLen - totalRead);
+        ssize_t n =
+            read(client->sockfd, msgBuf + totalRead, messageLen - totalRead);
         if (n <= 0) {
             free(msgBuf);
             return false;
@@ -199,7 +203,8 @@ bool receiveResponse(TrieClient *client, StatusCode *status, uint8_t *data, size
 
     // CRITICAL: Bounds check before copying data
     if (*dataLen > maxDataLen) {
-        fprintf(stderr, "Response data too large: %zu > %zu\n", *dataLen, maxDataLen);
+        fprintf(stderr, "Response data too large: %zu > %zu\n", *dataLen,
+                maxDataLen);
         free(msgBuf);
         return false;
     }
@@ -305,12 +310,17 @@ bool cmdStats(TrieClient *client) {
     return true;
 }
 
-bool cmdAdd(TrieClient *client, const char *pattern, uint32_t subscriberId, const char *subscriberName) {
-    printf("Sending ADD pattern='%s' subscriberId=%u subscriberName='%s'...\n", pattern, subscriberId, subscriberName);
+bool cmdAdd(TrieClient *client, const char *pattern, uint32_t subscriberId,
+            const char *subscriberName) {
+    printf("Sending ADD pattern='%s' subscriberId=%u subscriberName='%s'...\n",
+           pattern, subscriberId, subscriberName);
 
-    // Build payload: <pattern_len:varint><pattern:bytes><subscriber_id:varint><subscriber_name_len:varint><subscriber_name:bytes>
+    // Build payload:
+    // <pattern_len:varint><pattern:bytes><subscriber_id:varint><subscriber_name_len:varint><subscriber_name:bytes>
     uint8_t *payload = (uint8_t *)malloc(4096);
-    if (!payload) return false;
+    if (!payload) {
+        return false;
+    }
 
     size_t offset = 0;
     size_t patternLen = strlen(pattern);
@@ -335,7 +345,9 @@ bool cmdAdd(TrieClient *client, const char *pattern, uint32_t subscriberId, cons
 
     StatusCode status;
     uint8_t *data = (uint8_t *)malloc(MAX_RESPONSE_SIZE);
-    if (!data) return false;
+    if (!data) {
+        return false;
+    }
     size_t dataLen;
 
     if (!receiveResponse(client, &status, data, &dataLen, MAX_RESPONSE_SIZE)) {
@@ -359,7 +371,9 @@ bool cmdRemove(TrieClient *client, const char *pattern) {
     printf("Sending REMOVE pattern='%s'...\n", pattern);
 
     uint8_t *payload = (uint8_t *)malloc(4096);
-    if (!payload) return false;
+    if (!payload) {
+        return false;
+    }
 
     size_t offset = 0;
     size_t patternLen = strlen(pattern);
@@ -377,7 +391,9 @@ bool cmdRemove(TrieClient *client, const char *pattern) {
 
     StatusCode status;
     uint8_t *data = (uint8_t *)malloc(MAX_RESPONSE_SIZE);
-    if (!data) return false;
+    if (!data) {
+        return false;
+    }
     size_t dataLen;
 
     if (!receiveResponse(client, &status, data, &dataLen, MAX_RESPONSE_SIZE)) {
@@ -401,7 +417,9 @@ bool cmdMatch(TrieClient *client, const char *input) {
     printf("Sending MATCH input='%s'...\n", input);
 
     uint8_t *payload = (uint8_t *)malloc(4096);
-    if (!payload) return false;
+    if (!payload) {
+        return false;
+    }
 
     size_t offset = 0;
     size_t inputLen = strlen(input);
@@ -419,7 +437,9 @@ bool cmdMatch(TrieClient *client, const char *input) {
 
     StatusCode status;
     uint8_t *data = (uint8_t *)malloc(MAX_RESPONSE_SIZE);
-    if (!data) return false;
+    if (!data) {
+        return false;
+    }
     size_t dataLen;
 
     if (!receiveResponse(client, &status, data, &dataLen, MAX_RESPONSE_SIZE)) {
@@ -434,7 +454,8 @@ bool cmdMatch(TrieClient *client, const char *input) {
         return false;
     }
 
-    // Parse response: <count:varint>[<subscriber_id:varint><subscriber_name_len:varint><subscriber_name:bytes>]*
+    // Parse response:
+    // <count:varint>[<subscriber_id:varint><subscriber_name_len:varint><subscriber_name:bytes>]*
     size_t respOffset = 0;
     uint64_t count;
     varintTaggedGet64(data + respOffset, &count);
@@ -455,7 +476,7 @@ bool cmdMatch(TrieClient *client, const char *input) {
         name[nameLen] = '\0';
         respOffset += nameLen;
 
-        printf("  [%lu] ID=%lu Name='%s'\n", i+1, subscriberId, name);
+        printf("  [%lu] ID=%lu Name='%s'\n", i + 1, subscriberId, name);
     }
 
     free(data);
@@ -472,7 +493,9 @@ bool cmdList(TrieClient *client) {
 
     StatusCode status;
     uint8_t *data = (uint8_t *)malloc(MAX_RESPONSE_SIZE);
-    if (!data) return false;
+    if (!data) {
+        return false;
+    }
     size_t dataLen;
 
     if (!receiveResponse(client, &status, data, &dataLen, MAX_RESPONSE_SIZE)) {
@@ -504,19 +527,25 @@ bool cmdList(TrieClient *client) {
         pattern[patternLen] = '\0';
         respOffset += patternLen;
 
-        printf("  %lu. %s\n", i+1, pattern);
+        printf("  %lu. %s\n", i + 1, pattern);
     }
 
     free(data);
     return true;
 }
 
-bool cmdSubscribe(TrieClient *client, const char *pattern, uint32_t subscriberId, const char *subscriberName) {
-    printf("Sending SUBSCRIBE pattern='%s' subscriberId=%u subscriberName='%s'...\n", pattern, subscriberId, subscriberName);
+bool cmdSubscribe(TrieClient *client, const char *pattern,
+                  uint32_t subscriberId, const char *subscriberName) {
+    printf("Sending SUBSCRIBE pattern='%s' subscriberId=%u "
+           "subscriberName='%s'...\n",
+           pattern, subscriberId, subscriberName);
 
-    // Build payload: <pattern_len:varint><pattern:bytes><subscriber_id:varint><subscriber_name_len:varint><subscriber_name:bytes>
+    // Build payload:
+    // <pattern_len:varint><pattern:bytes><subscriber_id:varint><subscriber_name_len:varint><subscriber_name:bytes>
     uint8_t *payload = (uint8_t *)malloc(4096);
-    if (!payload) return false;
+    if (!payload) {
+        return false;
+    }
 
     size_t offset = 0;
     size_t patternLen = strlen(pattern);
@@ -541,7 +570,9 @@ bool cmdSubscribe(TrieClient *client, const char *pattern, uint32_t subscriberId
 
     StatusCode status;
     uint8_t *data = (uint8_t *)malloc(MAX_RESPONSE_SIZE);
-    if (!data) return false;
+    if (!data) {
+        return false;
+    }
     size_t dataLen;
 
     if (!receiveResponse(client, &status, data, &dataLen, MAX_RESPONSE_SIZE)) {
@@ -561,12 +592,16 @@ bool cmdSubscribe(TrieClient *client, const char *pattern, uint32_t subscriberId
     }
 }
 
-bool cmdUnsubscribe(TrieClient *client, const char *pattern, uint32_t subscriberId) {
-    printf("Sending UNSUBSCRIBE pattern='%s' subscriberId=%u...\n", pattern, subscriberId);
+bool cmdUnsubscribe(TrieClient *client, const char *pattern,
+                    uint32_t subscriberId) {
+    printf("Sending UNSUBSCRIBE pattern='%s' subscriberId=%u...\n", pattern,
+           subscriberId);
 
     // Build payload: <pattern_len:varint><pattern:bytes><subscriber_id:varint>
     uint8_t *payload = (uint8_t *)malloc(4096);
-    if (!payload) return false;
+    if (!payload) {
+        return false;
+    }
 
     size_t offset = 0;
     size_t patternLen = strlen(pattern);
@@ -586,7 +621,9 @@ bool cmdUnsubscribe(TrieClient *client, const char *pattern, uint32_t subscriber
 
     StatusCode status;
     uint8_t *data = (uint8_t *)malloc(MAX_RESPONSE_SIZE);
-    if (!data) return false;
+    if (!data) {
+        return false;
+    }
     size_t dataLen;
 
     if (!receiveResponse(client, &status, data, &dataLen, MAX_RESPONSE_SIZE)) {
@@ -616,7 +653,9 @@ bool cmdSave(TrieClient *client) {
 
     StatusCode status;
     uint8_t *data = (uint8_t *)malloc(MAX_RESPONSE_SIZE);
-    if (!data) return false;
+    if (!data) {
+        return false;
+    }
     size_t dataLen;
 
     if (!receiveResponse(client, &status, data, &dataLen, MAX_RESPONSE_SIZE)) {
@@ -641,7 +680,9 @@ bool cmdAuth(TrieClient *client, const char *token) {
 
     // Build payload: <token_len:varint><token:bytes>
     uint8_t *payload = (uint8_t *)malloc(4096);
-    if (!payload) return false;
+    if (!payload) {
+        return false;
+    }
 
     size_t offset = 0;
     size_t tokenLen = strlen(token);
@@ -659,7 +700,9 @@ bool cmdAuth(TrieClient *client, const char *token) {
 
     StatusCode status;
     uint8_t *data = (uint8_t *)malloc(MAX_RESPONSE_SIZE);
-    if (!data) return false;
+    if (!data) {
+        return false;
+    }
     size_t dataLen;
 
     if (!receiveResponse(client, &status, data, &dataLen, MAX_RESPONSE_SIZE)) {
@@ -686,21 +729,32 @@ int main(int argc, char *argv[]) {
     if (argc < 2) {
         printf("Usage: %s <command> [args] [host] [port]\n", argv[0]);
         printf("Commands:\n");
-        printf("  ping                                   - Send PING command\n");
-        printf("  stats                                  - Get server statistics\n");
-        printf("  add <pattern> <id> <name>              - Add pattern with subscriber\n");
+        printf(
+            "  ping                                   - Send PING command\n");
+        printf("  stats                                  - Get server "
+               "statistics\n");
+        printf("  add <pattern> <id> <name>              - Add pattern with "
+               "subscriber\n");
         printf("  remove <pattern>                       - Remove pattern\n");
-        printf("  subscribe <pattern> <id> <name>        - Subscribe to existing pattern\n");
-        printf("  unsubscribe <pattern> <id>             - Unsubscribe from pattern\n");
-        printf("  match <input>                          - Match input against patterns\n");
-        printf("  list                                   - List all patterns\n");
-        printf("  save                                   - Trigger manual save\n");
-        printf("  auth <token>                           - Authenticate with token\n");
+        printf("  subscribe <pattern> <id> <name>        - Subscribe to "
+               "existing pattern\n");
+        printf("  unsubscribe <pattern> <id>             - Unsubscribe from "
+               "pattern\n");
+        printf("  match <input>                          - Match input against "
+               "patterns\n");
+        printf(
+            "  list                                   - List all patterns\n");
+        printf(
+            "  save                                   - Trigger manual save\n");
+        printf("  auth <token>                           - Authenticate with "
+               "token\n");
         printf("\nDefault host: 127.0.0.1\n");
         printf("Default port: 9999\n");
         printf("\nExamples:\n");
-        printf("  %s add \"sensors.*.temperature\" 1 \"temp-monitor\"\n", argv[0]);
-        printf("  %s subscribe \"sensors.*.temperature\" 2 \"logger\"\n", argv[0]);
+        printf("  %s add \"sensors.*.temperature\" 1 \"temp-monitor\"\n",
+               argv[0]);
+        printf("  %s subscribe \"sensors.*.temperature\" 2 \"logger\"\n",
+               argv[0]);
         printf("  %s match \"sensors.room1.temperature\"\n", argv[0]);
         printf("  %s list\n", argv[0]);
         printf("  %s save\n", argv[0]);
@@ -715,21 +769,27 @@ int main(int argc, char *argv[]) {
 
     if (strcmp(command, "add") == 0 || strcmp(command, "subscribe") == 0) {
         if (argc < 5) {
-            fprintf(stderr, "Usage: %s %s <pattern> <id> <name> [host] [port]\n", argv[0], command);
+            fprintf(stderr,
+                    "Usage: %s %s <pattern> <id> <name> [host] [port]\n",
+                    argv[0], command);
             return 1;
         }
         host = argc > 5 ? argv[5] : "127.0.0.1";
         port = argc > 6 ? atoi(argv[6]) : 9999;
-    } else if (strcmp(command, "remove") == 0 || strcmp(command, "match") == 0) {
+    } else if (strcmp(command, "remove") == 0 ||
+               strcmp(command, "match") == 0) {
         if (argc < 3) {
-            fprintf(stderr, "Usage: %s %s <pattern> [host] [port]\n", argv[0], command);
+            fprintf(stderr, "Usage: %s %s <pattern> [host] [port]\n", argv[0],
+                    command);
             return 1;
         }
         host = argc > 3 ? argv[3] : "127.0.0.1";
         port = argc > 4 ? atoi(argv[4]) : 9999;
     } else if (strcmp(command, "unsubscribe") == 0) {
         if (argc < 4) {
-            fprintf(stderr, "Usage: %s unsubscribe <pattern> <id> [host] [port]\n", argv[0]);
+            fprintf(stderr,
+                    "Usage: %s unsubscribe <pattern> <id> [host] [port]\n",
+                    argv[0]);
             return 1;
         }
         host = argc > 4 ? argv[4] : "127.0.0.1";

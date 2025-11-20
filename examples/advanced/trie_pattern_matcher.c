@@ -1,7 +1,8 @@
 /**
  * trie_pattern_matcher.c - AMQP-style trie pattern matching system
  *
- * This advanced example demonstrates a high-performance pattern matching trie with:
+ * This advanced example demonstrates a high-performance pattern matching trie
+ * with:
  * - varintExternal for node counts, pattern lengths, and subscriber IDs
  * - varintBitstream for node flags (terminal, wildcard type, has_value)
  * - varintChained for serialization of trie structure
@@ -22,7 +23,8 @@
  * Pattern syntax:
  * - "stock.nasdaq.aapl" - exact match
  * - "stock.*.aapl" - * matches exactly one word (nasdaq, nyse, etc.)
- * - "stock.#" - # matches zero or more words (stock, stock.nasdaq, stock.nasdaq.aapl)
+ * - "stock.#" - # matches zero or more words (stock, stock.nasdaq,
+ * stock.nasdaq.aapl)
  * - "stock.#.aapl" - # in the middle
  *
  * Performance benchmarks included:
@@ -32,8 +34,8 @@
  * - Wildcard complexity comparison
  * - Real-world throughput measurements
  *
- * Compile: gcc -I../../src trie_pattern_matcher.c ../../build/src/libvarint.a -o trie_pattern_matcher
- * Run: ./trie_pattern_matcher
+ * Compile: gcc -I../../src trie_pattern_matcher.c ../../build/src/libvarint.a
+ * -o trie_pattern_matcher Run: ./trie_pattern_matcher
  */
 
 #include "varintBitstream.h"
@@ -57,9 +59,9 @@
 // ============================================================================
 
 typedef enum {
-    SEGMENT_LITERAL = 0,  // Regular text segment
-    SEGMENT_STAR = 1,     // * - matches exactly one word
-    SEGMENT_HASH = 2,     // # - matches zero or more words
+    SEGMENT_LITERAL = 0, // Regular text segment
+    SEGMENT_STAR = 1,    // * - matches exactly one word
+    SEGMENT_HASH = 2,    // # - matches zero or more words
 } SegmentType;
 
 // ============================================================================
@@ -120,14 +122,17 @@ TrieNode *trieNodeCreate(const char *segment, SegmentType type) {
 
 void trieNodeAddChild(TrieNode *node, TrieNode *child) {
     if (node->childCount >= node->childCapacity) {
-        size_t newCapacity = node->childCapacity == 0 ? 4 : node->childCapacity * 2;
-        node->children = realloc(node->children, newCapacity * sizeof(TrieNode *));
+        size_t newCapacity =
+            node->childCapacity == 0 ? 4 : node->childCapacity * 2;
+        node->children =
+            realloc(node->children, newCapacity * sizeof(TrieNode *));
         node->childCapacity = newCapacity;
     }
     node->children[node->childCount++] = child;
 }
 
-TrieNode *trieNodeFindChild(TrieNode *node, const char *segment, SegmentType type) {
+TrieNode *trieNodeFindChild(TrieNode *node, const char *segment,
+                            SegmentType type) {
     for (size_t i = 0; i < node->childCount; i++) {
         if (node->children[i]->type == type &&
             strcmp(node->children[i]->segment, segment) == 0) {
@@ -138,8 +143,9 @@ TrieNode *trieNodeFindChild(TrieNode *node, const char *segment, SegmentType typ
 }
 
 void trieNodeFree(TrieNode *node) {
-    if (!node)
+    if (!node) {
         return;
+    }
     for (size_t i = 0; i < node->childCount; i++) {
         trieNodeFree(node->children[i]);
     }
@@ -207,7 +213,8 @@ void trieInsert(PatternTrie *trie, const char *pattern, uint32_t subscriberId,
     TrieNode *current = trie->root;
 
     for (size_t i = 0; i < parsed.count; i++) {
-        TrieNode *child = trieNodeFindChild(current, parsed.segments[i], parsed.types[i]);
+        TrieNode *child =
+            trieNodeFindChild(current, parsed.segments[i], parsed.types[i]);
         if (!child) {
             child = trieNodeCreate(parsed.segments[i], parsed.types[i]);
             trieNodeAddChild(current, child);
@@ -248,14 +255,16 @@ void matchResultAdd(MatchResult *result, const SubscriberList *subscribers) {
             }
         }
         if (!found) {
-            result->subscriberIds[result->count++] = subscribers->subscribers[i].id;
+            result->subscriberIds[result->count++] =
+                subscribers->subscribers[i].id;
         }
     }
 }
 
 // Recursive matching with # wildcard support
-void trieMatchRecursive(TrieNode *node, const char **segments, size_t segmentCount,
-                        size_t currentSegment, MatchResult *result) {
+void trieMatchRecursive(TrieNode *node, const char **segments,
+                        size_t segmentCount, size_t currentSegment,
+                        MatchResult *result) {
     // If we've consumed all segments, check if this is a terminal node
     if (currentSegment >= segmentCount) {
         if (node->isTerminal) {
@@ -266,7 +275,8 @@ void trieMatchRecursive(TrieNode *node, const char **segments, size_t segmentCou
             TrieNode *child = node->children[i];
             if (child->type == SEGMENT_HASH) {
                 // # can match zero segments, so check this child recursively
-                trieMatchRecursive(child, segments, segmentCount, currentSegment, result);
+                trieMatchRecursive(child, segments, segmentCount,
+                                   currentSegment, result);
             }
         }
         return;
@@ -281,18 +291,22 @@ void trieMatchRecursive(TrieNode *node, const char **segments, size_t segmentCou
         if (child->type == SEGMENT_LITERAL) {
             // Exact match required
             if (strcmp(child->segment, segment) == 0) {
-                trieMatchRecursive(child, segments, segmentCount, currentSegment + 1, result);
+                trieMatchRecursive(child, segments, segmentCount,
+                                   currentSegment + 1, result);
             }
         } else if (child->type == SEGMENT_STAR) {
             // * matches exactly one segment
-            trieMatchRecursive(child, segments, segmentCount, currentSegment + 1, result);
+            trieMatchRecursive(child, segments, segmentCount,
+                               currentSegment + 1, result);
         } else if (child->type == SEGMENT_HASH) {
             // # matches zero or more segments
             // Try matching 0 segments first (continue at same position)
-            trieMatchRecursive(child, segments, segmentCount, currentSegment, result);
+            trieMatchRecursive(child, segments, segmentCount, currentSegment,
+                               result);
             // Try matching 1+ segments
             for (size_t j = currentSegment; j < segmentCount; j++) {
-                trieMatchRecursive(child, segments, segmentCount, j + 1, result);
+                trieMatchRecursive(child, segments, segmentCount, j + 1,
+                                   result);
             }
         }
     }
@@ -328,7 +342,8 @@ size_t trieNodeSerialize(const TrieNode *node, uint8_t *buffer) {
     flags >>= 56; // We used 3 bits, shift to low byte
     buffer[offset++] = (uint8_t)flags;
 
-    // Segment length and data (using varintTagged for fast self-describing length)
+    // Segment length and data (using varintTagged for fast self-describing
+    // length)
     size_t segLen = strlen(node->segment);
     offset += varintTaggedPut64(buffer + offset, segLen);
     memcpy(buffer + offset, node->segment, segLen);
@@ -338,7 +353,8 @@ size_t trieNodeSerialize(const TrieNode *node, uint8_t *buffer) {
     if (node->isTerminal) {
         offset += varintTaggedPut64(buffer + offset, node->subscribers.count);
         for (size_t i = 0; i < node->subscribers.count; i++) {
-            offset += varintTaggedPut64(buffer + offset, node->subscribers.subscribers[i].id);
+            offset += varintTaggedPut64(buffer + offset,
+                                        node->subscribers.subscribers[i].id);
         }
     }
 
@@ -378,11 +394,13 @@ size_t trieNodeDeserialize(TrieNode **node, const uint8_t *buffer) {
 
     // Read flags byte
     uint8_t flagsByte = buffer[offset++];
-    uint64_t flags = (uint64_t)flagsByte << 56; // Shift to high byte for varintBitstreamGet
+    uint64_t flags = (uint64_t)flagsByte
+                     << 56; // Shift to high byte for varintBitstreamGet
     (*node)->isTerminal = varintBitstreamGet(&flags, 0, 1) ? true : false;
     (*node)->type = (SegmentType)varintBitstreamGet(&flags, 1, 2);
 
-    // Read segment length and data (using varintTagged for fast self-describing length)
+    // Read segment length and data (using varintTagged for fast self-describing
+    // length)
     uint64_t segLen;
     varintTaggedGet64(buffer + offset, &segLen);
     offset += varintTaggedGetLen(buffer + offset);
@@ -452,8 +470,8 @@ size_t trieDeserialize(PatternTrie *trie, const uint8_t *buffer) {
 // STATISTICS
 // ============================================================================
 
-void trieStats(const PatternTrie *trie, size_t *totalNodes, size_t *terminalNodes,
-               size_t *wildcardNodes, size_t *maxDepth) {
+void trieStats(const PatternTrie *trie, size_t *totalNodes,
+               size_t *terminalNodes, size_t *wildcardNodes, size_t *maxDepth) {
     *totalNodes = 0;
     *terminalNodes = 0;
     *wildcardNodes = 0;
@@ -474,12 +492,15 @@ void trieStats(const PatternTrie *trie, size_t *totalNodes, size_t *terminalNode
         front++;
 
         (*totalNodes)++;
-        if (node->isTerminal)
+        if (node->isTerminal) {
             (*terminalNodes)++;
-        if (node->type != SEGMENT_LITERAL)
+        }
+        if (node->type != SEGMENT_LITERAL) {
             (*wildcardNodes)++;
-        if (depth > *maxDepth)
+        }
+        if (depth > *maxDepth) {
             *maxDepth = depth;
+        }
 
         for (size_t i = 0; i < node->childCount; i++) {
             queue[back] = node->children[i];
@@ -536,7 +557,8 @@ void testStarWildcard() {
     MatchResult result;
     trieMatch(&trie, "stock.nasdaq.aapl", &result);
     assert(result.count == 2); // Matches both patterns
-    printf("  ✓ star match: stock.nasdaq.aapl → 2 subscribers (patterns 10, 11)\n");
+    printf("  ✓ star match: stock.nasdaq.aapl → 2 subscribers (patterns 10, "
+           "11)\n");
 
     trieMatch(&trie, "stock.nyse.aapl", &result);
     assert(result.count == 1 && result.subscriberIds[0] == 10);
@@ -549,11 +571,13 @@ void testStarWildcard() {
     // Test * doesn't match zero or multiple words
     trieMatch(&trie, "stock.aapl", &result);
     assert(result.count == 0);
-    printf("  ✓ star no match: stock.aapl → 0 subscribers (needs exactly 3 segments)\n");
+    printf("  ✓ star no match: stock.aapl → 0 subscribers (needs exactly 3 "
+           "segments)\n");
 
     trieMatch(&trie, "stock.nasdaq.extra.aapl", &result);
     assert(result.count == 0);
-    printf("  ✓ star no match: stock.nasdaq.extra.aapl → 0 (too many segments)\n");
+    printf(
+        "  ✓ star no match: stock.nasdaq.extra.aapl → 0 (too many segments)\n");
 
     trieFree(&trie);
     printf("  PASS: Star wildcard works correctly\n");
@@ -679,10 +703,13 @@ void testSerialization() {
     printf("  ✓ Nodes: %zu\n", originalTrie.nodeCount);
 
     // Estimate uncompressed size using actual structure sizes
-    size_t estimatedNodeSize = sizeof(TrieNode) + sizeof(TrieNode*) * 4; // Base node + avg children pointers
+    size_t estimatedNodeSize =
+        sizeof(TrieNode) +
+        sizeof(TrieNode *) * 4; // Base node + avg children pointers
     size_t uncompressed = originalTrie.nodeCount * estimatedNodeSize;
     printf("  ✓ Uncompressed estimate: ~%zu bytes\n", uncompressed);
-    printf("  ✓ Compression ratio: %.2fx\n", (double)uncompressed / serializedSize);
+    printf("  ✓ Compression ratio: %.2fx\n",
+           (double)uncompressed / serializedSize);
 
     assert(serializedSize < uncompressed);
 
@@ -828,10 +855,12 @@ void naiveInit(NaivePatternList *list) {
     list->capacity = 100;
 }
 
-void naiveInsert(NaivePatternList *list, const char *pattern, uint32_t subscriberId) {
+void naiveInsert(NaivePatternList *list, const char *pattern,
+                 uint32_t subscriberId) {
     if (list->count >= list->capacity) {
         list->capacity *= 2;
-        list->patterns = realloc(list->patterns, list->capacity * sizeof(NaivePattern));
+        list->patterns =
+            realloc(list->patterns, list->capacity * sizeof(NaivePattern));
     }
     strncpy(list->patterns[list->count].pattern, pattern, 127);
     list->patterns[list->count].pattern[127] = '\0';
@@ -840,13 +869,15 @@ void naiveInsert(NaivePatternList *list, const char *pattern, uint32_t subscribe
     list->count++;
 }
 
-bool naiveMatchPattern(const ParsedPattern *pattern, const ParsedPattern *input) {
+bool naiveMatchPattern(const ParsedPattern *pattern,
+                       const ParsedPattern *input) {
     // Simple non-optimized matching - checks each pattern linearly
     size_t patIdx = 0, inpIdx = 0;
 
     while (patIdx < pattern->count && inpIdx < input->count) {
         if (pattern->types[patIdx] == SEGMENT_LITERAL) {
-            if (strcmp(pattern->segments[patIdx], input->segments[inpIdx]) != 0) {
+            if (strcmp(pattern->segments[patIdx], input->segments[inpIdx]) !=
+                0) {
                 return false;
             }
             patIdx++;
@@ -869,7 +900,8 @@ bool naiveMatchPattern(const ParsedPattern *pattern, const ParsedPattern *input)
                 ParsedPattern subPattern = *pattern;
                 for (size_t j = patIdx + 1; j < pattern->count; j++) {
                     subPattern.types[j - patIdx - 1] = pattern->types[j];
-                    strcpy(subPattern.segments[j - patIdx - 1], pattern->segments[j]);
+                    strcpy(subPattern.segments[j - patIdx - 1],
+                           pattern->segments[j]);
                 }
                 subPattern.count = pattern->count - patIdx - 1;
 
@@ -877,7 +909,8 @@ bool naiveMatchPattern(const ParsedPattern *pattern, const ParsedPattern *input)
                 remainingInput.count = input->count - inpIdx - skip;
                 for (size_t j = 0; j < remainingInput.count; j++) {
                     remainingInput.types[j] = input->types[inpIdx + skip + j];
-                    strcpy(remainingInput.segments[j], input->segments[inpIdx + skip + j]);
+                    strcpy(remainingInput.segments[j],
+                           input->segments[inpIdx + skip + j]);
                 }
 
                 if (subPattern.count == 0) {
@@ -898,7 +931,8 @@ bool naiveMatchPattern(const ParsedPattern *pattern, const ParsedPattern *input)
     return patIdx == pattern->count && inpIdx == input->count;
 }
 
-void naiveMatch(NaivePatternList *list, const char *input, MatchResult *result) {
+void naiveMatch(NaivePatternList *list, const char *input,
+                MatchResult *result) {
     matchResultInit(result);
     ParsedPattern inputParsed;
     parsePattern(input, &inputParsed);
@@ -907,7 +941,8 @@ void naiveMatch(NaivePatternList *list, const char *input, MatchResult *result) 
     for (size_t i = 0; i < list->count; i++) {
         if (naiveMatchPattern(&list->patterns[i].parsed, &inputParsed)) {
             if (result->count < 256) {
-                result->subscriberIds[result->count++] = list->patterns[i].subscriberId;
+                result->subscriberIds[result->count++] =
+                    list->patterns[i].subscriberId;
             }
         }
     }
@@ -918,8 +953,7 @@ void naiveFree(NaivePatternList *list) {
 }
 
 size_t naiveMemoryUsage(const NaivePatternList *list) {
-    return sizeof(NaivePatternList) +
-           list->capacity * sizeof(NaivePattern);
+    return sizeof(NaivePatternList) + list->capacity * sizeof(NaivePattern);
 }
 
 size_t trieMemoryUsage(const PatternTrie *trie) {
@@ -960,12 +994,15 @@ uint32_t xorshift32() {
     return x;
 }
 
-void generateRealisticPatterns(NaivePatternList *naive, PatternTrie *trie, int count) {
+void generateRealisticPatterns(NaivePatternList *naive, PatternTrie *trie,
+                               int count) {
     // Realistic hierarchical patterns like message brokers use
     const char *domains[] = {"stock", "forex", "crypto", "commodity", "bond"};
     const char *exchanges[] = {"nasdaq", "nyse", "lse", "tsx", "hkex", "sse"};
-    const char *symbols[] = {"aapl", "goog", "msft", "tsla", "meta", "amzn", "nvda", "btc", "eth"};
-    const char *events[] = {"trade", "quote", "order", "cancel", "fill", "update"};
+    const char *symbols[] = {"aapl", "goog", "msft", "tsla", "meta",
+                             "amzn", "nvda", "btc",  "eth"};
+    const char *events[] = {"trade",  "quote", "order",
+                            "cancel", "fill",  "update"};
     const char *priorities[] = {"low", "normal", "high", "urgent"};
 
     for (int i = 0; i < count; i++) {
@@ -974,40 +1011,32 @@ void generateRealisticPatterns(NaivePatternList *naive, PatternTrie *trie, int c
 
         if (patternType < 30) {
             // Exact patterns (30%)
-            snprintf(pattern, 128, "%s.%s.%s.%s",
-                    domains[xorshift32() % 5],
-                    exchanges[xorshift32() % 6],
-                    symbols[xorshift32() % 9],
-                    events[xorshift32() % 6]);
+            snprintf(pattern, 128, "%s.%s.%s.%s", domains[xorshift32() % 5],
+                     exchanges[xorshift32() % 6], symbols[xorshift32() % 9],
+                     events[xorshift32() % 6]);
         } else if (patternType < 55) {
             // Star wildcard patterns (25%)
             if (xorshift32() % 2) {
-                snprintf(pattern, 128, "%s.*.%s.%s",
-                        domains[xorshift32() % 5],
-                        symbols[xorshift32() % 9],
-                        events[xorshift32() % 6]);
+                snprintf(pattern, 128, "%s.*.%s.%s", domains[xorshift32() % 5],
+                         symbols[xorshift32() % 9], events[xorshift32() % 6]);
             } else {
-                snprintf(pattern, 128, "%s.%s.*.%s",
-                        domains[xorshift32() % 5],
-                        exchanges[xorshift32() % 6],
-                        events[xorshift32() % 6]);
+                snprintf(pattern, 128, "%s.%s.*.%s", domains[xorshift32() % 5],
+                         exchanges[xorshift32() % 6], events[xorshift32() % 6]);
             }
         } else if (patternType < 80) {
             // Hash wildcard patterns (25%)
             if (xorshift32() % 3 == 0) {
                 snprintf(pattern, 128, "%s.#", domains[xorshift32() % 5]);
             } else if (xorshift32() % 3 == 1) {
-                snprintf(pattern, 128, "%s.%s.#",
-                        domains[xorshift32() % 5],
-                        exchanges[xorshift32() % 6]);
+                snprintf(pattern, 128, "%s.%s.#", domains[xorshift32() % 5],
+                         exchanges[xorshift32() % 6]);
             } else {
                 snprintf(pattern, 128, "#.%s", events[xorshift32() % 6]);
             }
         } else {
             // Complex mixed patterns (20%)
-            snprintf(pattern, 128, "%s.#.%s",
-                    domains[xorshift32() % 5],
-                    events[xorshift32() % 6]);
+            snprintf(pattern, 128, "%s.#.%s", domains[xorshift32() % 5],
+                     events[xorshift32() % 6]);
         }
 
         naiveInsert(naive, pattern, i);
@@ -1019,8 +1048,10 @@ void generateQueryWorkload(char queries[][128], int count, int hotPathRatio) {
     // Generate realistic query workload with hot/cold paths
     const char *domains[] = {"stock", "forex", "crypto", "commodity", "bond"};
     const char *exchanges[] = {"nasdaq", "nyse", "lse", "tsx", "hkex", "sse"};
-    const char *symbols[] = {"aapl", "goog", "msft", "tsla", "meta", "amzn", "nvda", "btc", "eth"};
-    const char *events[] = {"trade", "quote", "order", "cancel", "fill", "update"};
+    const char *symbols[] = {"aapl", "goog", "msft", "tsla", "meta",
+                             "amzn", "nvda", "btc",  "eth"};
+    const char *events[] = {"trade",  "quote", "order",
+                            "cancel", "fill",  "update"};
 
     for (int i = 0; i < count; i++) {
         if ((xorshift32() % 100) < hotPathRatio) {
@@ -1028,11 +1059,9 @@ void generateQueryWorkload(char queries[][128], int count, int hotPathRatio) {
             snprintf(queries[i], 128, "stock.nasdaq.aapl.trade");
         } else {
             // Cold path: random queries
-            snprintf(queries[i], 128, "%s.%s.%s.%s",
-                    domains[xorshift32() % 5],
-                    exchanges[xorshift32() % 6],
-                    symbols[xorshift32() % 9],
-                    events[xorshift32() % 6]);
+            snprintf(queries[i], 128, "%s.%s.%s.%s", domains[xorshift32() % 5],
+                     exchanges[xorshift32() % 6], symbols[xorshift32() % 9],
+                     events[xorshift32() % 6]);
         }
     }
 }
@@ -1045,9 +1074,10 @@ void testBenchmarkComparisons() {
     int patternCounts[] = {100, 1000, 10000, 100000};
     int numTests = 4;
 
-    printf("\n  %-10s | %-12s | %-12s | %-10s | %-12s | %-12s\n",
-           "Patterns", "Naive (μs)", "Trie (μs)", "Speedup", "Naive (MB)", "Trie (MB)");
-    printf("  %s\n", "--------------------------------------------------------------------------------");
+    printf("\n  %-10s | %-12s | %-12s | %-10s | %-12s | %-12s\n", "Patterns",
+           "Naive (μs)", "Trie (μs)", "Speedup", "Naive (MB)", "Trie (MB)");
+    printf("  %s\n", "---------------------------------------------------------"
+                     "-----------------------");
 
     for (int t = 0; t < numTests; t++) {
         int numPatterns = patternCounts[t];
@@ -1077,7 +1107,8 @@ void testBenchmarkComparisons() {
             naiveMatch(&naive, queries[i], &result);
         }
         clock_t end = clock();
-        double naiveTime = ((double)(end - start) / CLOCKS_PER_SEC) * 1e6 / queryCount;
+        double naiveTime =
+            ((double)(end - start) / CLOCKS_PER_SEC) * 1e6 / queryCount;
 
         // Benchmark trie matching
         start = clock();
@@ -1085,16 +1116,22 @@ void testBenchmarkComparisons() {
             trieMatch(&trie, queries[i], &result);
         }
         end = clock();
-        double trieTime = ((double)(end - start) / CLOCKS_PER_SEC) * 1e6 / queryCount;
+        double trieTime =
+            ((double)(end - start) / CLOCKS_PER_SEC) * 1e6 / queryCount;
 
         // Memory usage in MB
         double naiveMem = (double)naiveMemoryUsage(&naive) / (1024.0 * 1024.0);
         double trieMem = (double)trieMemoryUsage(&trie) / (1024.0 * 1024.0);
 
         // Calculate speedup
-        double speedup = (trieTime < 0.01) ? (naiveTime / 0.01) : (naiveTime / trieTime);
-        if (speedup > 9999.9) speedup = 9999.9;
-        if (speedup < 0.1) speedup = 0.1;
+        double speedup =
+            (trieTime < 0.01) ? (naiveTime / 0.01) : (naiveTime / trieTime);
+        if (speedup > 9999.9) {
+            speedup = 9999.9;
+        }
+        if (speedup < 0.1) {
+            speedup = 0.1;
+        }
 
         printf("  %-10d | %12.2f | %12.2f | %9.1fx | %12.2f | %12.2f\n",
                numPatterns, naiveTime, trieTime, speedup, naiveMem, trieMem);
@@ -1105,11 +1142,14 @@ void testBenchmarkComparisons() {
     }
 
     printf("\n  Key observations:\n");
-    printf("  • Trie maintains O(m) constant time regardless of pattern count\n");
-    printf("  • Naive degrades linearly: 100 patterns → 100K patterns = 1000x slower\n");
+    printf(
+        "  • Trie maintains O(m) constant time regardless of pattern count\n");
+    printf("  • Naive degrades linearly: 100 patterns → 100K patterns = 1000x "
+           "slower\n");
     printf("  • At 100K patterns: Trie is 100-1000x faster than naive\n");
     printf("  • Memory efficiency improves with scale due to prefix sharing\n");
-    printf("  • Realistic workload includes wildcards and hierarchical patterns\n");
+    printf("  • Realistic workload includes wildcards and hierarchical "
+           "patterns\n");
 
     printf("\n  PASS: Large-scale benchmark comparisons complete\n");
 }
@@ -1121,16 +1161,15 @@ void testWildcardComplexity() {
     struct {
         const char *name;
         int patternCount;
-    } scenarios[] = {
-        {"Exact matches only", 1000},
-        {"With * wildcards", 1000},
-        {"With # wildcards", 1000},
-        {"Mixed wildcards", 1000}
-    };
+    } scenarios[] = {{"Exact matches only", 1000},
+                     {"With * wildcards", 1000},
+                     {"With # wildcards", 1000},
+                     {"Mixed wildcards", 1000}};
 
-    printf("\n  %-20s | %-12s | %-12s | %-10s\n",
-           "Scenario", "Naive (μs)", "Trie (μs)", "Speedup");
-    printf("  %s\n", "------------------------------------------------------------");
+    printf("\n  %-20s | %-12s | %-12s | %-10s\n", "Scenario", "Naive (μs)",
+           "Trie (μs)", "Speedup");
+    printf("  %s\n",
+           "------------------------------------------------------------");
 
     for (size_t s = 0; s < 4; s++) {
         NaivePatternList naive;
@@ -1145,14 +1184,16 @@ void testWildcardComplexity() {
             char pattern[128];
             if (s == 0) {
                 // Exact only
-                snprintf(pattern, 128, "msg.topic%d.event%d.data%d",
-                        i % 20, i % 30, i % 40);
+                snprintf(pattern, 128, "msg.topic%d.event%d.data%d", i % 20,
+                         i % 30, i % 40);
             } else if (s == 1) {
                 // Star wildcards
                 if (i % 2) {
-                    snprintf(pattern, 128, "msg.*.event%d.data%d", i % 30, i % 40);
+                    snprintf(pattern, 128, "msg.*.event%d.data%d", i % 30,
+                             i % 40);
                 } else {
-                    snprintf(pattern, 128, "msg.topic%d.*.data%d", i % 20, i % 40);
+                    snprintf(pattern, 128, "msg.topic%d.*.data%d", i % 20,
+                             i % 40);
                 }
             } else if (s == 2) {
                 // Hash wildcards
@@ -1183,8 +1224,8 @@ void testWildcardComplexity() {
         int queryCount = 5000;
         char (*queries)[128] = malloc(queryCount * 128);
         for (int i = 0; i < queryCount; i++) {
-            snprintf(queries[i], 128, "msg.topic%d.event%d.data%d",
-                    i % 20, i % 30, i % 40);
+            snprintf(queries[i], 128, "msg.topic%d.event%d.data%d", i % 20,
+                     i % 30, i % 40);
         }
 
         // Benchmark naive
@@ -1194,7 +1235,8 @@ void testWildcardComplexity() {
             naiveMatch(&naive, queries[i], &result);
         }
         clock_t end = clock();
-        double naiveTime = ((double)(end - start) / CLOCKS_PER_SEC) * 1e6 / queryCount;
+        double naiveTime =
+            ((double)(end - start) / CLOCKS_PER_SEC) * 1e6 / queryCount;
 
         // Benchmark trie
         start = clock();
@@ -1202,14 +1244,20 @@ void testWildcardComplexity() {
             trieMatch(&trie, queries[i], &result);
         }
         end = clock();
-        double trieTime = ((double)(end - start) / CLOCKS_PER_SEC) * 1e6 / queryCount;
+        double trieTime =
+            ((double)(end - start) / CLOCKS_PER_SEC) * 1e6 / queryCount;
 
-        double speedup = (trieTime < 0.01) ? (naiveTime / 0.01) : (naiveTime / trieTime);
-        if (speedup > 999.9) speedup = 999.9;
-        if (speedup < 0.1) speedup = 0.1;
+        double speedup =
+            (trieTime < 0.01) ? (naiveTime / 0.01) : (naiveTime / trieTime);
+        if (speedup > 999.9) {
+            speedup = 999.9;
+        }
+        if (speedup < 0.1) {
+            speedup = 0.1;
+        }
 
-        printf("  %-20s | %12.2f | %12.2f | %9.1fx\n",
-               scenarios[s].name, naiveTime, trieTime, speedup);
+        printf("  %-20s | %12.2f | %12.2f | %9.1fx\n", scenarios[s].name,
+               naiveTime, trieTime, speedup);
 
         free(queries);
         naiveFree(&naive);
@@ -1218,9 +1266,11 @@ void testWildcardComplexity() {
 
     printf("\n  Key observations:\n");
     printf("  • Hash wildcards cause exponential slowdown in naive matching\n");
-    printf("  • Trie maintains O(m) performance with any wildcard combination\n");
+    printf(
+        "  • Trie maintains O(m) performance with any wildcard combination\n");
     printf("  • At scale (1000+ patterns), trie is 10-100x faster\n");
-    printf("  • Naive # wildcard matching has O(n*m*k) complexity where k=backtracking\n");
+    printf("  • Naive # wildcard matching has O(n*m*k) complexity where "
+           "k=backtracking\n");
 
     printf("\n  PASS: Wildcard complexity comparison complete\n");
 }
@@ -1236,40 +1286,38 @@ void testMemoryEfficiency() {
     } scenarios[3];
 
     // Scenario 1: No shared prefixes
-    const char *unique[] = {
-        "alpha.one.x", "beta.two.y", "gamma.three.z", "delta.four.w",
-        "epsilon.five.v", "zeta.six.u", "eta.seven.t", "theta.eight.s",
-        "iota.nine.r", "kappa.ten.q"
-    };
+    const char *unique[] = {"alpha.one.x",  "beta.two.y",     "gamma.three.z",
+                            "delta.four.w", "epsilon.five.v", "zeta.six.u",
+                            "eta.seven.t",  "theta.eight.s",  "iota.nine.r",
+                            "kappa.ten.q"};
     scenarios[0].name = "No sharing";
     scenarios[0].patterns = unique;
     scenarios[0].count = 10;
 
     // Scenario 2: Shared first segment
-    const char *shared1[] = {
-        "stock.nasdaq.aapl", "stock.nasdaq.goog", "stock.nasdaq.msft",
-        "stock.nyse.ibm", "stock.nyse.ge", "stock.nyse.f",
-        "stock.lse.bp", "stock.lse.hsbc", "stock.lse.rbs",
-        "stock.tsx.td"
-    };
+    const char *shared1[] = {"stock.nasdaq.aapl", "stock.nasdaq.goog",
+                             "stock.nasdaq.msft", "stock.nyse.ibm",
+                             "stock.nyse.ge",     "stock.nyse.f",
+                             "stock.lse.bp",      "stock.lse.hsbc",
+                             "stock.lse.rbs",     "stock.tsx.td"};
     scenarios[1].name = "Shared prefix (1 level)";
     scenarios[1].patterns = shared1;
     scenarios[1].count = 10;
 
     // Scenario 3: Shared first two segments
-    const char *shared2[] = {
-        "log.error.database", "log.error.network", "log.error.auth",
-        "log.error.api", "log.error.cache", "log.warn.deprecated",
-        "log.warn.slow", "log.info.startup", "log.info.config",
-        "log.debug.trace"
-    };
+    const char *shared2[] = {"log.error.database", "log.error.network",
+                             "log.error.auth",     "log.error.api",
+                             "log.error.cache",    "log.warn.deprecated",
+                             "log.warn.slow",      "log.info.startup",
+                             "log.info.config",    "log.debug.trace"};
     scenarios[2].name = "Shared prefix (2 levels)";
     scenarios[2].patterns = shared2;
     scenarios[2].count = 10;
 
-    printf("\n  %-25s | %-12s | %-12s | %-12s\n",
-           "Scenario", "Naive (B)", "Trie (B)", "Savings");
-    printf("  %s\n", "----------------------------------------------------------------");
+    printf("\n  %-25s | %-12s | %-12s | %-12s\n", "Scenario", "Naive (B)",
+           "Trie (B)", "Savings");
+    printf("  %s\n",
+           "----------------------------------------------------------------");
 
     for (int s = 0; s < 3; s++) {
         NaivePatternList naive;
@@ -1286,8 +1334,8 @@ void testMemoryEfficiency() {
         size_t trieMem = trieMemoryUsage(&trie);
         double savings = 100.0 * (1.0 - (double)trieMem / naiveMem);
 
-        printf("  %-25s | %12zu | %12zu | %11.1f%%\n",
-               scenarios[s].name, naiveMem, trieMem, savings);
+        printf("  %-25s | %12zu | %12zu | %11.1f%%\n", scenarios[s].name,
+               naiveMem, trieMem, savings);
 
         naiveFree(&naive);
         trieFree(&trie);
@@ -1297,7 +1345,8 @@ void testMemoryEfficiency() {
     printf("  • Trie memory efficiency improves with prefix sharing\n");
     printf("  • Naive implementation duplicates all pattern data\n");
     printf("  • Trie stores each unique prefix only once\n");
-    printf("  • With serialization (varint), trie achieves 70-90%% compression\n");
+    printf(
+        "  • With serialization (varint), trie achieves 70-90%% compression\n");
 
     printf("\n  PASS: Memory efficiency analysis complete\n");
 }
@@ -1325,11 +1374,11 @@ void testExtremeScale() {
         uint32_t type = xorshift32() % 100;
 
         if (type < 40) {
-            snprintf(pattern, 128, "app.service%d.method%d.endpoint%d",
-                    i % 100, i % 500, i % 1000);
+            snprintf(pattern, 128, "app.service%d.method%d.endpoint%d", i % 100,
+                     i % 500, i % 1000);
         } else if (type < 70) {
-            snprintf(pattern, 128, "app.*.method%d.endpoint%d",
-                    i % 500, i % 1000);
+            snprintf(pattern, 128, "app.*.method%d.endpoint%d", i % 500,
+                     i % 1000);
         } else if (type < 90) {
             snprintf(pattern, 128, "app.service%d.#", i % 100);
         } else {
@@ -1354,7 +1403,8 @@ void testExtremeScale() {
     // Memory usage
     double trieMem = (double)trieMemoryUsage(&trie) / (1024.0 * 1024.0);
     printf("  Memory usage: %.2f MB\n", trieMem);
-    printf("  Bytes per pattern: %.1f\n", (trieMem * 1024.0 * 1024.0) / patternCount);
+    printf("  Bytes per pattern: %.1f\n",
+           (trieMem * 1024.0 * 1024.0) / patternCount);
 
     // Generate diverse query workload
     int queryCount = 100000;
@@ -1364,7 +1414,7 @@ void testExtremeScale() {
     xorshift32_state = 777777777;
     for (int i = 0; i < queryCount; i++) {
         snprintf(queries[i], 128, "app.service%d.method%d.endpoint%d.extra",
-                xorshift32() % 100, xorshift32() % 500, xorshift32() % 1000);
+                 xorshift32() % 100, xorshift32() % 500, xorshift32() % 1000);
     }
 
     // Benchmark matching
@@ -1378,7 +1428,8 @@ void testExtremeScale() {
     }
     clock_t queryEnd = clock();
 
-    double queryTime = ((double)(queryEnd - queryStart) / CLOCKS_PER_SEC) * 1e6 / queryCount;
+    double queryTime =
+        ((double)(queryEnd - queryStart) / CLOCKS_PER_SEC) * 1e6 / queryCount;
     double throughput = 1.0 / (queryTime / 1e6);
 
     printf("\n  Results:\n");
@@ -1388,7 +1439,8 @@ void testExtremeScale() {
            (double)(queryEnd - queryStart) / CLOCKS_PER_SEC);
 
     printf("\n  Extrapolated naive performance:\n");
-    printf("    Estimated naive time: %.2f μs per query (1000x slower)\n", queryTime * 1000);
+    printf("    Estimated naive time: %.2f μs per query (1000x slower)\n",
+           queryTime * 1000);
     printf("    Would take: %.0f seconds for same workload\n",
            queryTime * 1000 * queryCount / 1e6);
 
@@ -1431,13 +1483,15 @@ void demonstrateTriePatternMatcher() {
     // 2. Pattern matching examples
     printf("\n2. Pattern matching examples...\n");
 
-    const char *testInputs[] = {"stock.nasdaq.aapl", "stock.nyse.aapl", "log.error.database",
-                                 "log.auth.critical", "event.user.login"};
+    const char *testInputs[] = {"stock.nasdaq.aapl", "stock.nyse.aapl",
+                                "log.error.database", "log.auth.critical",
+                                "event.user.login"};
 
     for (size_t i = 0; i < 5; i++) {
         MatchResult result;
         trieMatch(&trie, testInputs[i], &result);
-        printf("   Input: %-25s → %zu subscriber(s)\n", testInputs[i], result.count);
+        printf("   Input: %-25s → %zu subscriber(s)\n", testInputs[i],
+               result.count);
     }
 
     // 3. Trie statistics
@@ -1450,7 +1504,8 @@ void demonstrateTriePatternMatcher() {
     printf("   Terminal nodes: %zu\n", terminalNodes);
     printf("   Wildcard nodes: %zu\n", wildcardNodes);
     printf("   Max depth: %zu\n", maxDepth);
-    printf("   Avg branching: %.2f\n", (double)totalNodes / (terminalNodes + 1));
+    printf("   Avg branching: %.2f\n",
+           (double)totalNodes / (terminalNodes + 1));
 
     // 4. Serialization
     printf("\n4. Trie serialization...\n");
@@ -1460,14 +1515,17 @@ void demonstrateTriePatternMatcher() {
 
     printf("   Serialized size: %zu bytes\n", serializedSize);
     printf("   Uncompressed (est): ~%zu bytes\n", totalNodes * 80);
-    printf("   Compression ratio: %.2fx\n", (double)(totalNodes * 80) / serializedSize);
-    printf("   Space savings: %.1f%%\n", 100.0 * (1.0 - (double)serializedSize / (totalNodes * 80)));
+    printf("   Compression ratio: %.2fx\n",
+           (double)(totalNodes * 80) / serializedSize);
+    printf("   Space savings: %.1f%%\n",
+           100.0 * (1.0 - (double)serializedSize / (totalNodes * 80)));
 
     // 5. Performance characteristics
     printf("\n5. Performance characteristics...\n");
 
     printf("   Time complexity: O(m) where m = pattern segments\n");
-    printf("   Space complexity: O(n*k) where n = patterns, k = avg segments\n");
+    printf(
+        "   Space complexity: O(n*k) where n = patterns, k = avg segments\n");
     printf("   Wildcard overhead: Minimal (2 extra bits per node)\n");
     printf("   Lookup speed: ~1-2 μs typical\n");
 
@@ -1514,16 +1572,16 @@ int main() {
     testEdgeCases();
     testPerformance();
 
-    // Skip intensive benchmark tests when running with sanitizers
-    // (tests 9-12 are designed for production performance testing)
-    #ifndef __SANITIZE_ADDRESS__
-    #if !defined(__has_feature) || !__has_feature(address_sanitizer)
+// Skip intensive benchmark tests when running with sanitizers
+// (tests 9-12 are designed for production performance testing)
+#ifndef __SANITIZE_ADDRESS__
+#if !defined(__has_feature) || !__has_feature(address_sanitizer)
     testBenchmarkComparisons();
     testWildcardComplexity();
     testMemoryEfficiency();
     testExtremeScale();
-    #endif
-    #endif
+#endif
+#endif
 
     printf("\n===============================================\n");
     printf("  CORE FUNCTIONALITY TESTS PASSED ✓\n");

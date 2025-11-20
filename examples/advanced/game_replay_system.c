@@ -19,8 +19,8 @@
  * Real-world relevance: Professional esports, game streaming platforms,
  * and multiplayer games use similar techniques for replay systems.
  *
- * Compile: gcc -I../../src game_replay_system.c ../../build/src/libvarint.a -o game_replay_system -lm
- * Run: ./game_replay_system
+ * Compile: gcc -I../../src game_replay_system.c ../../build/src/libvarint.a -o
+ * game_replay_system -lm Run: ./game_replay_system
  */
 
 // Generate varintPacked16 for input bitfields
@@ -41,7 +41,7 @@
 // ============================================================================
 
 typedef struct {
-    float x, y, z;     // Position
+    float x, y, z; // Position
 } Vector3;
 
 typedef struct {
@@ -55,13 +55,13 @@ typedef struct {
     uint16_t health;
     uint16_t ammo;
     uint8_t weapon;
-    uint16_t inputFlags;  // Bitfield for button states
+    uint16_t inputFlags; // Bitfield for button states
 } PlayerState;
 
 typedef struct {
     uint32_t frameNumber;
-    uint32_t timestamp;  // Milliseconds since start
-    PlayerState players[4];  // Up to 4 players
+    uint32_t timestamp;     // Milliseconds since start
+    PlayerState players[4]; // Up to 4 players
     uint8_t playerCount;
 } GameFrame;
 
@@ -81,7 +81,7 @@ typedef enum {
     INPUT_MELEE = (1 << 8),
     INPUT_GRENADE = (1 << 9),
     INPUT_SPRINT = (1 << 10),
-    INPUT_ADS = (1 << 11),  // Aim down sights
+    INPUT_ADS = (1 << 11), // Aim down sights
 } InputFlag;
 
 // ============================================================================
@@ -129,23 +129,33 @@ typedef struct {
     uint16_t inputFlags;
 } PlayerDelta;
 
-PlayerDelta computePlayerDelta(const PlayerState *prev, const PlayerState *curr) {
+PlayerDelta computePlayerDelta(const PlayerState *prev,
+                               const PlayerState *curr) {
     PlayerDelta delta;
 
     // Position deltas
-    delta.deltaX = quantizePosition(curr->position.x) - quantizePosition(prev->position.x);
-    delta.deltaY = quantizePosition(curr->position.y) - quantizePosition(prev->position.y);
-    delta.deltaZ = quantizePosition(curr->position.z) - quantizePosition(prev->position.z);
+    delta.deltaX =
+        quantizePosition(curr->position.x) - quantizePosition(prev->position.x);
+    delta.deltaY =
+        quantizePosition(curr->position.y) - quantizePosition(prev->position.y);
+    delta.deltaZ =
+        quantizePosition(curr->position.z) - quantizePosition(prev->position.z);
 
     // Rotation deltas
-    delta.deltaPitch = quantizeRotation(curr->rotation.pitch) - quantizeRotation(prev->rotation.pitch);
-    delta.deltaYaw = quantizeRotation(curr->rotation.yaw) - quantizeRotation(prev->rotation.yaw);
-    delta.deltaRoll = quantizeRotation(curr->rotation.roll) - quantizeRotation(prev->rotation.roll);
+    delta.deltaPitch = quantizeRotation(curr->rotation.pitch) -
+                       quantizeRotation(prev->rotation.pitch);
+    delta.deltaYaw = quantizeRotation(curr->rotation.yaw) -
+                     quantizeRotation(prev->rotation.yaw);
+    delta.deltaRoll = quantizeRotation(curr->rotation.roll) -
+                      quantizeRotation(prev->rotation.roll);
 
     // Velocity deltas
-    delta.deltaVelX = quantizeVelocity(curr->velocity.x) - quantizeVelocity(prev->velocity.x);
-    delta.deltaVelY = quantizeVelocity(curr->velocity.y) - quantizeVelocity(prev->velocity.y);
-    delta.deltaVelZ = quantizeVelocity(curr->velocity.z) - quantizeVelocity(prev->velocity.z);
+    delta.deltaVelX =
+        quantizeVelocity(curr->velocity.x) - quantizeVelocity(prev->velocity.x);
+    delta.deltaVelY =
+        quantizeVelocity(curr->velocity.y) - quantizeVelocity(prev->velocity.y);
+    delta.deltaVelZ =
+        quantizeVelocity(curr->velocity.z) - quantizeVelocity(prev->velocity.z);
 
     // State deltas
     delta.deltaHealth = (int16_t)curr->health - (int16_t)prev->health;
@@ -213,7 +223,8 @@ size_t encodeKeyframe(uint8_t *buffer, const GameFrame *frame) {
 // DELTA FRAME ENCODING (only changes)
 // ============================================================================
 
-size_t encodeDeltaFrame(uint8_t *buffer, const GameFrame *prev, const GameFrame *curr) {
+size_t encodeDeltaFrame(uint8_t *buffer, const GameFrame *prev,
+                        const GameFrame *curr) {
     size_t offset = 0;
 
     // Frame metadata
@@ -226,17 +237,24 @@ size_t encodeDeltaFrame(uint8_t *buffer, const GameFrame *prev, const GameFrame 
 
     // Encode player deltas
     for (uint8_t i = 0; i < curr->playerCount; i++) {
-        PlayerDelta delta = computePlayerDelta(&prev->players[i], &curr->players[i]);
+        PlayerDelta delta =
+            computePlayerDelta(&prev->players[i], &curr->players[i]);
 
         // Position deltas (varintExternal - adaptive width)
-        offset += varintExternalPut(buffer + offset, (uint64_t)(uint16_t)delta.deltaX);
-        offset += varintExternalPut(buffer + offset, (uint64_t)(uint16_t)delta.deltaY);
-        offset += varintExternalPut(buffer + offset, (uint64_t)(uint16_t)delta.deltaZ);
+        offset += varintExternalPut(buffer + offset,
+                                    (uint64_t)(uint16_t)delta.deltaX);
+        offset += varintExternalPut(buffer + offset,
+                                    (uint64_t)(uint16_t)delta.deltaY);
+        offset += varintExternalPut(buffer + offset,
+                                    (uint64_t)(uint16_t)delta.deltaZ);
 
         // Rotation deltas
-        offset += varintExternalPut(buffer + offset, (uint64_t)(uint16_t)delta.deltaPitch);
-        offset += varintExternalPut(buffer + offset, (uint64_t)(uint16_t)delta.deltaYaw);
-        offset += varintExternalPut(buffer + offset, (uint64_t)(uint16_t)delta.deltaRoll);
+        offset += varintExternalPut(buffer + offset,
+                                    (uint64_t)(uint16_t)delta.deltaPitch);
+        offset += varintExternalPut(buffer + offset,
+                                    (uint64_t)(uint16_t)delta.deltaYaw);
+        offset += varintExternalPut(buffer + offset,
+                                    (uint64_t)(uint16_t)delta.deltaRoll);
 
         // Velocity deltas (1 byte each)
         buffer[offset++] = (uint8_t)delta.deltaVelX;
@@ -244,8 +262,10 @@ size_t encodeDeltaFrame(uint8_t *buffer, const GameFrame *prev, const GameFrame 
         buffer[offset++] = (uint8_t)delta.deltaVelZ;
 
         // State deltas
-        offset += varintExternalPut(buffer + offset, (uint64_t)(uint16_t)delta.deltaHealth);
-        offset += varintExternalPut(buffer + offset, (uint64_t)(uint16_t)delta.deltaAmmo);
+        offset += varintExternalPut(buffer + offset,
+                                    (uint64_t)(uint16_t)delta.deltaHealth);
+        offset += varintExternalPut(buffer + offset,
+                                    (uint64_t)(uint16_t)delta.deltaAmmo);
         buffer[offset++] = (uint8_t)delta.deltaWeapon;
 
         // Input flags
@@ -264,7 +284,7 @@ typedef struct {
     uint8_t *data;
     size_t size;
     size_t capacity;
-    uint32_t keyframeInterval;  // Keyframe every N frames
+    uint32_t keyframeInterval; // Keyframe every N frames
     uint32_t lastKeyframe;
     GameFrame lastFrame;
 } ReplayRecorder;
@@ -341,7 +361,7 @@ void simulatePlayer(PlayerState *player, uint32_t frame, uint8_t playerIndex) {
     player->velocity.z = cosf(angle) * 2.0f;
 
     player->rotation.pitch = 0.0f;
-    player->rotation.yaw = angle * 57.2958f;  // radians to degrees
+    player->rotation.yaw = angle * 57.2958f; // radians to degrees
     player->rotation.roll = 0.0f;
 
     player->health = 100;
@@ -350,12 +370,15 @@ void simulatePlayer(PlayerState *player, uint32_t frame, uint8_t playerIndex) {
 
     // Simulate input
     player->inputFlags = 0;
-    if (frame % 60 < 30)
+    if (frame % 60 < 30) {
         player->inputFlags |= INPUT_FORWARD;
-    if (frame % 100 < 10)
+    }
+    if (frame % 100 < 10) {
         player->inputFlags |= INPUT_FIRE;
-    if (frame % 200 == 0)
+    }
+    if (frame % 200 == 0) {
         player->inputFlags |= INPUT_RELOAD;
+    }
 }
 
 // ============================================================================
@@ -369,7 +392,8 @@ void demonstrateGameReplay() {
     printf("1. Initializing replay recorder...\n");
 
     ReplayRecorder recorder;
-    uint32_t keyframeInterval = 60;  // Keyframe every 60 frames (1 sec at 60 FPS)
+    uint32_t keyframeInterval =
+        60; // Keyframe every 60 frames (1 sec at 60 FPS)
     replayRecorderInit(&recorder, 1024 * 1024, keyframeInterval);
 
     printf("   Keyframe interval: %u frames\n", keyframeInterval);
@@ -384,7 +408,7 @@ void demonstrateGameReplay() {
     for (uint32_t frame = 0; frame < totalFrames; frame++) {
         GameFrame gameFrame;
         gameFrame.frameNumber = frame;
-        gameFrame.timestamp = frame * 16;  // 16ms per frame (60 FPS)
+        gameFrame.timestamp = frame * 16; // 16ms per frame (60 FPS)
         gameFrame.playerCount = playerCount;
 
         for (uint8_t i = 0; i < playerCount; i++) {
@@ -396,7 +420,8 @@ void demonstrateGameReplay() {
 
     printf("   Recorded %u frames\n", totalFrames);
     printf("   Total replay size: %zu bytes\n", recorder.size);
-    printf("   Average frame size: %.1f bytes\n", (double)recorder.size / totalFrames);
+    printf("   Average frame size: %.1f bytes\n",
+           (double)recorder.size / totalFrames);
 
     // 3. Analyze compression
     printf("\n3. Compression analysis...\n");
@@ -406,13 +431,15 @@ void demonstrateGameReplay() {
     for (uint32_t frame = 0; frame < totalFrames; frame++) {
         // Each frame: frame# (4) + timestamp (4) + player count (1)
         // Per player: position (12) + rotation (12) + velocity (12) +
-        //             health (2) + ammo (2) + weapon (1) + inputs (2) = 43 bytes
+        //             health (2) + ammo (2) + weapon (1) + inputs (2) = 43
+        //             bytes
         uncompressedSize += 4 + 4 + 1 + (playerCount * 43);
     }
 
     printf("   Uncompressed size: %zu bytes\n", uncompressedSize);
     printf("   Compressed size: %zu bytes\n", recorder.size);
-    printf("   Compression ratio: %.1fx\n", (double)uncompressedSize / recorder.size);
+    printf("   Compression ratio: %.1fx\n",
+           (double)uncompressedSize / recorder.size);
     printf("   Space savings: %.1f%%\n",
            100.0 * (1.0 - (double)recorder.size / uncompressedSize));
 
@@ -429,7 +456,7 @@ void demonstrateGameReplay() {
         uint8_t frameType = recorder.data[offset++];
 
         // Estimate frame size (simplified)
-        size_t frameSize = 50;  // Approximate
+        size_t frameSize = 50; // Approximate
         if (offset + frameSize > recorder.size) {
             break;
         }
@@ -469,8 +496,8 @@ void demonstrateGameReplay() {
     printf("\n6. Seeking performance (keyframe-based)...\n");
 
     printf("   Keyframes at: 0, 60, 120, 180, ... frames\n");
-    printf("   Maximum seek latency: %u frames (%.3f seconds)\n", keyframeInterval,
-           (float)keyframeInterval / 60.0f);
+    printf("   Maximum seek latency: %u frames (%.3f seconds)\n",
+           keyframeInterval, (float)keyframeInterval / 60.0f);
     printf("   Seeking to any point requires:\n");
     printf("   - Find nearest keyframe: O(log n)\n");
     printf("   - Decode up to %u delta frames: O(k)\n", keyframeInterval);
@@ -536,7 +563,8 @@ void demonstrateGameReplay() {
 
     printf("\n   Game state logging (naive):\n");
     printf("   - Size: ~%zu KB\n", uncompressedSize / 1024);
-    printf("   - Our advantage: %.1fx\n", (double)uncompressedSize / recorder.size);
+    printf("   - Our advantage: %.1fx\n",
+           (double)uncompressedSize / recorder.size);
 
     replayRecorderFree(&recorder);
 

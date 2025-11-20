@@ -103,7 +103,8 @@ size_t varintDeltaDecode(const uint8_t *input, size_t count, int64_t *output) {
 }
 
 /* Encode array of unsigned absolute values as base + deltas */
-size_t varintDeltaEncodeUnsigned(uint8_t *output, const uint64_t *values, size_t count) {
+size_t varintDeltaEncodeUnsigned(uint8_t *output, const uint64_t *values,
+                                 size_t count) {
     if (count == 0) {
         return 0;
     }
@@ -134,7 +135,8 @@ size_t varintDeltaEncodeUnsigned(uint8_t *output, const uint64_t *values, size_t
 }
 
 /* Decode delta-encoded array back to unsigned absolute values */
-size_t varintDeltaDecodeUnsigned(const uint8_t *input, size_t count, uint64_t *output) {
+size_t varintDeltaDecodeUnsigned(const uint8_t *input, size_t count,
+                                 uint64_t *output) {
     if (count == 0) {
         return 0;
     }

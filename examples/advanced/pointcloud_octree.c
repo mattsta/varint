@@ -44,12 +44,12 @@
  * - Leaf nodes contain actual point data
  * - Enables O(log n) spatial queries
  *
- * Compile: gcc -I../../src pointcloud_octree.c ../../build/src/libvarint.a -o pointcloud_octree -lm
- * Run: ./pointcloud_octree
+ * Compile: gcc -I../../src pointcloud_octree.c ../../build/src/libvarint.a -o
+ * pointcloud_octree -lm Run: ./pointcloud_octree
  */
 
-#include "varintExternal.h"
 #include "varintDimension.h"
+#include "varintExternal.h"
 #include <assert.h>
 #include <float.h>
 #include <math.h>
@@ -63,13 +63,13 @@
 // ============================================================================
 
 typedef struct {
-    float x, y, z;      // 3D coordinates
-    uint8_t r, g, b;    // RGB color (optional)
-    uint8_t intensity;  // LiDAR intensity (0-255)
+    float x, y, z;     // 3D coordinates
+    uint8_t r, g, b;   // RGB color (optional)
+    uint8_t intensity; // LiDAR intensity (0-255)
 } Point3D;
 
 typedef struct {
-    uint32_t x, y, z;   // Quantized integer coordinates
+    uint32_t x, y, z; // Quantized integer coordinates
     uint8_t r, g, b;
     uint8_t intensity;
 } QuantizedPoint;
@@ -86,16 +86,17 @@ typedef struct {
 
 // Spread bits of a 21-bit integer across 64 bits (for 3D interleaving)
 // Input:  -------------------- ---fedcba9876543210  (21 bits)
-// Output: --f--e--d--c--b--a--9--8--7--6--5--4--3--2--1--0  (spread across 63 bits)
+// Output: --f--e--d--c--b--a--9--8--7--6--5--4--3--2--1--0  (spread across 63
+// bits)
 uint64_t spreadBits(uint32_t x) {
-    uint64_t result = x & 0x1fffff;  // Only keep 21 bits (max for 64-bit Morton)
+    uint64_t result = x & 0x1fffff; // Only keep 21 bits (max for 64-bit Morton)
 
     // Spread bits using magic numbers
     result = (result | result << 32) & 0x1f00000000ffffULL;
     result = (result | result << 16) & 0x1f0000ff0000ffULL;
-    result = (result | result << 8)  & 0x100f00f00f00f00fULL;
-    result = (result | result << 4)  & 0x10c30c30c30c30c3ULL;
-    result = (result | result << 2)  & 0x1249249249249249ULL;
+    result = (result | result << 8) & 0x100f00f00f00f00fULL;
+    result = (result | result << 4) & 0x10c30c30c30c30c3ULL;
+    result = (result | result << 2) & 0x1249249249249249ULL;
 
     return result;
 }
@@ -103,9 +104,9 @@ uint64_t spreadBits(uint32_t x) {
 // Compact spread bits back to a 21-bit integer
 uint32_t compactBits(uint64_t x) {
     x &= 0x1249249249249249ULL;
-    x = (x ^ (x >> 2))  & 0x10c30c30c30c30c3ULL;
-    x = (x ^ (x >> 4))  & 0x100f00f00f00f00fULL;
-    x = (x ^ (x >> 8))  & 0x1f0000ff0000ffULL;
+    x = (x ^ (x >> 2)) & 0x10c30c30c30c30c3ULL;
+    x = (x ^ (x >> 4)) & 0x100f00f00f00f00fULL;
+    x = (x ^ (x >> 8)) & 0x1f0000ff0000ffULL;
     x = (x ^ (x >> 16)) & 0x1f00000000ffffULL;
     x = (x ^ (x >> 32)) & 0x1fffffULL;
 
@@ -128,7 +129,7 @@ void decodeMorton(uint64_t morton, uint32_t *x, uint32_t *y, uint32_t *z) {
 // QUANTIZATION (float -> integer)
 // ============================================================================
 
-#define QUANTIZATION_PRECISION 10000.0f  // 0.1mm precision
+#define QUANTIZATION_PRECISION 10000.0f // 0.1mm precision
 
 QuantizedPoint quantizePoint(const Point3D *p, const BoundingBox *bounds) {
     QuantizedPoint qp;
@@ -178,9 +179,9 @@ Point3D dequantizePoint(const QuantizedPoint *qp, const BoundingBox *bounds) {
 
 typedef struct OctreeNode {
     BoundingBox bounds;
-    Point3D *points;           // Points in this leaf node
+    Point3D *points; // Points in this leaf node
     size_t pointCount;
-    struct OctreeNode *children[8];  // 8 octants
+    struct OctreeNode *children[8]; // 8 octants
     bool isLeaf;
 } OctreeNode;
 
@@ -191,9 +192,15 @@ int getOctant(const Point3D *p, const BoundingBox *bounds) {
     float midZ = (bounds->minZ + bounds->maxZ) / 2.0f;
 
     int octant = 0;
-    if (p->x >= midX) octant |= 4;
-    if (p->y >= midY) octant |= 2;
-    if (p->z >= midZ) octant |= 1;
+    if (p->x >= midX) {
+        octant |= 4;
+    }
+    if (p->y >= midY) {
+        octant |= 2;
+    }
+    if (p->z >= midZ) {
+        octant |= 1;
+    }
 
     return octant;
 }
@@ -232,7 +239,9 @@ OctreeNode *octreeNodeCreate(const BoundingBox *bounds) {
 
 // Free octree node and all children
 void octreeNodeFree(OctreeNode *node) {
-    if (!node) return;
+    if (!node) {
+        return;
+    }
 
     if (!node->isLeaf) {
         for (int i = 0; i < 8; i++) {
@@ -246,7 +255,9 @@ void octreeNodeFree(OctreeNode *node) {
 
 // Subdivide leaf node into 8 children
 void octreeNodeSubdivide(OctreeNode *node) {
-    if (!node->isLeaf) return;
+    if (!node->isLeaf) {
+        return;
+    }
 
     // Create 8 children
     for (int i = 0; i < 8; i++) {
@@ -259,7 +270,8 @@ void octreeNodeSubdivide(OctreeNode *node) {
         int octant = getOctant(&node->points[i], &node->bounds);
         OctreeNode *child = node->children[octant];
 
-        child->points = realloc(child->points, (child->pointCount + 1) * sizeof(Point3D));
+        child->points =
+            realloc(child->points, (child->pointCount + 1) * sizeof(Point3D));
         child->points[child->pointCount++] = node->points[i];
     }
 
@@ -274,11 +286,13 @@ void octreeNodeSubdivide(OctreeNode *node) {
 void octreeInsert(OctreeNode *node, const Point3D *p, int depth) {
     if (node->isLeaf) {
         // Add to leaf node
-        node->points = realloc(node->points, (node->pointCount + 1) * sizeof(Point3D));
+        node->points =
+            realloc(node->points, (node->pointCount + 1) * sizeof(Point3D));
         node->points[node->pointCount++] = *p;
 
         // Subdivide if necessary
-        if (node->pointCount > MAX_POINTS_PER_NODE && depth < MAX_OCTREE_DEPTH) {
+        if (node->pointCount > MAX_POINTS_PER_NODE &&
+            depth < MAX_OCTREE_DEPTH) {
             octreeNodeSubdivide(node);
         }
     } else {
@@ -317,22 +331,38 @@ void pointCloudFree(PointCloud *pc) {
     octreeNodeFree(pc->octree);
 }
 
-void pointCloudAddPoint(PointCloud *pc, float x, float y, float z,
-                       uint8_t r, uint8_t g, uint8_t b, uint8_t intensity) {
+void pointCloudAddPoint(PointCloud *pc, float x, float y, float z, uint8_t r,
+                        uint8_t g, uint8_t b, uint8_t intensity) {
     pc->points = realloc(pc->points, (pc->pointCount + 1) * sizeof(Point3D));
 
     Point3D *p = &pc->points[pc->pointCount++];
-    p->x = x; p->y = y; p->z = z;
-    p->r = r; p->g = g; p->b = b;
+    p->x = x;
+    p->y = y;
+    p->z = z;
+    p->r = r;
+    p->g = g;
+    p->b = b;
     p->intensity = intensity;
 
     // Update bounds
-    if (x < pc->bounds.minX) pc->bounds.minX = x;
-    if (y < pc->bounds.minY) pc->bounds.minY = y;
-    if (z < pc->bounds.minZ) pc->bounds.minZ = z;
-    if (x > pc->bounds.maxX) pc->bounds.maxX = x;
-    if (y > pc->bounds.maxY) pc->bounds.maxY = y;
-    if (z > pc->bounds.maxZ) pc->bounds.maxZ = z;
+    if (x < pc->bounds.minX) {
+        pc->bounds.minX = x;
+    }
+    if (y < pc->bounds.minY) {
+        pc->bounds.minY = y;
+    }
+    if (z < pc->bounds.minZ) {
+        pc->bounds.minZ = z;
+    }
+    if (x > pc->bounds.maxX) {
+        pc->bounds.maxX = x;
+    }
+    if (y > pc->bounds.maxY) {
+        pc->bounds.maxY = y;
+    }
+    if (z > pc->bounds.maxZ) {
+        pc->bounds.maxZ = z;
+    }
 }
 
 // Build octree from point cloud
@@ -353,8 +383,8 @@ void pointCloudBuildOctree(PointCloud *pc) {
 // ============================================================================
 
 typedef struct {
-    uint64_t *mortonCodes;  // Morton codes for each point
-    uint8_t *colorData;     // RGB + intensity (4 bytes per point)
+    uint64_t *mortonCodes; // Morton codes for each point
+    uint8_t *colorData;    // RGB + intensity (4 bytes per point)
     size_t pointCount;
 } MortonEncodedCloud;
 
@@ -388,8 +418,12 @@ void mortonEncodedCloudFree(MortonEncodedCloud *mec) {
 int compareMorton(const void *a, const void *b) {
     uint64_t ma = *(const uint64_t *)a;
     uint64_t mb = *(const uint64_t *)b;
-    if (ma < mb) return -1;
-    if (ma > mb) return 1;
+    if (ma < mb) {
+        return -1;
+    }
+    if (ma > mb) {
+        return 1;
+    }
     return 0;
 }
 
@@ -445,7 +479,8 @@ PointCloud decompressPointCloud(const uint8_t *buffer, size_t *bytesRead) {
     // 2. Point count
     pc.pointCount = 0;
     varintWidth countWidth;
-    for (countWidth = VARINT_WIDTH_8B; countWidth <= VARINT_WIDTH_64B; countWidth++) {
+    for (countWidth = VARINT_WIDTH_8B; countWidth <= VARINT_WIDTH_64B;
+         countWidth++) {
         uint64_t count = varintExternalGet(buffer + offset, countWidth);
         if (count > 0) {
             pc.pointCount = count;
@@ -468,7 +503,8 @@ PointCloud decompressPointCloud(const uint8_t *buffer, size_t *bytesRead) {
         varintWidth deltaWidth;
         uint64_t delta = 0;
 
-        for (deltaWidth = VARINT_WIDTH_8B; deltaWidth <= VARINT_WIDTH_64B; deltaWidth++) {
+        for (deltaWidth = VARINT_WIDTH_8B; deltaWidth <= VARINT_WIDTH_64B;
+             deltaWidth++) {
             delta = varintExternalGet(buffer + offset, deltaWidth);
             if (i == 0 || delta <= 0xFFFFFFFFFFFFFFULL) {
                 offset += deltaWidth;
@@ -484,7 +520,9 @@ PointCloud decompressPointCloud(const uint8_t *buffer, size_t *bytesRead) {
         decodeMorton(morton, &qx, &qy, &qz);
 
         QuantizedPoint qp;
-        qp.x = qx; qp.y = qy; qp.z = qz;
+        qp.x = qx;
+        qp.y = qy;
+        qp.z = qz;
 
         // Get color data
         qp.r = buffer[offset + pc.pointCount * 4 + i * 4 + 0];
@@ -507,19 +545,23 @@ PointCloud decompressPointCloud(const uint8_t *buffer, size_t *bytesRead) {
 
 // Range query: find all points in a bounding box
 void octreeRangeQuery(const OctreeNode *node, const BoundingBox *range,
-                     Point3D *results, size_t *resultCount, size_t maxResults) {
-    if (!node || *resultCount >= maxResults) return;
+                      Point3D *results, size_t *resultCount,
+                      size_t maxResults) {
+    if (!node || *resultCount >= maxResults) {
+        return;
+    }
 
     // Check if node bounds intersect query range
     if (node->bounds.maxX < range->minX || node->bounds.minX > range->maxX ||
         node->bounds.maxY < range->minY || node->bounds.minY > range->maxY ||
         node->bounds.maxZ < range->minZ || node->bounds.minZ > range->maxZ) {
-        return;  // No intersection
+        return; // No intersection
     }
 
     if (node->isLeaf) {
         // Check each point in leaf
-        for (size_t i = 0; i < node->pointCount && *resultCount < maxResults; i++) {
+        for (size_t i = 0; i < node->pointCount && *resultCount < maxResults;
+             i++) {
             const Point3D *p = &node->points[i];
             if (p->x >= range->minX && p->x <= range->maxX &&
                 p->y >= range->minY && p->y <= range->maxY &&
@@ -530,7 +572,8 @@ void octreeRangeQuery(const OctreeNode *node, const BoundingBox *range,
     } else {
         // Recurse into children
         for (int i = 0; i < 8; i++) {
-            octreeRangeQuery(node->children[i], range, results, resultCount, maxResults);
+            octreeRangeQuery(node->children[i], range, results, resultCount,
+                             maxResults);
         }
     }
 }
@@ -544,24 +587,42 @@ float pointDistance(const Point3D *a, const Point3D *b) {
 }
 
 // Radius search: find all points within radius of query point
-void octreeRadiusSearch(const OctreeNode *node, const Point3D *query, float radius,
-                       Point3D *results, size_t *resultCount, size_t maxResults) {
-    if (!node || *resultCount >= maxResults) return;
+void octreeRadiusSearch(const OctreeNode *node, const Point3D *query,
+                        float radius, Point3D *results, size_t *resultCount,
+                        size_t maxResults) {
+    if (!node || *resultCount >= maxResults) {
+        return;
+    }
 
     // Check if node bounds intersect query sphere
     float dmin = 0;
-    if (query->x < node->bounds.minX) dmin += (node->bounds.minX - query->x) * (node->bounds.minX - query->x);
-    if (query->x > node->bounds.maxX) dmin += (query->x - node->bounds.maxX) * (query->x - node->bounds.maxX);
-    if (query->y < node->bounds.minY) dmin += (node->bounds.minY - query->y) * (node->bounds.minY - query->y);
-    if (query->y > node->bounds.maxY) dmin += (query->y - node->bounds.maxY) * (query->y - node->bounds.maxY);
-    if (query->z < node->bounds.minZ) dmin += (node->bounds.minZ - query->z) * (node->bounds.minZ - query->z);
-    if (query->z > node->bounds.maxZ) dmin += (query->z - node->bounds.maxZ) * (query->z - node->bounds.maxZ);
+    if (query->x < node->bounds.minX) {
+        dmin += (node->bounds.minX - query->x) * (node->bounds.minX - query->x);
+    }
+    if (query->x > node->bounds.maxX) {
+        dmin += (query->x - node->bounds.maxX) * (query->x - node->bounds.maxX);
+    }
+    if (query->y < node->bounds.minY) {
+        dmin += (node->bounds.minY - query->y) * (node->bounds.minY - query->y);
+    }
+    if (query->y > node->bounds.maxY) {
+        dmin += (query->y - node->bounds.maxY) * (query->y - node->bounds.maxY);
+    }
+    if (query->z < node->bounds.minZ) {
+        dmin += (node->bounds.minZ - query->z) * (node->bounds.minZ - query->z);
+    }
+    if (query->z > node->bounds.maxZ) {
+        dmin += (query->z - node->bounds.maxZ) * (query->z - node->bounds.maxZ);
+    }
 
-    if (sqrtf(dmin) > radius) return;  // No intersection
+    if (sqrtf(dmin) > radius) {
+        return; // No intersection
+    }
 
     if (node->isLeaf) {
         // Check each point in leaf
-        for (size_t i = 0; i < node->pointCount && *resultCount < maxResults; i++) {
+        for (size_t i = 0; i < node->pointCount && *resultCount < maxResults;
+             i++) {
             if (pointDistance(&node->points[i], query) <= radius) {
                 results[(*resultCount)++] = node->points[i];
             }
@@ -569,7 +630,8 @@ void octreeRadiusSearch(const OctreeNode *node, const Point3D *query, float radi
     } else {
         // Recurse into children
         for (int i = 0; i < 8; i++) {
-            octreeRadiusSearch(node->children[i], query, radius, results, resultCount, maxResults);
+            octreeRadiusSearch(node->children[i], query, radius, results,
+                               resultCount, maxResults);
         }
     }
 }
@@ -583,47 +645,47 @@ PointCloud generateBuilding(size_t pointCount) {
     PointCloud pc;
     pointCloudInit(&pc, "Building_LiDAR_Scan");
 
-    srand(42);  // Reproducible
+    srand(42); // Reproducible
 
     // Building dimensions: 50m x 30m x 20m
     for (size_t i = 0; i < pointCount; i++) {
         float x = 0, y = 0, z = 0;
         uint8_t intensity = 0;
 
-        int surface = rand() % 6;  // 6 surfaces (walls, roof, floor)
+        int surface = rand() % 6; // 6 surfaces (walls, roof, floor)
 
         switch (surface) {
-        case 0:  // Front wall
+        case 0: // Front wall
             x = 0.0f;
             y = (rand() % 30000) / 1000.0f;
             z = (rand() % 20000) / 1000.0f;
-            intensity = 200 + rand() % 56;  // High reflectivity (concrete)
+            intensity = 200 + rand() % 56; // High reflectivity (concrete)
             break;
-        case 1:  // Back wall
+        case 1: // Back wall
             x = 50.0f;
             y = (rand() % 30000) / 1000.0f;
             z = (rand() % 20000) / 1000.0f;
             intensity = 200 + rand() % 56;
             break;
-        case 2:  // Left wall
+        case 2: // Left wall
             x = (rand() % 50000) / 1000.0f;
             y = 0.0f;
             z = (rand() % 20000) / 1000.0f;
             intensity = 190 + rand() % 66;
             break;
-        case 3:  // Right wall
+        case 3: // Right wall
             x = (rand() % 50000) / 1000.0f;
             y = 30.0f;
             z = (rand() % 20000) / 1000.0f;
             intensity = 190 + rand() % 66;
             break;
-        case 4:  // Roof
+        case 4: // Roof
             x = (rand() % 50000) / 1000.0f;
             y = (rand() % 30000) / 1000.0f;
             z = 20.0f;
-            intensity = 100 + rand() % 100;  // Variable (tiles)
+            intensity = 100 + rand() % 100; // Variable (tiles)
             break;
-        case 5:  // Floor
+        case 5: // Floor
             x = (rand() % 50000) / 1000.0f;
             y = (rand() % 30000) / 1000.0f;
             z = 0.0f;
@@ -652,7 +714,7 @@ PointCloud generateTerrain(size_t pointCount) {
     PointCloud pc;
     pointCloudInit(&pc, "Terrain_DEM");
 
-    srand(123);  // Reproducible
+    srand(123); // Reproducible
 
     // Terrain: 100m x 100m with elevation 0-15m
     for (size_t i = 0; i < pointCount; i++) {
@@ -687,15 +749,15 @@ void demonstratePointCloudCompression() {
     int buildingPoints = 50000;
     int terrainPoints = 100000;
 
-    #ifdef __SANITIZE_ADDRESS__
-    buildingPoints = 5000;   // 10x smaller for sanitizer testing
+#ifdef __SANITIZE_ADDRESS__
+    buildingPoints = 5000; // 10x smaller for sanitizer testing
     terrainPoints = 10000;
-    #elif defined(__has_feature)
-    #if __has_feature(address_sanitizer)
+#elif defined(__has_feature)
+#if __has_feature(address_sanitizer)
     buildingPoints = 5000;
     terrainPoints = 10000;
-    #endif
-    #endif
+#endif
+#endif
 
     // 1. Generate building point cloud
     printf("1. Generating building point cloud (LiDAR scan)...\n");
@@ -717,28 +779,30 @@ void demonstratePointCloudCompression() {
     QuantizedPoint qp = quantizePoint(&building.points[0], &building.bounds);
     uint64_t morton = encodeMorton(qp.x, qp.y, qp.z);
 
-    printf("   First point: (%.3f, %.3f, %.3f)\n",
-           building.points[0].x, building.points[0].y, building.points[0].z);
+    printf("   First point: (%.3f, %.3f, %.3f)\n", building.points[0].x,
+           building.points[0].y, building.points[0].z);
     printf("   Quantized: (%u, %u, %u)\n", qp.x, qp.y, qp.z);
     printf("   Morton code: 0x%016lx\n", morton);
 
     uint32_t dx, dy, dz;
     decodeMorton(morton, &dx, &dy, &dz);
     printf("   Decoded: (%u, %u, %u) - ", dx, dy, dz);
-    printf("%s\n", (dx == qp.x && dy == qp.y && dz == qp.z) ? "CORRECT" : "ERROR");
+    printf("%s\n",
+           (dx == qp.x && dy == qp.y && dz == qp.z) ? "CORRECT" : "ERROR");
 
     // 3. Compress point cloud
     printf("\n3. Compressing point cloud...\n");
 
-    uint8_t *compressed = malloc(100 * 1024 * 1024);  // 100 MB buffer
+    uint8_t *compressed = malloc(100 * 1024 * 1024); // 100 MB buffer
     size_t compressedSize = compressPointCloud(&building, compressed);
 
     size_t uncompressedSize = building.pointCount * sizeof(Point3D);
-    printf("   Uncompressed: %zu bytes (%.2f MB)\n",
-           uncompressedSize, uncompressedSize / (1024.0 * 1024.0));
-    printf("   Compressed: %zu bytes (%.2f MB)\n",
-           compressedSize, compressedSize / (1024.0 * 1024.0));
-    printf("   Compression ratio: %.2fx\n", (double)uncompressedSize / compressedSize);
+    printf("   Uncompressed: %zu bytes (%.2f MB)\n", uncompressedSize,
+           uncompressedSize / (1024.0 * 1024.0));
+    printf("   Compressed: %zu bytes (%.2f MB)\n", compressedSize,
+           compressedSize / (1024.0 * 1024.0));
+    printf("   Compression ratio: %.2fx\n",
+           (double)uncompressedSize / compressedSize);
     printf("   Space savings: %.1f%%\n",
            100.0 * (1.0 - (double)compressedSize / uncompressedSize));
     printf("   Bytes per point: %.2f (vs %.2f uncompressed)\n",
@@ -764,12 +828,12 @@ void demonstratePointCloudCompression() {
     size_t rangeCount = 0;
 
     start = clock();
-    octreeRangeQuery(building.octree, &queryRange, rangeResults, &rangeCount, 10000);
+    octreeRangeQuery(building.octree, &queryRange, rangeResults, &rangeCount,
+                     10000);
     end = clock();
 
     printf("   Query range: (%.1f-%.1f, %.1f-%.1f, %.1f-%.1f)\n",
-           queryRange.minX, queryRange.maxX,
-           queryRange.minY, queryRange.maxY,
+           queryRange.minX, queryRange.maxX, queryRange.minY, queryRange.maxY,
            queryRange.minZ, queryRange.maxZ);
     printf("   Results: %zu points\n", rangeCount);
     printf("   Query time: %.3f ms\n",
@@ -784,12 +848,12 @@ void demonstratePointCloudCompression() {
     size_t radiusCount = 0;
 
     start = clock();
-    octreeRadiusSearch(building.octree, &queryPoint, radius,
-                      radiusResults, &radiusCount, 10000);
+    octreeRadiusSearch(building.octree, &queryPoint, radius, radiusResults,
+                       &radiusCount, 10000);
     end = clock();
 
-    printf("   Query point: (%.1f, %.1f, %.1f)\n",
-           queryPoint.x, queryPoint.y, queryPoint.z);
+    printf("   Query point: (%.1f, %.1f, %.1f)\n", queryPoint.x, queryPoint.y,
+           queryPoint.z);
     printf("   Radius: %.1f meters\n", radius);
     printf("   Results: %zu points\n", radiusCount);
     printf("   Query time: %.3f ms\n",
@@ -804,19 +868,20 @@ void demonstratePointCloudCompression() {
     printf("   Coverage: %.1f x %.1f meters\n",
            terrain.bounds.maxX - terrain.bounds.minX,
            terrain.bounds.maxY - terrain.bounds.minY);
-    printf("   Elevation range: %.2f - %.2f meters\n",
-           terrain.bounds.minZ, terrain.bounds.maxZ);
+    printf("   Elevation range: %.2f - %.2f meters\n", terrain.bounds.minZ,
+           terrain.bounds.maxZ);
 
     uint8_t *terrainCompressed = malloc(100 * 1024 * 1024);
-    size_t terrainCompressedSize = compressPointCloud(&terrain, terrainCompressed);
+    size_t terrainCompressedSize =
+        compressPointCloud(&terrain, terrainCompressed);
 
     printf("\n   Terrain compression:\n");
     printf("   Uncompressed: %.2f MB\n",
            (terrain.pointCount * sizeof(Point3D)) / (1024.0 * 1024.0));
     printf("   Compressed: %.2f MB\n",
            terrainCompressedSize / (1024.0 * 1024.0));
-    printf("   Ratio: %.2fx\n",
-           (double)(terrain.pointCount * sizeof(Point3D)) / terrainCompressedSize);
+    printf("   Ratio: %.2fx\n", (double)(terrain.pointCount * sizeof(Point3D)) /
+                                    terrainCompressedSize);
 
     // 8. Compression analysis
     printf("\n8. Compression technique breakdown...\n");
@@ -827,7 +892,8 @@ void demonstratePointCloudCompression() {
     printf("   - Example delta: 0x%016lx\n", morton);
 
     varintWidth mortonWidth = varintExternalLen(morton);
-    printf("   - Typical Morton code: %d bytes (vs 24 bytes raw coords)\n", mortonWidth);
+    printf("   - Typical Morton code: %d bytes (vs 24 bytes raw coords)\n",
+           mortonWidth);
 
     printf("\n   Delta encoding:\n");
     printf("   - Adjacent points have similar Morton codes\n");
@@ -847,21 +913,27 @@ void demonstratePointCloudCompression() {
     printf("   - Uncompressed: %.2f MB/sec\n",
            (100000 * sizeof(Point3D)) / (1024.0 * 1024.0));
     printf("   - Compressed: %.2f MB/sec (%.2fx reduction)\n",
-           (100000 * (double)compressedSize / building.pointCount) / (1024.0 * 1024.0),
-           (double)(100000 * sizeof(Point3D)) / (100000 * (double)compressedSize / building.pointCount));
+           (100000 * (double)compressedSize / building.pointCount) /
+               (1024.0 * 1024.0),
+           (double)(100000 * sizeof(Point3D)) /
+               (100000 * (double)compressedSize / building.pointCount));
 
     printf("\n   Photogrammetry (3D reconstruction):\n");
     printf("   - 10M points for building model\n");
     printf("   - Uncompressed: %.2f GB\n",
            (10000000 * sizeof(Point3D)) / (1024.0 * 1024.0 * 1024.0));
     printf("   - Compressed: %.2f GB (saves %.2f GB)\n",
-           (10000000 * (double)compressedSize / building.pointCount) / (1024.0 * 1024.0 * 1024.0),
-           ((10000000 * sizeof(Point3D)) - (10000000 * (double)compressedSize / building.pointCount)) / (1024.0 * 1024.0 * 1024.0));
+           (10000000 * (double)compressedSize / building.pointCount) /
+               (1024.0 * 1024.0 * 1024.0),
+           ((10000000 * sizeof(Point3D)) -
+            (10000000 * (double)compressedSize / building.pointCount)) /
+               (1024.0 * 1024.0 * 1024.0));
 
     printf("\n   SLAM mapping (robotics):\n");
     printf("   - 1M points for indoor map\n");
     printf("   - Memory footprint: %.2f MB (vs %.2f MB uncompressed)\n",
-           (1000000 * (double)compressedSize / building.pointCount) / (1024.0 * 1024.0),
+           (1000000 * (double)compressedSize / building.pointCount) /
+               (1024.0 * 1024.0),
            (1000000 * sizeof(Point3D)) / (1024.0 * 1024.0));
 
     // 10. Performance summary
@@ -882,10 +954,12 @@ void demonstratePointCloudCompression() {
     printf("   - Building (50K points): %.2fx compression\n",
            (double)uncompressedSize / compressedSize);
     printf("   - Terrain (100K points): %.2fx compression\n",
-           (double)(terrain.pointCount * sizeof(Point3D)) / terrainCompressedSize);
+           (double)(terrain.pointCount * sizeof(Point3D)) /
+               terrainCompressedSize);
     printf("   - Average: %.2f bytes per point\n",
            ((double)compressedSize / building.pointCount +
-            (double)terrainCompressedSize / terrain.pointCount) / 2.0);
+            (double)terrainCompressedSize / terrain.pointCount) /
+               2.0);
 
     // Cleanup
     free(compressed);

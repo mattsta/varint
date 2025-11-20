@@ -9,15 +9,15 @@
  * Each byte contains 7 bits of data + 1 continuation bit.
  * Continuation bit set = more bytes follow.
  *
- * Compile: gcc -I../src example_chained.c ../src/varintChained.c -o example_chained
- * Run: ./example_chained
+ * Compile: gcc -I../src example_chained.c ../src/varintChained.c -o
+ * example_chained Run: ./example_chained
  */
 
 #include "varintChained.h"
-#include <stdio.h>
 #include <assert.h>
-#include <string.h>
+#include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 // Example 1: Basic encode/decode
 void example_basic() {
@@ -73,14 +73,12 @@ void example_continuation_bits() {
     printf("Each byte: 7 bits data + 1 continuation bit\n");
     printf("Continuation bit ON = more bytes follow\n\n");
 
-    for (size_t i = 0; i < sizeof(tests)/sizeof(tests[0]); i++) {
+    for (size_t i = 0; i < sizeof(tests) / sizeof(tests[0]); i++) {
         uint8_t buffer[9];
         varintWidth width = varintChainedPutVarint(buffer, tests[i].value);
 
-        printf("%-20s: %20lu -> %d bytes ",
-               tests[i].description,
-               tests[i].value,
-               width);
+        printf("%-20s: %20lu -> %d bytes ", tests[i].description,
+               tests[i].value, width);
 
         // Show continuation bits
         printf("[");
@@ -103,8 +101,9 @@ void example_continuation_bits() {
 void example_sqlite3_format() {
     printf("\n=== Example 3: SQLite3 Varint Format Validation ===\n");
 
-    // These test vectors use SQLite3 varint format (big-endian continuation chain)
-    // NOTE: This is DIFFERENT from Protocol Buffers (which uses little-endian)
+    // These test vectors use SQLite3 varint format (big-endian continuation
+    // chain) NOTE: This is DIFFERENT from Protocol Buffers (which uses
+    // little-endian)
     struct {
         uint64_t value;
         uint8_t expected[9];
@@ -112,12 +111,18 @@ void example_sqlite3_format() {
     } tests[] = {
         {1, {0x01}, 1},
         {127, {0x7f}, 1},
-        {128, {0x81, 0x00}, 2},           // SQLite3: 0x81 0x00 (NOT Protocol Buffers: 0x80 0x01)
-        {300, {0x82, 0x2c}, 2},           // SQLite3: 0x82 0x2c (NOT Protocol Buffers: 0xac 0x02)
-        {16384, {0x81, 0x80, 0x00}, 3},   // SQLite3: 0x81 0x80 0x00 (NOT Protocol Buffers: 0x80 0x80 0x01)
+        {128,
+         {0x81, 0x00},
+         2}, // SQLite3: 0x81 0x00 (NOT Protocol Buffers: 0x80 0x01)
+        {300,
+         {0x82, 0x2c},
+         2}, // SQLite3: 0x82 0x2c (NOT Protocol Buffers: 0xac 0x02)
+        {16384,
+         {0x81, 0x80, 0x00},
+         3}, // SQLite3: 0x81 0x80 0x00 (NOT Protocol Buffers: 0x80 0x80 0x01)
     };
 
-    for (size_t i = 0; i < sizeof(tests)/sizeof(tests[0]); i++) {
+    for (size_t i = 0; i < sizeof(tests) / sizeof(tests[0]); i++) {
         uint8_t buffer[9];
         varintWidth width = varintChainedPutVarint(buffer, tests[i].value);
 
@@ -152,7 +157,8 @@ void example_stream_decoding() {
     printf("Encoding stream:\n");
     for (size_t i = 0; i < count; i++) {
         varintWidth width = varintChainedPutVarint(stream + offset, values[i]);
-        printf("  Value %lu at offset %zu (width %d)\n", values[i], offset, width);
+        printf("  Value %lu at offset %zu (width %d)\n", values[i], offset,
+               width);
         offset += width;
     }
 
@@ -180,7 +186,7 @@ void example_length_detection() {
 
     printf("Detecting length from continuation bits:\n");
 
-    for (size_t i = 0; i < sizeof(testValues)/sizeof(testValues[0]); i++) {
+    for (size_t i = 0; i < sizeof(testValues) / sizeof(testValues[0]); i++) {
         uint8_t buffer[9];
         varintWidth actualWidth = varintChainedPutVarint(buffer, testValues[i]);
 
@@ -188,7 +194,7 @@ void example_length_detection() {
         varintWidth detectedWidth = 0;
         for (int j = 0; j < 9; j++) {
             detectedWidth++;
-            if ((buffer[j] & 0x80) == 0) {  // No continuation bit
+            if ((buffer[j] & 0x80) == 0) { // No continuation bit
                 break;
             }
         }
@@ -207,21 +213,22 @@ void example_nine_bytes() {
 
     // Values requiring 9 bytes (> 63 bits)
     uint64_t largeValues[] = {
-        (1ULL << 56) - 1,   // 8 bytes
-        (1ULL << 56),       // 9 bytes
-        UINT64_MAX,         // 9 bytes
+        (1ULL << 56) - 1, // 8 bytes
+        (1ULL << 56),     // 9 bytes
+        UINT64_MAX,       // 9 bytes
     };
 
     printf("9th byte uses all 8 bits (no continuation bit needed):\n");
 
-    for (size_t i = 0; i < sizeof(largeValues)/sizeof(largeValues[0]); i++) {
+    for (size_t i = 0; i < sizeof(largeValues) / sizeof(largeValues[0]); i++) {
         uint8_t buffer[9];
         varintWidth width = varintChainedPutVarint(buffer, largeValues[i]);
 
         printf("  Value 0x%016lx -> %d bytes\n", largeValues[i], width);
 
         if (width == 9) {
-            printf("    9th byte: 0x%02x (all 8 bits used, can be 0x00)\n", buffer[8]);
+            printf("    9th byte: 0x%02x (all 8 bits used, can be 0x00)\n",
+                   buffer[8]);
             // No assertion needed - 9th byte can be any value including 0x00
         }
 
@@ -241,13 +248,13 @@ void example_performance() {
     printf("Value      | Chained | uint64_t | Savings\n");
     printf("-----------|---------|----------|--------\n");
 
-    for (size_t i = 0; i < sizeof(testValues)/sizeof(testValues[0]); i++) {
+    for (size_t i = 0; i < sizeof(testValues) / sizeof(testValues[0]); i++) {
         uint8_t buffer[9];
         varintWidth width = varintChainedPutVarint(buffer, testValues[i]);
         float savings = ((8.0 - width) / 8.0) * 100.0;
 
-        printf("%10lu | %2d      | 8        | %5.1f%%\n",
-               testValues[i], width, savings);
+        printf("%10lu | %2d      | 8        | %5.1f%%\n", testValues[i], width,
+               savings);
     }
 }
 
@@ -257,14 +264,16 @@ void example_format_comparison() {
 
     printf("Understanding continuation bit encoding:\n\n");
 
-    uint64_t value = 300;  // Example value
+    uint64_t value = 300; // Example value
     uint8_t buffer[9];
     varintWidth width = varintChainedPutVarint(buffer, value);
 
     printf("Value: %lu (binary: ", value);
     for (int i = 13; i >= 0; i--) {
         printf("%d", (int)((value >> i) & 1));
-        if (i == 7) printf(" ");
+        if (i == 7) {
+            printf(" ");
+        }
     }
     printf(")\n\n");
 
@@ -272,23 +281,31 @@ void example_format_comparison() {
     printf("  Byte 0: 0x%02x = ", buffer[0]);
     for (int i = 7; i >= 0; i--) {
         printf("%d", (buffer[0] >> i) & 1);
-        if (i == 7) printf(" (cont) ");
+        if (i == 7) {
+            printf(" (cont) ");
+        }
     }
     printf(" (data)\n");
 
     printf("  Byte 1: 0x%02x = ", buffer[1]);
     for (int i = 7; i >= 0; i--) {
         printf("%d", (buffer[1] >> i) & 1);
-        if (i == 7) printf(" (cont) ");
+        if (i == 7) {
+            printf(" (cont) ");
+        }
     }
     printf(" (data)\n\n");
 
     printf("Data bits extracted: ");
-    /* SQLite3 varint uses big-endian: first byte has high bits, second byte has low bits */
-    uint64_t extracted = ((uint64_t)(buffer[0] & 0x7f) << 7) | (buffer[1] & 0x7f);
+    /* SQLite3 varint uses big-endian: first byte has high bits, second byte has
+     * low bits */
+    uint64_t extracted =
+        ((uint64_t)(buffer[0] & 0x7f) << 7) | (buffer[1] & 0x7f);
     for (int i = 13; i >= 0; i--) {
         printf("%d", (int)((extracted >> i) & 1));
-        if (i == 7) printf(" ");
+        if (i == 7) {
+            printf(" ");
+        }
     }
     printf(" = %lu\n", extracted);
 

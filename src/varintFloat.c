@@ -1,11 +1,11 @@
 #include "varintFloat.h"
 #include "varintDelta.h"
-#include <string.h>
-#include <stdlib.h>
-#include <stdio.h>
 #include <float.h>
-#include <stdint.h>
 #include <stdbool.h>
+#include <stdint.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 
 /* Check for overflow in size_t multiplication */
 static inline bool size_mul_overflow(size_t a, size_t b, size_t *result) {
@@ -141,8 +141,8 @@ static inline uint64_t expandMantissa(uint64_t mantissa, uint8_t from_bits,
 }
 
 /* Pack bits into byte array */
-static void packBits(const uint64_t *values, size_t count, uint8_t bits_per_value,
-                     uint8_t *output) {
+static void packBits(const uint64_t *values, size_t count,
+                     uint8_t bits_per_value, uint8_t *output) {
     size_t bit_offset = 0;
     memset(output, 0, (count * bits_per_value + 7) / 8);
 
@@ -164,8 +164,8 @@ static void packBits(const uint64_t *values, size_t count, uint8_t bits_per_valu
 }
 
 /* Unpack bits from byte array */
-static void unpackBits(const uint8_t *input, size_t count, uint8_t bits_per_value,
-                       uint64_t *output) {
+static void unpackBits(const uint8_t *input, size_t count,
+                       uint8_t bits_per_value, uint64_t *output) {
     size_t bit_offset = 0;
 
     for (size_t i = 0; i < count; i++) {
@@ -188,8 +188,7 @@ static void unpackBits(const uint8_t *input, size_t count, uint8_t bits_per_valu
 }
 
 /* Encode floating point array */
-size_t varintFloatEncode(uint8_t *output,
-                         const double *values, size_t count,
+size_t varintFloatEncode(uint8_t *output, const double *values, size_t count,
                          varintFloatPrecision precision,
                          varintFloatEncodingMode mode) {
     if (count == 0) {
@@ -211,7 +210,7 @@ size_t varintFloatEncode(uint8_t *output,
     if (size_mul_overflow(count, sizeof(uint64_t), &allocSize1) ||
         size_mul_overflow(count, sizeof(int16_t), &allocSize2) ||
         size_mul_overflow(count, sizeof(uint64_t), &allocSize3)) {
-        return 0;  /* Integer overflow */
+        return 0; /* Integer overflow */
     }
 
     /* Allocate temporary arrays for components */
@@ -231,15 +230,16 @@ size_t varintFloatEncode(uint8_t *output,
     /* Decompose all values */
     for (size_t i = 0; i < count; i++) {
         bool is_normal = varintFloatDecompose(values[i], &signs[i],
-                                               &exponents[i], &mantissas[i]);
+                                              &exponents[i], &mantissas[i]);
         special_flags[i] = is_normal ? 0 : 1;
 
         /* Truncate mantissa to desired precision
          * Note: decompose returns 53-bit mantissa (52 + implicit 1) */
         if (is_normal) {
             if (mant_bits == 52) {
-                /* FULL precision: remove implicit 1 (bit 52) to get 52-bit field */
-                mantissas[i] &= 0xFFFFFFFFFFFFFULL;  /* Keep bits 51-0 */
+                /* FULL precision: remove implicit 1 (bit 52) to get 52-bit
+                 * field */
+                mantissas[i] &= 0xFFFFFFFFFFFFFULL; /* Keep bits 51-0 */
             } else {
                 /* Reduced precision: truncate from 53 bits to target */
                 mantissas[i] = truncateMantissa(mantissas[i], 53, mant_bits);
@@ -277,8 +277,12 @@ size_t varintFloatEncode(uint8_t *output,
         size_t normal_exp_count = 0;
         for (size_t i = 0; i < count; i++) {
             if (!special_flags[i]) {
-                if (exponents[i] < min_exp) min_exp = exponents[i];
-                if (exponents[i] > max_exp) max_exp = exponents[i];
+                if (exponents[i] < min_exp) {
+                    min_exp = exponents[i];
+                }
+                if (exponents[i] > max_exp) {
+                    max_exp = exponents[i];
+                }
                 normal_exp_count++;
             }
         }
@@ -383,12 +387,11 @@ size_t varintFloatDecode(const uint8_t *input, size_t count, double *output) {
     (void)exp_bits;  /* Bits info used implicitly in unpacking */
     varintFloatEncodingMode mode = (varintFloatEncodingMode)(*p++);
 
-
     /* Check for integer overflow in allocation sizes */
     size_t allocSize1, allocSize2;
     if (size_mul_overflow(count, sizeof(uint64_t), &allocSize1) ||
         size_mul_overflow(count, sizeof(int16_t), &allocSize2)) {
-        return 0;  /* Integer overflow */
+        return 0; /* Integer overflow */
     }
 
     /* Allocate temporary arrays */
@@ -455,7 +458,6 @@ size_t varintFloatDecode(const uint8_t *input, size_t count, double *output) {
             first_normal++;
         }
 
-
         if (first_normal < count) {
             /* Read first exponent */
             varintWidth width = (varintWidth)(*p++);
@@ -469,8 +471,10 @@ size_t varintFloatDecode(const uint8_t *input, size_t count, double *output) {
                 if (!special_flags[i]) {
                     varintWidth dwidth = (varintWidth)(*p++);
                     uint64_t delta_zigzag = varintExternalGet(p, dwidth);
-                    p += dwidth;  // IMPORTANT: advance pointer after reading value
-                    int16_t delta = (int16_t)varintDeltaZigZagDecode(delta_zigzag);
+                    p += dwidth; // IMPORTANT: advance pointer after reading
+                                 // value
+                    int16_t delta =
+                        (int16_t)varintDeltaZigZagDecode(delta_zigzag);
                     exponents[i] = prev_exp + delta;
                     prev_exp = exponents[i];
                 }
@@ -494,7 +498,7 @@ size_t varintFloatDecode(const uint8_t *input, size_t count, double *output) {
             free(exponents);
             free(mantissas);
             free(special_flags);
-            return 0;  /* Integer overflow */
+            return 0; /* Integer overflow */
         }
 
         uint64_t *packed_mantissas = malloc(mantAllocSize);
@@ -520,7 +524,8 @@ size_t varintFloatDecode(const uint8_t *input, size_t count, double *output) {
                     mantissas[i] = packed_mantissas[mant_idx++] | (1ULL << 52);
                 } else {
                     /* Reduced precision: expand to 53 bits */
-                    mantissas[i] = expandMantissa(packed_mantissas[mant_idx++], mant_bits, 53);
+                    mantissas[i] = expandMantissa(packed_mantissas[mant_idx++],
+                                                  mant_bits, 53);
                 }
             }
         }
@@ -544,7 +549,8 @@ size_t varintFloatDecode(const uint8_t *input, size_t count, double *output) {
     /* Reconstruct normal values */
     for (size_t i = 0; i < count; i++) {
         if (!special_flags[i]) {
-            output[i] = varintFloatCompose(signs[i], exponents[i], mantissas[i]);
+            output[i] =
+                varintFloatCompose(signs[i], exponents[i], mantissas[i]);
         }
     }
 
@@ -557,9 +563,8 @@ size_t varintFloatDecode(const uint8_t *input, size_t count, double *output) {
 }
 
 /* Encode with automatic precision selection */
-size_t varintFloatEncodeAuto(uint8_t *output,
-                             const double *values, size_t count,
-                             double max_relative_error,
+size_t varintFloatEncodeAuto(uint8_t *output, const double *values,
+                             size_t count, double max_relative_error,
                              varintFloatEncodingMode mode,
                              varintFloatPrecision *selected_precision) {
     /* Select precision based on maximum allowable relative error
@@ -572,9 +577,9 @@ size_t varintFloatEncodeAuto(uint8_t *output,
 
     if (max_relative_error < 1e-10) {
         precision = VARINT_FLOAT_PRECISION_FULL;
-    } else if (max_relative_error < 5e-4) {  /* 0.05% threshold */
+    } else if (max_relative_error < 5e-4) { /* 0.05% threshold */
         precision = VARINT_FLOAT_PRECISION_HIGH;
-    } else if (max_relative_error < 0.03) {  /* 3% threshold */
+    } else if (max_relative_error < 0.03) { /* 3% threshold */
         precision = VARINT_FLOAT_PRECISION_MEDIUM;
     } else {
         precision = VARINT_FLOAT_PRECISION_LOW;

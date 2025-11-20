@@ -1,8 +1,10 @@
 /**
  * autocomplete_trie.c - High-performance autocomplete/typeahead engine
  *
- * This advanced example demonstrates a production-grade autocomplete system with:
- * - varintExternal for frequency/popularity scores (0 to millions, adaptive width)
+ * This advanced example demonstrates a production-grade autocomplete system
+ * with:
+ * - varintExternal for frequency/popularity scores (0 to millions, adaptive
+ * width)
  * - varintTagged for metadata (timestamps, categories, source IDs)
  * - varintExternal for result counts and ranking scores
  * - Character-based trie with prefix search
@@ -19,9 +21,9 @@
  * - Support for 10K-50K+ terms efficiently
  *
  * Real-world relevance: Google Search, Amazon product search, IDE autocomplete,
- * command-line completion (bash/zsh), emoji pickers, and username search all use
- * similar prefix-based tries with frequency ranking. Major search engines compress
- * billions of search queries using varint-encoded frequency data.
+ * command-line completion (bash/zsh), emoji pickers, and username search all
+ * use similar prefix-based tries with frequency ranking. Major search engines
+ * compress billions of search queries using varint-encoded frequency data.
  *
  * Algorithm details:
  * - Trie structure: O(m) search where m = prefix length
@@ -36,8 +38,8 @@
  * - Update: ~3-8 μs per frequency boost
  * - Throughput: 500K+ queries/sec on modern hardware
  *
- * Compile: gcc -I../../src autocomplete_trie.c ../../build/src/libvarint.a -o autocomplete_trie -lm
- * Run: ./autocomplete_trie
+ * Compile: gcc -I../../src autocomplete_trie.c ../../build/src/libvarint.a -o
+ * autocomplete_trie -lm Run: ./autocomplete_trie
  */
 
 #include "varintExternal.h"
@@ -55,7 +57,7 @@
 // ============================================================================
 
 #define MAX_TERM_LENGTH 128
-#define MAX_CHILDREN 128  // ASCII alphabet + some symbols
+#define MAX_CHILDREN 128 // ASCII alphabet + some symbols
 #define TOP_K_CACHE_SIZE 10
 #define FUZZY_EDIT_DISTANCE 1
 #define ALPHABET_SIZE 256
@@ -65,9 +67,9 @@
 // ============================================================================
 
 typedef struct {
-    uint64_t timestamp;    // Last update time
-    uint32_t category;     // Category ID (search, product, command, etc.)
-    uint32_t sourceId;     // Source identifier
+    uint64_t timestamp; // Last update time
+    uint32_t category;  // Category ID (search, product, command, etc.)
+    uint32_t sourceId;  // Source identifier
 } TermMetadata;
 
 // ============================================================================
@@ -78,7 +80,7 @@ typedef struct {
     char term[MAX_TERM_LENGTH];
     uint64_t frequency;
     TermMetadata metadata;
-    double score;  // Combined ranking score
+    double score; // Combined ranking score
 } AutocompleteResult;
 
 // ============================================================================
@@ -124,7 +126,8 @@ void topKCacheInsert(TopKCache *cache, const AutocompleteResult *result) {
 }
 
 // Rebuild cache from scratch (called after frequency updates)
-void topKCacheRebuild(TopKCache *cache, AutocompleteResult *allResults, size_t resultCount) {
+void topKCacheRebuild(TopKCache *cache, AutocompleteResult *allResults,
+                      size_t resultCount) {
     topKCacheInit(cache);
     for (size_t i = 0; i < resultCount; i++) {
         topKCacheInsert(cache, &allResults[i]);
@@ -136,12 +139,12 @@ void topKCacheRebuild(TopKCache *cache, AutocompleteResult *allResults, size_t r
 // ============================================================================
 
 typedef struct TrieNode {
-    char character;                        // Character at this node
-    bool isTerminal;                       // Is this a complete term?
-    uint64_t frequency;                    // Frequency if terminal (varint encoded)
-    TermMetadata metadata;                 // Metadata if terminal
-    TopKCache topK;                        // Top-K results for this prefix
-    struct TrieNode **children;            // Child nodes
+    char character;             // Character at this node
+    bool isTerminal;            // Is this a complete term?
+    uint64_t frequency;         // Frequency if terminal (varint encoded)
+    TermMetadata metadata;      // Metadata if terminal
+    TopKCache topK;             // Top-K results for this prefix
+    struct TrieNode **children; // Child nodes
     uint8_t childCount;
     uint8_t childCapacity;
 } TrieNode;
@@ -163,11 +166,13 @@ TrieNode *trieNodeCreate(char c) {
 
 void trieNodeAddChild(TrieNode *node, TrieNode *child) {
     if (node->childCount >= node->childCapacity) {
-        size_t newCapacity = node->childCapacity == 0 ? 4 : node->childCapacity * 2;
+        size_t newCapacity =
+            node->childCapacity == 0 ? 4 : node->childCapacity * 2;
         if (newCapacity > MAX_CHILDREN) {
             newCapacity = MAX_CHILDREN;
         }
-        node->children = realloc(node->children, newCapacity * sizeof(TrieNode *));
+        node->children =
+            realloc(node->children, newCapacity * sizeof(TrieNode *));
         node->childCapacity = (uint8_t)newCapacity;
     }
     node->children[node->childCount++] = child;
@@ -183,7 +188,9 @@ TrieNode *trieNodeFindChild(TrieNode *node, char c) {
 }
 
 void trieNodeFree(TrieNode *node) {
-    if (!node) return;
+    if (!node) {
+        return;
+    }
     for (uint8_t i = 0; i < node->childCount; i++) {
         trieNodeFree(node->children[i]);
     }
@@ -218,16 +225,18 @@ void autocompleteTrieFree(AutocompleteTrie *trie) {
 // ============================================================================
 
 // Insert or update term with frequency and metadata
-void autocompleteTrieInsert(AutocompleteTrie *trie, const char *term, uint64_t frequency,
-                           const TermMetadata *metadata) {
-    if (!term || term[0] == '\0') return;
+void autocompleteTrieInsert(AutocompleteTrie *trie, const char *term,
+                            uint64_t frequency, const TermMetadata *metadata) {
+    if (!term || term[0] == '\0') {
+        return;
+    }
 
     TrieNode *current = trie->root;
     size_t termLen = strlen(term);
 
     // Navigate/create path through trie
     for (size_t i = 0; i < termLen; i++) {
-        char c = tolower((unsigned char)term[i]);  // Case-insensitive
+        char c = tolower((unsigned char)term[i]); // Case-insensitive
         TrieNode *child = trieNodeFindChild(current, c);
 
         if (!child) {
@@ -249,8 +258,11 @@ void autocompleteTrieInsert(AutocompleteTrie *trie, const char *term, uint64_t f
 }
 
 // Update frequency for existing term (trending boost)
-bool autocompleteTrieUpdateFrequency(AutocompleteTrie *trie, const char *term, uint64_t newFrequency) {
-    if (!term || term[0] == '\0') return false;
+bool autocompleteTrieUpdateFrequency(AutocompleteTrie *trie, const char *term,
+                                     uint64_t newFrequency) {
+    if (!term || term[0] == '\0') {
+        return false;
+    }
 
     TrieNode *current = trie->root;
     size_t termLen = strlen(term);
@@ -259,19 +271,26 @@ bool autocompleteTrieUpdateFrequency(AutocompleteTrie *trie, const char *term, u
     for (size_t i = 0; i < termLen; i++) {
         char c = tolower((unsigned char)term[i]);
         TrieNode *child = trieNodeFindChild(current, c);
-        if (!child) return false;
+        if (!child) {
+            return false;
+        }
         current = child;
     }
 
-    if (!current->isTerminal) return false;
+    if (!current->isTerminal) {
+        return false;
+    }
 
     current->frequency = newFrequency;
     return true;
 }
 
 // Boost frequency (increment for trending)
-bool autocompleteTrieBoostFrequency(AutocompleteTrie *trie, const char *term, uint64_t boost) {
-    if (!term || term[0] == '\0') return false;
+bool autocompleteTrieBoostFrequency(AutocompleteTrie *trie, const char *term,
+                                    uint64_t boost) {
+    if (!term || term[0] == '\0') {
+        return false;
+    }
 
     TrieNode *current = trie->root;
     size_t termLen = strlen(term);
@@ -279,11 +298,15 @@ bool autocompleteTrieBoostFrequency(AutocompleteTrie *trie, const char *term, ui
     for (size_t i = 0; i < termLen; i++) {
         char c = tolower((unsigned char)term[i]);
         TrieNode *child = trieNodeFindChild(current, c);
-        if (!child) return false;
+        if (!child) {
+            return false;
+        }
         current = child;
     }
 
-    if (!current->isTerminal) return false;
+    if (!current->isTerminal) {
+        return false;
+    }
 
     current->frequency += boost;
     return true;
@@ -302,21 +325,26 @@ void searchResultsInit(SearchResults *results) {
     results->count = 0;
 }
 
-void searchResultsAdd(SearchResults *results, const char *term, uint64_t frequency,
-                     const TermMetadata *metadata) {
-    if (results->count >= 1000) return;
+void searchResultsAdd(SearchResults *results, const char *term,
+                      uint64_t frequency, const TermMetadata *metadata) {
+    if (results->count >= 1000) {
+        return;
+    }
 
     AutocompleteResult *result = &results->results[results->count++];
     strncpy(result->term, term, MAX_TERM_LENGTH - 1);
     result->term[MAX_TERM_LENGTH - 1] = '\0';
     result->frequency = frequency;
     result->metadata = *metadata;
-    result->score = (double)frequency;  // Base score = frequency
+    result->score = (double)frequency; // Base score = frequency
 }
 
 // Collect all terminals under a node (DFS)
-void collectTerminals(TrieNode *node, char *prefix, size_t prefixLen, SearchResults *results) {
-    if (!node) return;
+void collectTerminals(TrieNode *node, char *prefix, size_t prefixLen,
+                      SearchResults *results) {
+    if (!node) {
+        return;
+    }
 
     if (node->isTerminal && results->count < 1000) {
         searchResultsAdd(results, prefix, node->frequency, &node->metadata);
@@ -337,18 +365,24 @@ void collectTerminals(TrieNode *node, char *prefix, size_t prefixLen, SearchResu
 int compareResults(const void *a, const void *b) {
     const AutocompleteResult *ra = (const AutocompleteResult *)a;
     const AutocompleteResult *rb = (const AutocompleteResult *)b;
-    if (rb->frequency > ra->frequency) return 1;
-    if (rb->frequency < ra->frequency) return -1;
+    if (rb->frequency > ra->frequency) {
+        return 1;
+    }
+    if (rb->frequency < ra->frequency) {
+        return -1;
+    }
     return 0;
 }
 
 // Search for top-K completions of prefix
-void autocompleteTrieSearch(AutocompleteTrie *trie, const char *prefix, SearchResults *results,
-                           size_t maxResults) {
+void autocompleteTrieSearch(AutocompleteTrie *trie, const char *prefix,
+                            SearchResults *results, size_t maxResults) {
     searchResultsInit(results);
     trie->totalQueries++;
 
-    if (!prefix) return;
+    if (!prefix) {
+        return;
+    }
 
     // Navigate to prefix node
     TrieNode *current = trie->root;
@@ -357,7 +391,9 @@ void autocompleteTrieSearch(AutocompleteTrie *trie, const char *prefix, SearchRe
     for (size_t i = 0; i < prefixLen; i++) {
         char c = tolower((unsigned char)prefix[i]);
         TrieNode *child = trieNodeFindChild(current, c);
-        if (!child) return;  // Prefix not found
+        if (!child) {
+            return; // Prefix not found
+        }
         current = child;
     }
 
@@ -376,7 +412,8 @@ void autocompleteTrieSearch(AutocompleteTrie *trie, const char *prefix, SearchRe
 
     // Sort by frequency (descending)
     if (results->count > 0) {
-        qsort(results->results, results->count, sizeof(AutocompleteResult), compareResults);
+        qsort(results->results, results->count, sizeof(AutocompleteResult),
+              compareResults);
     }
 
     // Limit to maxResults
@@ -404,8 +441,11 @@ void fuzzyResultsInit(FuzzyResults *results) {
     results->count = 0;
 }
 
-void fuzzyResultsAdd(FuzzyResults *results, const char *term, uint64_t frequency, int distance) {
-    if (results->count >= 500) return;
+void fuzzyResultsAdd(FuzzyResults *results, const char *term,
+                     uint64_t frequency, int distance) {
+    if (results->count >= 500) {
+        return;
+    }
 
     FuzzyResult *result = &results->results[results->count++];
     strncpy(result->term, term, MAX_TERM_LENGTH - 1);
@@ -431,7 +471,9 @@ int editDistance(const char *s1, const char *s2, int maxDist) {
     for (size_t i = 0; i < minLen; i++) {
         if (tolower((unsigned char)s1[i]) != tolower((unsigned char)s2[i])) {
             differences++;
-            if (differences > maxDist) return maxDist + 1;
+            if (differences > maxDist) {
+                return maxDist + 1;
+            }
         }
     }
 
@@ -441,8 +483,11 @@ int editDistance(const char *s1, const char *s2, int maxDist) {
 
 // Collect fuzzy matches
 void collectFuzzyMatches(TrieNode *node, char *current, size_t currentLen,
-                        const char *query, FuzzyResults *results, int maxDistance) {
-    if (!node) return;
+                         const char *query, FuzzyResults *results,
+                         int maxDistance) {
+    if (!node) {
+        return;
+    }
 
     if (node->isTerminal) {
         int dist = editDistance(current, query, maxDistance);
@@ -457,14 +502,15 @@ void collectFuzzyMatches(TrieNode *node, char *current, size_t currentLen,
         if (currentLen + 1 < MAX_TERM_LENGTH) {
             current[currentLen] = child->character;
             current[currentLen + 1] = '\0';
-            collectFuzzyMatches(child, current, currentLen + 1, query, results, maxDistance);
+            collectFuzzyMatches(child, current, currentLen + 1, query, results,
+                                maxDistance);
         }
     }
 }
 
 // Fuzzy search with edit distance tolerance
 void autocompleteTrieFuzzySearch(AutocompleteTrie *trie, const char *query,
-                                FuzzyResults *results, int maxDistance) {
+                                 FuzzyResults *results, int maxDistance) {
     fuzzyResultsInit(results);
 
     char buffer[MAX_TERM_LENGTH] = {0};
@@ -514,7 +560,8 @@ size_t serializeTrieNode(const TrieNode *node, uint8_t *buffer) {
     return offset;
 }
 
-size_t autocompleteTrieSerialize(const AutocompleteTrie *trie, uint8_t *buffer) {
+size_t autocompleteTrieSerialize(const AutocompleteTrie *trie,
+                                 uint8_t *buffer) {
     size_t offset = 0;
 
     // Trie metadata
@@ -575,7 +622,8 @@ size_t deserializeTrieNode(TrieNode **node, const uint8_t *buffer) {
     return offset;
 }
 
-size_t autocompleteTrieDeserialize(AutocompleteTrie *trie, const uint8_t *buffer) {
+size_t autocompleteTrieDeserialize(AutocompleteTrie *trie,
+                                   const uint8_t *buffer) {
     size_t offset = 0;
 
     // Read metadata
@@ -603,9 +651,12 @@ size_t autocompleteTrieDeserialize(AutocompleteTrie *trie, const uint8_t *buffer
 // STATISTICS
 // ============================================================================
 
-void calculateTrieStats(TrieNode *node, size_t *totalNodes, size_t *terminalNodes,
-                       size_t *totalMemory, size_t depth, size_t *maxDepth) {
-    if (!node) return;
+void calculateTrieStats(TrieNode *node, size_t *totalNodes,
+                        size_t *terminalNodes, size_t *totalMemory,
+                        size_t depth, size_t *maxDepth) {
+    if (!node) {
+        return;
+    }
 
     (*totalNodes)++;
     *totalMemory += sizeof(TrieNode);
@@ -620,7 +671,8 @@ void calculateTrieStats(TrieNode *node, size_t *totalNodes, size_t *terminalNode
     }
 
     for (uint8_t i = 0; i < node->childCount; i++) {
-        calculateTrieStats(node->children[i], totalNodes, terminalNodes, totalMemory, depth + 1, maxDepth);
+        calculateTrieStats(node->children[i], totalNodes, terminalNodes,
+                           totalMemory, depth + 1, maxDepth);
     }
 }
 
@@ -630,14 +682,16 @@ void autocompleteTrieStats(const AutocompleteTrie *trie) {
     size_t totalMemory = sizeof(AutocompleteTrie);
     size_t maxDepth = 0;
 
-    calculateTrieStats(trie->root, &totalNodes, &terminalNodes, &totalMemory, 0, &maxDepth);
+    calculateTrieStats(trie->root, &totalNodes, &terminalNodes, &totalMemory, 0,
+                       &maxDepth);
 
     printf("  Trie Statistics:\n");
     printf("    Total terms: %zu\n", trie->termCount);
     printf("    Total nodes: %zu\n", totalNodes);
     printf("    Terminal nodes: %zu\n", terminalNodes);
     printf("    Max depth: %zu\n", maxDepth);
-    printf("    Memory usage: %zu bytes (%.2f KB)\n", totalMemory, totalMemory / 1024.0);
+    printf("    Memory usage: %zu bytes (%.2f KB)\n", totalMemory,
+           totalMemory / 1024.0);
     printf("    Bytes per term: %.1f\n", (double)totalMemory / trie->termCount);
     printf("    Average depth: %.2f\n", (double)maxDepth / 2.0);
     printf("    Total queries: %lu\n", (unsigned long)trie->totalQueries);
@@ -651,7 +705,8 @@ void demonstrateSearchEngine(AutocompleteTrie *trie) {
     printf("\n=== SCENARIO 1: Search Engine Query Autocomplete ===\n\n");
 
     // Popular search queries with realistic frequencies
-    TermMetadata metadata = {.timestamp = 1700000000, .category = 1, .sourceId = 1};
+    TermMetadata metadata = {
+        .timestamp = 1700000000, .category = 1, .sourceId = 1};
 
     autocompleteTrieInsert(trie, "google", 15000000, &metadata);
     autocompleteTrieInsert(trie, "google maps", 8000000, &metadata);
@@ -685,8 +740,8 @@ void demonstrateSearchEngine(AutocompleteTrie *trie) {
 
         printf("  Query: \"%s\" → %zu results\n", queries[i], results.count);
         for (size_t j = 0; j < results.count && j < 5; j++) {
-            printf("    %zu. %-25s (freq: %lu)\n",
-                   j + 1, results.results[j].term,
+            printf("    %zu. %-25s (freq: %lu)\n", j + 1,
+                   results.results[j].term,
                    (unsigned long)results.results[j].frequency);
         }
         printf("\n");
@@ -699,17 +754,20 @@ void demonstrateProductSearch(AutocompleteTrie *trie) {
     AutocompleteTrie productTrie;
     autocompleteTrieInit(&productTrie);
 
-    TermMetadata metadata = {.timestamp = 1700000000, .category = 2, .sourceId = 100};
+    TermMetadata metadata = {
+        .timestamp = 1700000000, .category = 2, .sourceId = 100};
 
     // Electronics
-    autocompleteTrieInsert(&productTrie, "iphone 15 pro max", 125000, &metadata);
+    autocompleteTrieInsert(&productTrie, "iphone 15 pro max", 125000,
+                           &metadata);
     autocompleteTrieInsert(&productTrie, "iphone 15 pro", 98000, &metadata);
     autocompleteTrieInsert(&productTrie, "iphone 15", 87000, &metadata);
     autocompleteTrieInsert(&productTrie, "iphone charger", 65000, &metadata);
     autocompleteTrieInsert(&productTrie, "ipad pro", 78000, &metadata);
     autocompleteTrieInsert(&productTrie, "ipad air", 56000, &metadata);
 
-    autocompleteTrieInsert(&productTrie, "samsung galaxy s24", 92000, &metadata);
+    autocompleteTrieInsert(&productTrie, "samsung galaxy s24", 92000,
+                           &metadata);
     autocompleteTrieInsert(&productTrie, "samsung tv", 71000, &metadata);
     autocompleteTrieInsert(&productTrie, "samsung earbuds", 54000, &metadata);
 
@@ -728,10 +786,11 @@ void demonstrateProductSearch(AutocompleteTrie *trie) {
         SearchResults results;
         autocompleteTrieSearch(&productTrie, searches[i], &results, 5);
 
-        printf("  Search: \"%s\" → Top %zu products\n", searches[i], results.count);
+        printf("  Search: \"%s\" → Top %zu products\n", searches[i],
+               results.count);
         for (size_t j = 0; j < results.count && j < 5; j++) {
-            printf("    %zu. %-30s (%lu searches)\n",
-                   j + 1, results.results[j].term,
+            printf("    %zu. %-30s (%lu searches)\n", j + 1,
+                   results.results[j].term,
                    (unsigned long)results.results[j].frequency);
         }
         printf("\n");
@@ -746,7 +805,8 @@ void demonstrateCommandCompletion(AutocompleteTrie *trie) {
     AutocompleteTrie cmdTrie;
     autocompleteTrieInit(&cmdTrie);
 
-    TermMetadata metadata = {.timestamp = 1700000000, .category = 3, .sourceId = 200};
+    TermMetadata metadata = {
+        .timestamp = 1700000000, .category = 3, .sourceId = 200};
 
     // Git commands
     autocompleteTrieInsert(&cmdTrie, "git status", 45000, &metadata);
@@ -782,10 +842,11 @@ void demonstrateCommandCompletion(AutocompleteTrie *trie) {
         SearchResults results;
         autocompleteTrieSearch(&cmdTrie, prefixes[i], &results, 10);
 
-        printf("  Prefix: \"%s\" → %zu completions\n", prefixes[i], results.count);
+        printf("  Prefix: \"%s\" → %zu completions\n", prefixes[i],
+               results.count);
         for (size_t j = 0; j < results.count && j < 10; j++) {
-            printf("    %zu. %-25s (used %lu times)\n",
-                   j + 1, results.results[j].term,
+            printf("    %zu. %-25s (used %lu times)\n", j + 1,
+                   results.results[j].term,
                    (unsigned long)results.results[j].frequency);
         }
         printf("\n");
@@ -800,7 +861,8 @@ void demonstrateFuzzyMatching() {
     AutocompleteTrie fuzzyTrie;
     autocompleteTrieInit(&fuzzyTrie);
 
-    TermMetadata metadata = {.timestamp = 1700000000, .category = 4, .sourceId = 300};
+    TermMetadata metadata = {
+        .timestamp = 1700000000, .category = 4, .sourceId = 300};
 
     autocompleteTrieInsert(&fuzzyTrie, "javascript", 80000, &metadata);
     autocompleteTrieInsert(&fuzzyTrie, "java", 75000, &metadata);
@@ -823,8 +885,8 @@ void demonstrateFuzzyMatching() {
         printf("  Fuzzy matches (edit distance ≤ 1):\n");
 
         for (size_t j = 0; j < results.count && j < 5; j++) {
-            printf("    %zu. %-20s (dist: %d, freq: %lu)\n",
-                   j + 1, results.results[j].term, results.results[j].editDistance,
+            printf("    %zu. %-20s (dist: %d, freq: %lu)\n", j + 1,
+                   results.results[j].term, results.results[j].editDistance,
                    (unsigned long)results.results[j].frequency);
         }
         printf("\n");
@@ -838,22 +900,24 @@ void demonstrateLargeScale() {
     int datasetSize = 50000;
     int searchCount = 10000;
 
-    #ifdef __SANITIZE_ADDRESS__
-    datasetSize = 5000;   // 10x smaller for sanitizer testing
+#ifdef __SANITIZE_ADDRESS__
+    datasetSize = 5000; // 10x smaller for sanitizer testing
     searchCount = 1000;
-    #elif defined(__has_feature)
-    #if __has_feature(address_sanitizer)
+#elif defined(__has_feature)
+#if __has_feature(address_sanitizer)
     datasetSize = 5000;
     searchCount = 1000;
-    #endif
-    #endif
+#endif
+#endif
 
-    printf("\n=== SCENARIO 5: Large-Scale Dataset (%d Terms) ===\n\n", datasetSize);
+    printf("\n=== SCENARIO 5: Large-Scale Dataset (%d Terms) ===\n\n",
+           datasetSize);
 
     AutocompleteTrie largeTrie;
     autocompleteTrieInit(&largeTrie);
 
-    TermMetadata metadata = {.timestamp = 1700000000, .category = 5, .sourceId = 400};
+    TermMetadata metadata = {
+        .timestamp = 1700000000, .category = 5, .sourceId = 400};
 
     printf("  Generating and inserting %d terms...\n", datasetSize);
     fflush(stdout);
@@ -861,17 +925,17 @@ void demonstrateLargeScale() {
     clock_t start = clock();
 
     // Generate realistic terms
-    const char *prefixes[] = {"search", "find", "get", "show", "display", "list", "view"};
-    const char *middles[] = {"user", "product", "order", "customer", "item", "data", "info"};
-    const char *suffixes[] = {"details", "list", "count", "stats", "summary", "report"};
+    const char *prefixes[] = {"search",  "find", "get", "show",
+                              "display", "list", "view"};
+    const char *middles[] = {"user", "product", "order", "customer",
+                             "item", "data",    "info"};
+    const char *suffixes[] = {"details", "list",    "count",
+                              "stats",   "summary", "report"};
 
     for (int i = 0; i < datasetSize; i++) {
         char term[128];
-        snprintf(term, 128, "%s %s %s %d",
-                prefixes[i % 7],
-                middles[(i / 7) % 7],
-                suffixes[(i / 49) % 6],
-                i);
+        snprintf(term, 128, "%s %s %s %d", prefixes[i % 7],
+                 middles[(i / 7) % 7], suffixes[(i / 49) % 6], i);
 
         uint64_t frequency = 1000 + (i % 10000);
         autocompleteTrieInsert(&largeTrie, term, frequency, &metadata);
@@ -881,7 +945,8 @@ void demonstrateLargeScale() {
     double insertTime = (double)(end - start) / CLOCKS_PER_SEC;
 
     printf("  ✓ Inserted %d terms in %.3f seconds\n", datasetSize, insertTime);
-    printf("  ✓ Average: %.2f μs per insert\n\n", insertTime * 1e6 / datasetSize);
+    printf("  ✓ Average: %.2f μs per insert\n\n",
+           insertTime * 1e6 / datasetSize);
 
     // Statistics
     autocompleteTrieStats(&largeTrie);
@@ -900,23 +965,27 @@ void demonstrateLargeScale() {
     end = clock();
     double searchTime = (double)(end - start) / CLOCKS_PER_SEC;
 
-    printf("  ✓ Completed %d searches in %.3f seconds\n", searchCount, searchTime);
+    printf("  ✓ Completed %d searches in %.3f seconds\n", searchCount,
+           searchTime);
     printf("  ✓ Average: %.2f μs per search\n", searchTime * 1e6 / searchCount);
     printf("  ✓ Throughput: %.0f queries/second\n\n", searchCount / searchTime);
 
     // Serialization test
     printf("  Testing serialization...\n");
-    uint8_t *buffer = malloc(10 * 1024 * 1024);  // 10 MB buffer
+    uint8_t *buffer = malloc(10 * 1024 * 1024); // 10 MB buffer
     size_t serializedSize = autocompleteTrieSerialize(&largeTrie, buffer);
 
-    printf("  ✓ Serialized to %zu bytes (%.2f KB)\n", serializedSize, serializedSize / 1024.0);
+    printf("  ✓ Serialized to %zu bytes (%.2f KB)\n", serializedSize,
+           serializedSize / 1024.0);
 
     size_t totalNodes = 0, terminalNodes = 0, totalMemory = 0, maxDepth = 0;
-    calculateTrieStats(largeTrie.root, &totalNodes, &terminalNodes, &totalMemory, 0, &maxDepth);
+    calculateTrieStats(largeTrie.root, &totalNodes, &terminalNodes,
+                       &totalMemory, 0, &maxDepth);
 
     double compressionRatio = (double)totalMemory / serializedSize;
     printf("  ✓ Compression ratio: %.2fx\n", compressionRatio);
-    printf("  ✓ Space savings: %.1f%%\n\n", 100.0 * (1.0 - 1.0 / compressionRatio));
+    printf("  ✓ Space savings: %.1f%%\n\n",
+           100.0 * (1.0 - 1.0 / compressionRatio));
 
     free(buffer);
     autocompleteTrieFree(&largeTrie);
@@ -928,7 +997,8 @@ void demonstrateTrendingUpdates() {
     AutocompleteTrie trendTrie;
     autocompleteTrieInit(&trendTrie);
 
-    TermMetadata metadata = {.timestamp = 1700000000, .category = 6, .sourceId = 500};
+    TermMetadata metadata = {
+        .timestamp = 1700000000, .category = 6, .sourceId = 500};
 
     // Initial state
     autocompleteTrieInsert(&trendTrie, "taylor swift", 5000, &metadata);
@@ -939,8 +1009,7 @@ void demonstrateTrendingUpdates() {
     SearchResults results;
     autocompleteTrieSearch(&trendTrie, "tay", &results, 10);
     for (size_t i = 0; i < results.count; i++) {
-        printf("    %zu. %-25s (freq: %lu)\n",
-               i + 1, results.results[i].term,
+        printf("    %zu. %-25s (freq: %lu)\n", i + 1, results.results[i].term,
                (unsigned long)results.results[i].frequency);
     }
 
@@ -953,10 +1022,12 @@ void demonstrateTrendingUpdates() {
     printf("  Updated rankings for \"tay\":\n");
     autocompleteTrieSearch(&trendTrie, "tay", &results, 10);
     for (size_t i = 0; i < results.count; i++) {
-        printf("    %zu. %-25s (freq: %lu) %s\n",
-               i + 1, results.results[i].term,
+        printf("    %zu. %-25s (freq: %lu) %s\n", i + 1,
+               results.results[i].term,
                (unsigned long)results.results[i].frequency,
-               strcmp(results.results[i].term, "taylor series") == 0 ? "📈 TRENDING" : "");
+               strcmp(results.results[i].term, "taylor series") == 0
+                   ? "📈 TRENDING"
+                   : "");
     }
     printf("\n");
 
@@ -1001,7 +1072,8 @@ int main() {
     printf("    • varintExternal for frequencies: Adapts from 1-8 bytes\n");
     printf("    • varintTagged for metadata: Self-describing format\n");
     printf("    • Combined savings: 60-80%% vs fixed-width encoding\n");
-    printf("    • Hot path optimization: Most frequencies fit in 1-2 bytes\n\n");
+    printf(
+        "    • Hot path optimization: Most frequencies fit in 1-2 bytes\n\n");
 
     printf("  Real-World Applications:\n");
     printf("    • Google Search suggestions\n");

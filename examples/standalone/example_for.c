@@ -2,26 +2,30 @@
  * example_for.c - Demonstrates varintFOR (Frame-of-Reference) usage
  *
  * varintFOR provides highly efficient encoding for clustered values by storing
- * all values as fixed-width offsets from a minimum value. Perfect for timestamps,
- * sequential IDs, prices in similar ranges, and any clustered integer data.
+ * all values as fixed-width offsets from a minimum value. Perfect for
+ * timestamps, sequential IDs, prices in similar ranges, and any clustered
+ * integer data.
  *
- * Compile: gcc -I../../src example_for.c ../../src/varintFOR.c ../../src/varintExternal.c ../../src/varintTagged.c -o example_for
- * Run: ./example_for
+ * Compile: gcc -I../../src example_for.c ../../src/varintFOR.c
+ * ../../src/varintExternal.c ../../src/varintTagged.c -o example_for Run:
+ * ./example_for
  */
 
 #include "varintFOR.h"
-#include <stdio.h>
 #include <assert.h>
-#include <string.h>
+#include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 /* Memory allocation check macro for demo programs */
-#define CHECK_ALLOC(ptr) do { \
-    if (!(ptr)) { \
-        fprintf(stderr, "Error: Memory allocation failed at %s:%d\n", __FILE__, __LINE__); \
-        exit(EXIT_FAILURE); \
-    } \
-} while(0)
+#define CHECK_ALLOC(ptr)                                                       \
+    do {                                                                       \
+        if (!(ptr)) {                                                          \
+            fprintf(stderr, "Error: Memory allocation failed at %s:%d\n",      \
+                    __FILE__, __LINE__);                                       \
+            exit(EXIT_FAILURE);                                                \
+        }                                                                      \
+    } while (0)
 
 // Example 1: Basic encode/decode
 void example_basic() {
@@ -40,8 +44,8 @@ void example_basic() {
     }
     printf("\n");
 
-    printf("Min: %lu, Max: %lu, Range: %lu\n",
-           meta.minValue, meta.maxValue, meta.range);
+    printf("Min: %lu, Max: %lu, Range: %lu\n", meta.minValue, meta.maxValue,
+           meta.range);
     printf("Offset width: %d bytes\n", meta.offsetWidth);
     printf("Encoded size: %zu bytes\n", meta.encodedSize);
     printf("vs uint64_t array: %zu bytes\n", count * 8);
@@ -78,15 +82,15 @@ void example_timestamps() {
     printf("\n=== Example 2: Timestamps (1-day window) ===\n");
 
     // Timestamps within a single day (Nov 19, 2025)
-    uint64_t baseTime = 1732003200UL;  // 2025-11-19 00:00:00 UTC
+    uint64_t baseTime = 1732003200UL; // 2025-11-19 00:00:00 UTC
     uint64_t timestamps[] = {
-        baseTime + 0,        // 00:00:00
-        baseTime + 3600,     // 01:00:00
-        baseTime + 7200,     // 02:00:00
-        baseTime + 10800,    // 03:00:00
-        baseTime + 14400,    // 04:00:00
-        baseTime + 43200,    // 12:00:00
-        baseTime + 86399,    // 23:59:59
+        baseTime + 0,     // 00:00:00
+        baseTime + 3600,  // 01:00:00
+        baseTime + 7200,  // 02:00:00
+        baseTime + 10800, // 03:00:00
+        baseTime + 14400, // 04:00:00
+        baseTime + 43200, // 12:00:00
+        baseTime + 86399, // 23:59:59
     };
     size_t count = sizeof(timestamps) / sizeof(timestamps[0]);
 
@@ -95,8 +99,8 @@ void example_timestamps() {
 
     printf("Timestamps in 24-hour window:\n");
     printf("  Min: %lu, Max: %lu\n", meta.minValue, meta.maxValue);
-    printf("  Range: %lu seconds (%.1f hours)\n",
-           meta.range, meta.range / 3600.0);
+    printf("  Range: %lu seconds (%.1f hours)\n", meta.range,
+           meta.range / 3600.0);
     printf("  Offset width: %d bytes (range fits in %d bytes)\n",
            meta.offsetWidth, meta.offsetWidth);
 
@@ -107,8 +111,7 @@ void example_timestamps() {
     printf("Storage:\n");
     printf("  FOR encoded: %zu bytes\n", meta.encodedSize);
     printf("  uint64_t array: %zu bytes\n", count * 8);
-    printf("  Compression: %.1fx\n",
-           (float)(count * 8) / meta.encodedSize);
+    printf("  Compression: %.1fx\n", (float)(count * 8) / meta.encodedSize);
 
     // Verify random access
     for (size_t i = 0; i < count; i++) {
@@ -134,8 +137,8 @@ void example_sequential_ids() {
     varintFORAnalyze(ids, 100, &meta);
 
     printf("100 sequential IDs (100000-100099):\n");
-    printf("  Min: %lu, Max: %lu, Range: %lu\n",
-           meta.minValue, meta.maxValue, meta.range);
+    printf("  Min: %lu, Max: %lu, Range: %lu\n", meta.minValue, meta.maxValue,
+           meta.range);
     printf("  Offset width: %d byte(s)\n", meta.offsetWidth);
 
     uint8_t *encoded = malloc(meta.encodedSize);
@@ -164,28 +167,27 @@ void example_prices() {
 
     // Product prices in cents (e.g., $9.99 to $99.99)
     uint64_t prices[] = {
-        999,   1499,  1999,  2499,  2999,   // $9.99 - $29.99
-        3499,  3999,  4499,  4999,  5499,   // $34.99 - $54.99
-        5999,  6499,  6999,  7499,  7999,   // $59.99 - $79.99
-        8499,  8999,  9499,  9999,           // $84.99 - $99.99
+        999,  1499, 1999, 2499, 2999, // $9.99 - $29.99
+        3499, 3999, 4499, 4999, 5499, // $34.99 - $54.99
+        5999, 6499, 6999, 7499, 7999, // $59.99 - $79.99
+        8499, 8999, 9499, 9999,       // $84.99 - $99.99
     };
     size_t count = sizeof(prices) / sizeof(prices[0]);
 
     varintFORMeta meta;
     varintFORAnalyze(prices, count, &meta);
 
-    printf("Price range: $%.2f - $%.2f\n",
-           meta.minValue / 100.0, meta.maxValue / 100.0);
-    printf("Range in cents: %lu (fits in %d byte%s)\n",
-           meta.range, meta.offsetWidth,
-           meta.offsetWidth == 1 ? "" : "s");
+    printf("Price range: $%.2f - $%.2f\n", meta.minValue / 100.0,
+           meta.maxValue / 100.0);
+    printf("Range in cents: %lu (fits in %d byte%s)\n", meta.range,
+           meta.offsetWidth, meta.offsetWidth == 1 ? "" : "s");
 
     uint8_t *encoded = malloc(meta.encodedSize);
     CHECK_ALLOC(ptr_placeholder);
     varintFOREncode(encoded, prices, count, &meta);
 
-    printf("Storage: %zu bytes vs %zu bytes (uint64_t)\n",
-           meta.encodedSize, count * 8);
+    printf("Storage: %zu bytes vs %zu bytes (uint64_t)\n", meta.encodedSize,
+           count * 8);
     printf("Efficiency: %.1f%%\n",
            ((float)(count * 8 - meta.encodedSize) / (count * 8)) * 100);
 
@@ -226,7 +228,7 @@ void example_random_access() {
 
     // Access values in random order
     size_t indices[] = {9, 0, 5, 2, 7, 4};
-    for (size_t i = 0; i < sizeof(indices)/sizeof(indices[0]); i++) {
+    for (size_t i = 0; i < sizeof(indices) / sizeof(indices[0]); i++) {
         size_t idx = indices[i];
         uint64_t value = varintFORGetAt(encoded, idx);
         printf("  Index %zu: %lu ", idx, value);
@@ -265,20 +267,22 @@ void example_edge_cases() {
     CHECK_ALLOC(ptr_placeholder);
     varintFOREncode(enc1, single, 1, &meta1);
     assert(varintFORGetAt(enc1, 0) == 42);
-    printf("  Single value (42): range=%lu, width=%d ✓\n",
-           meta1.range, meta1.offsetWidth);
+    printf("  Single value (42): range=%lu, width=%d ✓\n", meta1.range,
+           meta1.offsetWidth);
     free(enc1);
 
     // Test 2: All same values
     printf("Test 2: All same values\n");
     uint64_t same[10];
-    for (int i = 0; i < 10; i++) same[i] = 1000;
+    for (int i = 0; i < 10; i++) {
+        same[i] = 1000;
+    }
     varintFORMeta meta2;
     varintFORAnalyze(same, 10, &meta2);
     assert(meta2.range == 0);
-    assert(meta2.offsetWidth == 1);  // Even 0 range uses 1 byte
-    printf("  All 1000: range=%lu, width=%d ✓\n",
-           meta2.range, meta2.offsetWidth);
+    assert(meta2.offsetWidth == 1); // Even 0 range uses 1 byte
+    printf("  All 1000: range=%lu, width=%d ✓\n", meta2.range,
+           meta2.offsetWidth);
 
     // Test 3: Maximum range (requires 8 bytes)
     printf("Test 3: Large range\n");
@@ -295,21 +299,21 @@ void example_edge_cases() {
         uint64_t max;
         varintWidth expectedWidth;
     } tests[] = {
-        {0, 255, 1},         // 1 byte
-        {0, 256, 2},         // 2 bytes
-        {0, 65535, 2},       // 2 bytes
-        {0, 65536, 3},       // 3 bytes
-        {0, 16777215UL, 3},  // 3 bytes
-        {0, 16777216UL, 4},  // 4 bytes
+        {0, 255, 1},        // 1 byte
+        {0, 256, 2},        // 2 bytes
+        {0, 65535, 2},      // 2 bytes
+        {0, 65536, 3},      // 3 bytes
+        {0, 16777215UL, 3}, // 3 bytes
+        {0, 16777216UL, 4}, // 4 bytes
     };
 
-    for (size_t i = 0; i < sizeof(tests)/sizeof(tests[0]); i++) {
+    for (size_t i = 0; i < sizeof(tests) / sizeof(tests[0]); i++) {
         uint64_t vals[] = {tests[i].min, tests[i].max};
         varintFORMeta meta;
         varintFORAnalyze(vals, 2, &meta);
         assert(meta.offsetWidth == tests[i].expectedWidth);
-        printf("  Range %lu: %d bytes ✓\n",
-               tests[i].max - tests[i].min, meta.offsetWidth);
+        printf("  Range %lu: %d bytes ✓\n", tests[i].max - tests[i].min,
+               meta.offsetWidth);
     }
 
     printf("✓ All edge cases handled correctly\n");
@@ -361,8 +365,10 @@ void example_performance() {
         datasets[3].values[i] = i * 1000000000UL;
     }
 
-    printf("%-30s | Count | Width | FOR Size | u64 Size | Compression\n", "Dataset");
-    printf("-------------------------------|-------|-------|----------|----------|------------\n");
+    printf("%-30s | Count | Width | FOR Size | u64 Size | Compression\n",
+           "Dataset");
+    printf("-------------------------------|-------|-------|----------|--------"
+           "--|------------\n");
 
     for (int d = 0; d < 4; d++) {
         varintFORMeta meta;
@@ -371,12 +377,8 @@ void example_performance() {
         size_t u64Size = datasets[d].count * 8;
         float ratio = (float)u64Size / meta.encodedSize;
 
-        printf("%-30s | %5zu | %5d | %8zu | %8zu | %6.2fx\n",
-               datasets[d].name,
-               datasets[d].count,
-               meta.offsetWidth,
-               meta.encodedSize,
-               u64Size,
+        printf("%-30s | %5zu | %5d | %8zu | %8zu | %6.2fx\n", datasets[d].name,
+               datasets[d].count, meta.offsetWidth, meta.encodedSize, u64Size,
                ratio);
 
         free(datasets[d].values);

@@ -1,19 +1,19 @@
 /**
  * example_group.c - Demonstrates varintGroup usage
  *
- * varintGroup provides efficient encoding of related values with shared metadata.
- * Perfect for struct-like data, multi-column rows, network packets, and batched
- * operations where multiple values are logically grouped together.
+ * varintGroup provides efficient encoding of related values with shared
+ * metadata. Perfect for struct-like data, multi-column rows, network packets,
+ * and batched operations where multiple values are logically grouped together.
  *
- * Compile: gcc -I../../src -o example_group example_group.c ../../src/varintGroup.c ../../src/varintExternal.c
- * Run: ./example_group
+ * Compile: gcc -I../../src -o example_group example_group.c
+ * ../../src/varintGroup.c ../../src/varintExternal.c Run: ./example_group
  */
 
 #include "varintGroup.h"
-#include <stdio.h>
 #include <assert.h>
-#include <string.h>
+#include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 // Example 1: Basic encode/decode
 void example_basic() {
@@ -31,8 +31,10 @@ void example_basic() {
     // Show encoding breakdown
     printf("  Breakdown:\n");
     printf("    - Field count: 1 byte\n");
-    printf("    - Width bitmap: %zu byte(s)\n", varintGroupBitmapSize_(fieldCount));
-    printf("    - Values: %zu bytes\n", encoded - 1 - varintGroupBitmapSize_(fieldCount));
+    printf("    - Width bitmap: %zu byte(s)\n",
+           varintGroupBitmapSize_(fieldCount));
+    printf("    - Values: %zu bytes\n",
+           encoded - 1 - varintGroupBitmapSize_(fieldCount));
 
     // Decode group
     uint64_t decoded[3];
@@ -59,13 +61,10 @@ typedef struct {
     uint64_t timestamp;
 } PersonRecord;
 
-void encodePersonRecord(uint8_t *dst, const PersonRecord *record, size_t *size) {
-    uint64_t values[4] = {
-        record->age,
-        record->salary,
-        record->zipcode,
-        record->timestamp
-    };
+void encodePersonRecord(uint8_t *dst, const PersonRecord *record,
+                        size_t *size) {
+    uint64_t values[4] = {record->age, record->salary, record->zipcode,
+                          record->timestamp};
     *size = varintGroupEncode(dst, values, 4);
 }
 
@@ -90,7 +89,8 @@ void example_struct_encoding() {
         {31, 75000, 60601, 1700000120},
     };
 
-    printf("Encoding %zu person records:\n", sizeof(people) / sizeof(people[0]));
+    printf("Encoding %zu person records:\n",
+           sizeof(people) / sizeof(people[0]));
 
     size_t totalEncoded = 0;
     size_t totalNative = 0;
@@ -100,9 +100,11 @@ void example_struct_encoding() {
         size_t size;
         encodePersonRecord(buffer, &people[i], &size);
 
-        printf("  Record %zu: age=%lu, salary=%lu, zip=%lu, time=%lu\n",
-               i, people[i].age, people[i].salary, people[i].zipcode, people[i].timestamp);
-        printf("    Encoded: %zu bytes (vs %zu native)\n", size, sizeof(PersonRecord));
+        printf("  Record %zu: age=%lu, salary=%lu, zip=%lu, time=%lu\n", i,
+               people[i].age, people[i].salary, people[i].zipcode,
+               people[i].timestamp);
+        printf("    Encoded: %zu bytes (vs %zu native)\n", size,
+               sizeof(PersonRecord));
 
         totalEncoded += size;
         totalNative += sizeof(PersonRecord);
@@ -116,8 +118,10 @@ void example_struct_encoding() {
         assert(decoded.timestamp == people[i].timestamp);
     }
 
-    printf("\nTotal: %zu bytes encoded (vs %zu native)\n", totalEncoded, totalNative);
-    printf("Savings: %.1f%%\n", ((float)(totalNative - totalEncoded) / totalNative) * 100);
+    printf("\nTotal: %zu bytes encoded (vs %zu native)\n", totalEncoded,
+           totalNative);
+    printf("Savings: %.1f%%\n",
+           ((float)(totalNative - totalEncoded) / totalNative) * 100);
     printf("✓ All records encoded and decoded correctly\n");
 }
 
@@ -146,13 +150,15 @@ void example_table_rows() {
         sizes[i] = varintGroupEncode(encoded[i], rows[i], colCount);
         totalSize += sizes[i];
 
-        printf("  Row %zu: [%lu, %lu, %lu, %lu] -> %zu bytes\n",
-               i, rows[i][0], rows[i][1], rows[i][2], rows[i][3], sizes[i]);
+        printf("  Row %zu: [%lu, %lu, %lu, %lu] -> %zu bytes\n", i, rows[i][0],
+               rows[i][1], rows[i][2], rows[i][3], sizes[i]);
     }
 
     printf("\nTotal size: %zu bytes\n", totalSize);
-    printf("Native size: %zu bytes (4 rows * 4 cols * 8 bytes)\n", rowCount * colCount * 8);
-    printf("Compression ratio: %.2fx\n", (float)(rowCount * colCount * 8) / totalSize);
+    printf("Native size: %zu bytes (4 rows * 4 cols * 8 bytes)\n",
+           rowCount * colCount * 8);
+    printf("Compression ratio: %.2fx\n",
+           (float)(rowCount * colCount * 8) / totalSize);
 
     // Verify decoding
     for (size_t i = 0; i < rowCount; i++) {
@@ -179,14 +185,10 @@ typedef struct {
     uint64_t payloadLen;
 } PacketHeader;
 
-void encodePacketHeader(uint8_t *dst, const PacketHeader *header, size_t *size) {
-    uint64_t values[5] = {
-        header->version,
-        header->msgType,
-        header->msgId,
-        header->timestamp,
-        header->payloadLen
-    };
+void encodePacketHeader(uint8_t *dst, const PacketHeader *header,
+                        size_t *size) {
+    uint64_t values[5] = {header->version, header->msgType, header->msgId,
+                          header->timestamp, header->payloadLen};
     *size = varintGroupEncode(dst, values, 5);
 }
 
@@ -212,7 +214,8 @@ void example_network_packets() {
         {1, 12, 1003, 1700000002, 64},
     };
 
-    printf("Encoding %zu packet headers:\n", sizeof(packets) / sizeof(packets[0]));
+    printf("Encoding %zu packet headers:\n",
+           sizeof(packets) / sizeof(packets[0]));
 
     size_t totalVarint = 0;
     size_t totalFixed = sizeof(PacketHeader) * 3;
@@ -225,7 +228,8 @@ void example_network_packets() {
         printf("  Packet %zu: ver=%lu, type=%lu, id=%lu, time=%lu, len=%lu\n",
                i, packets[i].version, packets[i].msgType, packets[i].msgId,
                packets[i].timestamp, packets[i].payloadLen);
-        printf("    Size: %zu bytes (vs %zu fixed)\n", size, sizeof(PacketHeader));
+        printf("    Size: %zu bytes (vs %zu fixed)\n", size,
+               sizeof(PacketHeader));
 
         totalVarint += size;
 
@@ -239,8 +243,10 @@ void example_network_packets() {
         assert(decoded.payloadLen == packets[i].payloadLen);
     }
 
-    printf("\nTotal: %zu bytes (varint) vs %zu bytes (fixed)\n", totalVarint, totalFixed);
-    printf("Savings: %.1f%%\n", ((float)(totalFixed - totalVarint) / totalFixed) * 100);
+    printf("\nTotal: %zu bytes (varint) vs %zu bytes (fixed)\n", totalVarint,
+           totalFixed);
+    printf("Savings: %.1f%%\n",
+           ((float)(totalFixed - totalVarint) / totalFixed) * 100);
     printf("✓ All packets verified\n");
 }
 
@@ -275,8 +281,8 @@ void example_size_calculation() {
     printf("\n=== Example 6: Size Calculation ===\n");
 
     uint64_t testGroups[][5] = {
-        {1, 2, 3, 4, 5},                    // All small
-        {100, 200, 300, 400, 500},          // Medium
+        {1, 2, 3, 4, 5},                     // All small
+        {100, 200, 300, 400, 500},           // Medium
         {10000, 20000, 30000, 40000, 50000}, // Large
     };
 
@@ -323,8 +329,10 @@ void example_space_efficiency() {
         {"Large values", {1000000, 2000000, 3000000, 4000000}},
     };
 
-    printf("%-20s | Group | Separate | Native | Overhead | vs Native\n", "Test Case");
-    printf("---------------------|-------|----------|--------|----------|----------\n");
+    printf("%-20s | Group | Separate | Native | Overhead | vs Native\n",
+           "Test Case");
+    printf("---------------------|-------|----------|--------|----------|------"
+           "----\n");
 
     for (size_t i = 0; i < 4; i++) {
         uint8_t buffer[128];
@@ -340,9 +348,12 @@ void example_space_efficiency() {
 
         size_t nativeSize = 4 * sizeof(uint64_t);
 
-        // Group has overhead vs separate (for metadata), but massive savings vs native
-        float overheadVsSep = ((float)(groupSize - separateSize) / separateSize) * 100;
-        float savingsVsNative = ((float)(nativeSize - groupSize) / nativeSize) * 100;
+        // Group has overhead vs separate (for metadata), but massive savings vs
+        // native
+        float overheadVsSep =
+            ((float)(groupSize - separateSize) / separateSize) * 100;
+        float savingsVsNative =
+            ((float)(nativeSize - groupSize) / nativeSize) * 100;
 
         printf("%-20s | %5zu | %8zu | %6zu | %7.1f%% | %8.1f%%\n",
                tests[i].description, groupSize, separateSize, nativeSize,
@@ -355,7 +366,8 @@ void example_space_efficiency() {
     printf("  - 'Separate' = individual varintExternal encodings\n");
     printf("  - 'Native' = 4 x 8-byte uint64_t values\n");
     printf("  - Group encoding adds overhead but enables fast field access\n");
-    printf("  - Best for small groups (2-16 fields) with varying value sizes\n");
+    printf(
+        "  - Best for small groups (2-16 fields) with varying value sizes\n");
 }
 
 // Example 8: Boundary testing

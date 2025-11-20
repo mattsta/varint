@@ -13,8 +13,8 @@
  * - One-hot encoding compression
  * - Embedding table storage
  *
- * Compile: gcc -I../../src ml_features.c ../../build/src/libvarint.a -o ml_features
- * Run: ./ml_features
+ * Compile: gcc -I../../src ml_features.c ../../build/src/libvarint.a -o
+ * ml_features Run: ./ml_features
  */
 
 // Note: Using native uint16_t arrays for quantized storage
@@ -33,13 +33,14 @@
 // ============================================================================
 
 typedef enum {
-    QUANT_8BIT,   // 0-255
-    QUANT_10BIT,  // 0-1023
-    QUANT_12BIT,  // 0-4095
+    QUANT_8BIT,  // 0-255
+    QUANT_10BIT, // 0-1023
+    QUANT_12BIT, // 0-4095
 } QuantizationBits;
 
 // Map floating-point value [min, max] to quantized integer
-uint16_t quantizeValue(float value, float min, float max, QuantizationBits bits) {
+uint16_t quantizeValue(float value, float min, float max,
+                       QuantizationBits bits) {
     uint16_t maxVal;
     switch (bits) {
     case QUANT_8BIT:
@@ -56,17 +57,20 @@ uint16_t quantizeValue(float value, float min, float max, QuantizationBits bits)
     }
 
     // Clamp and normalize to [0, 1]
-    if (value < min)
+    if (value < min) {
         value = min;
-    if (value > max)
+    }
+    if (value > max) {
         value = max;
+    }
     float normalized = (value - min) / (max - min);
 
     // Quantize to integer
     return (uint16_t)(normalized * maxVal);
 }
 
-float dequantizeValue(uint16_t quantized, float min, float max, QuantizationBits bits) {
+float dequantizeValue(uint16_t quantized, float min, float max,
+                      QuantizationBits bits) {
     uint16_t maxVal;
     switch (bits) {
     case QUANT_8BIT:
@@ -92,17 +96,18 @@ float dequantizeValue(uint16_t quantized, float min, float max, QuantizationBits
 // ============================================================================
 
 typedef struct {
-    uint16_t *data;             // Quantized feature values (native array)
+    uint16_t *data; // Quantized feature values (native array)
     size_t sampleCount;
     size_t featureCount;
-    float featureMin;           // Global min for quantization
-    float featureMax;           // Global max for quantization
+    float featureMin; // Global min for quantization
+    float featureMax; // Global max for quantization
     QuantizationBits quantBits;
     varintDimensionPair dimensionEncoding;
 } DenseFeatureMatrix;
 
-void denseMatrixInit(DenseFeatureMatrix *matrix, size_t samples, size_t features,
-                     float minValue, float maxValue, QuantizationBits bits) {
+void denseMatrixInit(DenseFeatureMatrix *matrix, size_t samples,
+                     size_t features, float minValue, float maxValue,
+                     QuantizationBits bits) {
     matrix->sampleCount = samples;
     matrix->featureCount = features;
     matrix->featureMin = minValue;
@@ -133,21 +138,24 @@ void denseMatrixSet(DenseFeatureMatrix *matrix, size_t sample, size_t feature,
     assert(sample < matrix->sampleCount);
     assert(feature < matrix->featureCount);
 
-    uint16_t quantized =
-        quantizeValue(value, matrix->featureMin, matrix->featureMax, matrix->quantBits);
+    uint16_t quantized = quantizeValue(value, matrix->featureMin,
+                                       matrix->featureMax, matrix->quantBits);
     size_t index = sample * matrix->featureCount + feature;
 
-    // Direct array access (for production, use varintPacked in separate compilation units)
+    // Direct array access (for production, use varintPacked in separate
+    // compilation units)
     matrix->data[index] = quantized;
 }
 
-float denseMatrixGet(const DenseFeatureMatrix *matrix, size_t sample, size_t feature) {
+float denseMatrixGet(const DenseFeatureMatrix *matrix, size_t sample,
+                     size_t feature) {
     assert(sample < matrix->sampleCount);
     assert(feature < matrix->featureCount);
 
     size_t index = sample * matrix->featureCount + feature;
 
-    // Direct array access (for production, use varintPacked in separate compilation units)
+    // Direct array access (for production, use varintPacked in separate
+    // compilation units)
     uint16_t quantized = matrix->data[index];
 
     return dequantizeValue(quantized, matrix->featureMin, matrix->featureMax,
@@ -160,18 +168,19 @@ float denseMatrixGet(const DenseFeatureMatrix *matrix, size_t sample, size_t fea
 
 typedef struct {
     size_t feature;
-    uint16_t value;  // Quantized value
+    uint16_t value; // Quantized value
 } SparseEntry;
 
 typedef struct {
-    SparseEntry **rows;         // Array of sparse rows
-    size_t *rowSizes;           // Number of entries per row
+    SparseEntry **rows; // Array of sparse rows
+    size_t *rowSizes;   // Number of entries per row
     size_t sampleCount;
     size_t featureCount;
     varintDimensionPair dimensionEncoding;
 } SparseFeatureMatrix;
 
-void sparseMatrixInit(SparseFeatureMatrix *matrix, size_t samples, size_t features) {
+void sparseMatrixInit(SparseFeatureMatrix *matrix, size_t samples,
+                      size_t features) {
     matrix->sampleCount = samples;
     matrix->featureCount = features;
     matrix->rows = calloc(samples, sizeof(SparseEntry *));
@@ -219,7 +228,7 @@ uint16_t sparseMatrixGet(const SparseFeatureMatrix *matrix, size_t sample,
             return matrix->rows[sample][i].value;
         }
     }
-    return 0;  // Default for missing entries
+    return 0; // Default for missing entries
 }
 
 // ============================================================================
@@ -227,9 +236,9 @@ uint16_t sparseMatrixGet(const SparseFeatureMatrix *matrix, size_t sample,
 // ============================================================================
 
 typedef struct {
-    uint16_t *embeddings;       // Quantized embedding vectors (native array)
-    size_t vocabSize;           // Number of tokens
-    size_t embeddingDim;        // Embedding dimension
+    uint16_t *embeddings; // Quantized embedding vectors (native array)
+    size_t vocabSize;     // Number of tokens
+    size_t embeddingDim;  // Embedding dimension
     QuantizationBits quantBits;
     varintDimensionPair dimensionEncoding;
 } EmbeddingTable;
@@ -257,25 +266,27 @@ void embeddingTableFree(EmbeddingTable *table) {
     free(table->embeddings);
 }
 
-void embeddingTableSetValue(EmbeddingTable *table, size_t tokenId, size_t dimIndex,
-                             uint16_t value) {
+void embeddingTableSetValue(EmbeddingTable *table, size_t tokenId,
+                            size_t dimIndex, uint16_t value) {
     assert(tokenId < table->vocabSize);
     assert(dimIndex < table->embeddingDim);
 
     size_t index = tokenId * table->embeddingDim + dimIndex;
 
-    // Direct array access (for production, use varintPacked in separate compilation units)
+    // Direct array access (for production, use varintPacked in separate
+    // compilation units)
     table->embeddings[index] = value;
 }
 
 uint16_t embeddingTableGetValue(const EmbeddingTable *table, size_t tokenId,
-                                 size_t dimIndex) {
+                                size_t dimIndex) {
     assert(tokenId < table->vocabSize);
     assert(dimIndex < table->embeddingDim);
 
     size_t index = tokenId * table->embeddingDim + dimIndex;
 
-    // Direct array access (for production, use varintPacked in separate compilation units)
+    // Direct array access (for production, use varintPacked in separate
+    // compilation units)
     return table->embeddings[index];
 }
 
@@ -303,7 +314,7 @@ void demonstrateMLFeatures() {
     // Fill with sample data
     for (size_t s = 0; s < 10; s++) {
         for (size_t f = 0; f < matrix.featureCount; f++) {
-            float value = (float)(s * f) / 200.0f;  // 0.0 to 1.0
+            float value = (float)(s * f) / 200.0f; // 0.0 to 1.0
             denseMatrixSet(&matrix, s, f, value);
         }
     }
@@ -313,14 +324,15 @@ void demonstrateMLFeatures() {
     // Retrieve and verify
     float retrieved = denseMatrixGet(&matrix, 5, 10);
     float expected = (5.0f * 10.0f) / 200.0f;
-    printf("   Sample verification: matrix[5][10] = %.3f (expected ~%.3f)\n", retrieved,
-           expected);
+    printf("   Sample verification: matrix[5][10] = %.3f (expected ~%.3f)\n",
+           retrieved, expected);
 
     // Space analysis
     size_t bitsPerValue = 8;
     size_t totalBits = matrix.sampleCount * matrix.featureCount * bitsPerValue;
     size_t bytesUsed = (totalBits + 7) / 8;
-    size_t bytesFloat = matrix.sampleCount * matrix.featureCount * sizeof(float);
+    size_t bytesFloat =
+        matrix.sampleCount * matrix.featureCount * sizeof(float);
 
     printf("\n   Storage analysis:\n");
     printf("   - 8-bit quantized: %zu bytes\n", bytesUsed);
@@ -347,7 +359,8 @@ void demonstrateMLFeatures() {
     float retrieved12 = denseMatrixGet(&matrix12bit, 0, 0);
 
     printf("   Original value: %.6f\n", testValue);
-    printf("   8-bit:  %.6f (error: %.6f)\n", retrieved8, fabsf(retrieved8 - testValue));
+    printf("   8-bit:  %.6f (error: %.6f)\n", retrieved8,
+           fabsf(retrieved8 - testValue));
     printf("   10-bit: %.6f (error: %.6f)\n", retrieved10,
            fabsf(retrieved10 - testValue));
     printf("   12-bit: %.6f (error: %.6f)\n", retrieved12,
@@ -369,7 +382,7 @@ void demonstrateMLFeatures() {
     printf("\n3. Creating sparse feature matrix (one-hot encoding)...\n");
 
     SparseFeatureMatrix sparseMatrix;
-    sparseMatrixInit(&sparseMatrix, 100, 1000);  // 100 samples, 1000 features
+    sparseMatrixInit(&sparseMatrix, 100, 1000); // 100 samples, 1000 features
 
     printf("   Matrix: %zu samples × %zu features\n", sparseMatrix.sampleCount,
            sparseMatrix.featureCount);
@@ -380,22 +393,23 @@ void demonstrateMLFeatures() {
 
     // One-hot: each sample has exactly 1 non-zero feature
     for (size_t s = 0; s < 100; s++) {
-        size_t activeFeature = (s * 13) % 1000;  // Pseudo-random feature
+        size_t activeFeature = (s * 13) % 1000; // Pseudo-random feature
         sparseMatrixSet(&sparseMatrix, s, activeFeature, 1);
     }
 
     printf("   Filled 100 samples (1 non-zero per sample)\n");
-    printf("   Sparsity: %.2f%% (100 / %d)\n",
-           100.0 * 100.0 / (100 * 1000), 100 * 1000);
+    printf("   Sparsity: %.2f%% (100 / %d)\n", 100.0 * 100.0 / (100 * 1000),
+           100 * 1000);
 
     // Space analysis
-    size_t sparseBytes = 100 * sizeof(SparseEntry);  // 100 entries total
-    size_t denseBytes = 100 * 1000 * 1;              // 1 byte per element if dense
+    size_t sparseBytes = 100 * sizeof(SparseEntry); // 100 entries total
+    size_t denseBytes = 100 * 1000 * 1; // 1 byte per element if dense
 
     printf("\n   Storage analysis:\n");
     printf("   - Sparse: ~%zu bytes\n", sparseBytes);
     printf("   - Dense (8-bit): %zu bytes\n", denseBytes);
-    printf("   - Savings: %.1f%%\n", 100.0 * (1.0 - (double)sparseBytes / denseBytes));
+    printf("   - Savings: %.1f%%\n",
+           100.0 * (1.0 - (double)sparseBytes / denseBytes));
 
     // 4. Embedding table
     printf("\n4. Creating embedding table...\n");

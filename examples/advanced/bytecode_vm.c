@@ -19,8 +19,8 @@
  * Real-world relevance: Python, Java, .NET, and JavaScript VMs use similar
  * variable-width encoding for bytecode compactness and cache efficiency.
  *
- * Compile: gcc -I../../src bytecode_vm.c ../../build/src/libvarint.a -o bytecode_vm
- * Run: ./bytecode_vm
+ * Compile: gcc -I../../src bytecode_vm.c ../../build/src/libvarint.a -o
+ * bytecode_vm Run: ./bytecode_vm
  */
 
 #include "varintChained.h"
@@ -120,7 +120,7 @@ typedef struct {
     int64_t stack[STACK_SIZE];
     size_t stackTop;
     int64_t globals[GLOBALS_SIZE];
-    size_t pc;  // Program counter
+    size_t pc; // Program counter
     const uint8_t *code;
     size_t codeSize;
     bool running;
@@ -279,34 +279,34 @@ void vmExecute(VM *vm) {
 
 // Program 1: Simple arithmetic (2 + 3) * 4
 void compileArithmetic(BytecodeBuffer *buffer) {
-    emitOpVarint(buffer, OP_PUSH, 2);     // PUSH 2
-    emitOpVarint(buffer, OP_PUSH, 3);     // PUSH 3
-    emitOp(buffer, OP_ADD);               // ADD
-    emitOpVarint(buffer, OP_PUSH, 4);     // PUSH 4
-    emitOp(buffer, OP_MUL);               // MUL
-    emitOp(buffer, OP_PRINT);             // PRINT
-    emitOp(buffer, OP_HALT);              // HALT
+    emitOpVarint(buffer, OP_PUSH, 2); // PUSH 2
+    emitOpVarint(buffer, OP_PUSH, 3); // PUSH 3
+    emitOp(buffer, OP_ADD);           // ADD
+    emitOpVarint(buffer, OP_PUSH, 4); // PUSH 4
+    emitOp(buffer, OP_MUL);           // MUL
+    emitOp(buffer, OP_PRINT);         // PRINT
+    emitOp(buffer, OP_HALT);          // HALT
 }
 
 // Program 2: Fibonacci sequence (iterative)
 void compileFibonacci(BytecodeBuffer *buffer, uint32_t n) {
     // a = 0, b = 1
     emitOpVarint(buffer, OP_PUSH, 0);
-    emitOpVarint(buffer, OP_STORE_GLOBAL, 0);  // globals[0] = a
+    emitOpVarint(buffer, OP_STORE_GLOBAL, 0); // globals[0] = a
 
     emitOpVarint(buffer, OP_PUSH, 1);
-    emitOpVarint(buffer, OP_STORE_GLOBAL, 1);  // globals[1] = b
+    emitOpVarint(buffer, OP_STORE_GLOBAL, 1); // globals[1] = b
 
     emitOpVarint(buffer, OP_PUSH, 0);
-    emitOpVarint(buffer, OP_STORE_GLOBAL, 2);  // globals[2] = i (counter)
+    emitOpVarint(buffer, OP_STORE_GLOBAL, 2); // globals[2] = i (counter)
 
     // Loop start (address 24)
     size_t loopStart = buffer->size;
 
     // if i >= n, jump to end
-    emitOpVarint(buffer, OP_LOAD_GLOBAL, 2);   // PUSH i
-    emitOpVarint(buffer, OP_PUSH, n);          // PUSH n
-    emitOp(buffer, OP_SUB);                    // i - n
+    emitOpVarint(buffer, OP_LOAD_GLOBAL, 2); // PUSH i
+    emitOpVarint(buffer, OP_PUSH, n);        // PUSH n
+    emitOp(buffer, OP_SUB);                  // i - n
     size_t jumpPatch = buffer->size;
     emitOpVarint(buffer, OP_JUMP_IF_FALSE, 0); // JUMP_IF_FALSE (will patch)
 
@@ -318,7 +318,7 @@ void compileFibonacci(BytecodeBuffer *buffer, uint32_t n) {
     emitOpVarint(buffer, OP_LOAD_GLOBAL, 0);
     emitOpVarint(buffer, OP_LOAD_GLOBAL, 1);
     emitOp(buffer, OP_ADD);
-    emitOpVarint(buffer, OP_STORE_GLOBAL, 3);  // globals[3] = temp
+    emitOpVarint(buffer, OP_STORE_GLOBAL, 3); // globals[3] = temp
 
     // a = b
     emitOpVarint(buffer, OP_LOAD_GLOBAL, 1);
@@ -380,7 +380,7 @@ void demonstrateBytecodeVM() {
     printf("\n3. Instruction encoding analysis...\n");
 
     printf("   PUSH 2:  ");
-    size_t push2Size = 1 + varintExternalLen(2);  // opcode + varint
+    size_t push2Size = 1 + varintExternalLen(2); // opcode + varint
     printf("%zu bytes (opcode + 1-byte varint)\n", push2Size);
 
     printf("   PUSH 1000: ");
@@ -404,17 +404,18 @@ void demonstrateBytecodeVM() {
     compileFibonacci(&fibProgram, 10);
 
     printf("   Bytecode size: %zu bytes\n", fibProgram.size);
-    printf("   Instructions: ~%zu\n", fibProgram.size / 2);  // Approximate
+    printf("   Instructions: ~%zu\n", fibProgram.size / 2); // Approximate
 
     // 5. Compare fixed vs variable encoding
     printf("\n5. Bytecode size comparison...\n");
 
     // Calculate size with fixed 64-bit operands
     // Fibonacci has roughly: 20 instructions with operands + 15 without
-    size_t fixedSize = 20 * (1 + 8) + 15 * 1;  // ~195 bytes
+    size_t fixedSize = 20 * (1 + 8) + 15 * 1; // ~195 bytes
     printf("   Variable-width encoding: %zu bytes\n", fibProgram.size);
     printf("   Fixed-width encoding: ~%zu bytes\n", fixedSize);
-    printf("   Compression ratio: %.2fx\n", (double)fixedSize / fibProgram.size);
+    printf("   Compression ratio: %.2fx\n",
+           (double)fixedSize / fibProgram.size);
     printf("   Space savings: %.1f%%\n",
            100.0 * (1.0 - (double)fibProgram.size / fixedSize));
 
@@ -426,12 +427,12 @@ void demonstrateBytecodeVM() {
     // Create version without PRINT for benchmarking
     BytecodeBuffer benchProgram;
     bytecodeBufferInit(&benchProgram, 256);
-    emitOpVarint(&benchProgram, OP_PUSH, 2);     // PUSH 2
-    emitOpVarint(&benchProgram, OP_PUSH, 3);     // PUSH 3
-    emitOp(&benchProgram, OP_ADD);               // ADD
-    emitOpVarint(&benchProgram, OP_PUSH, 4);     // PUSH 4
-    emitOp(&benchProgram, OP_MUL);               // MUL
-    emitOp(&benchProgram, OP_HALT);              // HALT (no PRINT)
+    emitOpVarint(&benchProgram, OP_PUSH, 2); // PUSH 2
+    emitOpVarint(&benchProgram, OP_PUSH, 3); // PUSH 3
+    emitOp(&benchProgram, OP_ADD);           // ADD
+    emitOpVarint(&benchProgram, OP_PUSH, 4); // PUSH 4
+    emitOp(&benchProgram, OP_MUL);           // MUL
+    emitOp(&benchProgram, OP_HALT);          // HALT (no PRINT)
 
     clock_t start = clock();
     for (size_t i = 0; i < 10000000; i++) {
@@ -444,11 +445,13 @@ void demonstrateBytecodeVM() {
     bytecodeBufferFree(&benchProgram);
 
     double elapsed = (double)(end - start) / CLOCKS_PER_SEC;
-    double opsPerSec = (6 * 10000000) / elapsed;  // 6 instructions per iteration (no PRINT)
+    double opsPerSec =
+        (6 * 10000000) / elapsed; // 6 instructions per iteration (no PRINT)
 
     printf("   Time: %.3f seconds\n", elapsed);
     printf("   Throughput: %.0f instructions/sec\n", opsPerSec);
-    printf("   Per instruction: %.1f nanoseconds\n", (elapsed / (6 * 10000000)) * 1e9);
+    printf("   Per instruction: %.1f nanoseconds\n",
+           (elapsed / (6 * 10000000)) * 1e9);
 
     // 7. Cache efficiency
     printf("\n7. Cache efficiency analysis...\n");

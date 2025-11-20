@@ -12,17 +12,18 @@
  * Run: ./example_packed
  */
 
-#include <stdio.h>
 #include <assert.h>
-#include <string.h>
+#include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 // Define packed array for 12-bit values (0-4095)
 #define PACK_STORAGE_BITS 12
 #include "varintPacked.h"
 
 // Helper macro for calculating bytes needed
-/* varintPacked12 uses uint32_t slots by default, so we need to account for 32-bit alignment */
+/* varintPacked12 uses uint32_t slots by default, so we need to account for
+ * 32-bit alignment */
 #define BYTES_FOR_COUNT(count) ((((count) * 12 + 31) / 32) * 4)
 
 // Example 1: Basic set/get operations
@@ -40,7 +41,7 @@ void example_basic() {
     // Set some values
     varintPacked12Set(array, 0, 100);
     varintPacked12Set(array, 1, 200);
-    varintPacked12Set(array, 2, 4095);  // Max 12-bit value
+    varintPacked12Set(array, 2, 4095); // Max 12-bit value
     varintPacked12Set(array, 9, 999);
 
     // Get and verify
@@ -90,8 +91,8 @@ void example_sorted() {
         size_t pos = varintPacked12BinarySearch(array, count, searchValues[i]);
         uint16_t atPos = varintPacked12Get(array, pos);
 
-        printf("  Search %s: position %zu (value %u)\n",
-               searchDesc[i], pos, atPos);
+        printf("  Search %s: position %zu (value %u)\n", searchDesc[i], pos,
+               atPos);
     }
 
     printf("✓ Binary search works\n");
@@ -126,7 +127,7 @@ void example_sorted_insert() {
         printf("%u ", varintPacked12Get(array, i));
         if (i > 0) {
             // Verify sorted order
-            assert(varintPacked12Get(array, i-1) <=
+            assert(varintPacked12Get(array, i - 1) <=
                    varintPacked12Get(array, i));
         }
     }
@@ -152,18 +153,21 @@ void example_member() {
     printf("Set: {");
     for (size_t i = 0; i < count; i++) {
         printf("%u", varintPacked12Get(set, i));
-        if (i < count - 1) printf(", ");
+        if (i < count - 1) {
+            printf(", ");
+        }
     }
     printf("}\n\n");
 
     // Test membership
     uint16_t testValues[] = {10, 15, 30, 45, 50};
-    const char *expected[] = {"member", "not member", "member", "not member", "member"};
+    const char *expected[] = {"member", "not member", "member", "not member",
+                              "member"};
 
     printf("Membership tests:\n");
     for (size_t i = 0; i < 5; i++) {
         int64_t memberIndex = varintPacked12Member(set, count, testValues[i]);
-        bool isMember = (memberIndex >= 0);  // Index 0 is valid, so check >= 0
+        bool isMember = (memberIndex >= 0); // Index 0 is valid, so check >= 0
         printf("  %u: %s ", testValues[i], isMember ? "member" : "not member");
 
         bool expectedMember = (strcmp(expected[i], "member") == 0);
@@ -186,18 +190,18 @@ void example_space_efficiency() {
         size_t maxValue;
         const char *useCase;
     } configs[] = {
-        {8, 255, "IP address octets"},
-        {10, 1023, "Small IDs (0-1023)"},
-        {12, 4095, "Medium IDs (0-4095)"},
-        {14, 16383, "Large IDs (0-16383)"},
+        {8, 255, "IP address octets"},     {10, 1023, "Small IDs (0-1023)"},
+        {12, 4095, "Medium IDs (0-4095)"}, {14, 16383, "Large IDs (0-16383)"},
         {16, 65535, "Standard uint16_t"},
     };
 
     printf("Array of %zu elements:\n\n", arraySize);
-    printf("Bits | Max Value | Use Case                 | Bytes  | vs uint16 | vs uint32\n");
-    printf("-----|-----------|--------------------------|--------|-----------|----------\n");
+    printf("Bits | Max Value | Use Case                 | Bytes  | vs uint16 | "
+           "vs uint32\n");
+    printf("-----|-----------|--------------------------|--------|-----------|-"
+           "---------\n");
 
-    for (size_t i = 0; i < sizeof(configs)/sizeof(configs[0]); i++) {
+    for (size_t i = 0; i < sizeof(configs) / sizeof(configs[0]); i++) {
         // Calculate bytes needed
         size_t bitsTotal = (size_t)configs[i].bits * arraySize;
         size_t bytesNeeded = (bitsTotal + 7) / 8;
@@ -208,12 +212,8 @@ void example_space_efficiency() {
         float vs32 = ((float)(uint32Bytes - bytesNeeded) / uint32Bytes) * 100;
 
         printf("%4d | %9zu | %-24s | %6zu | %6.1f%%  | %6.1f%%\n",
-               configs[i].bits,
-               configs[i].maxValue,
-               configs[i].useCase,
-               bytesNeeded,
-               vs16,
-               vs32);
+               configs[i].bits, configs[i].maxValue, configs[i].useCase,
+               bytesNeeded, vs16, vs32);
     }
 }
 
@@ -228,11 +228,7 @@ void example_game_coordinates() {
     } Coord;
 
     Coord entities[] = {
-        {100, 200},
-        {500, 750},
-        {1000, 1500},
-        {2048, 2048},
-        {4095, 4095},
+        {100, 200}, {500, 750}, {1000, 1500}, {2048, 2048}, {4095, 4095},
     };
     size_t entityCount = sizeof(entities) / sizeof(entities[0]);
 
@@ -255,7 +251,7 @@ void example_game_coordinates() {
         assert(y == entities[i].y);
     }
 
-    size_t packedSize = bytes * 2;  // x and y arrays
+    size_t packedSize = bytes * 2; // x and y arrays
     size_t uint16Size = entityCount * sizeof(Coord);
 
     printf("\nSpace usage:\n");
@@ -300,7 +296,7 @@ void example_deletion() {
     // Verify values shifted correctly
     assert(varintPacked12Get(array, 0) == 100);
     assert(varintPacked12Get(array, 1) == 200);
-    assert(varintPacked12Get(array, 2) == 400);  // Was at index 3
+    assert(varintPacked12Get(array, 2) == 400); // Was at index 3
     assert(varintPacked12Get(array, 3) == 500);
     assert(varintPacked12Get(array, 4) == 600);
 

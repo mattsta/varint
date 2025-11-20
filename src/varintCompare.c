@@ -335,7 +335,7 @@ int32_t main(int argc, char **argv) {
                 assert(len == 1);
             } else if (i <= 16447) {
                 assert(len == 2);
-            // cppcheck-suppress knownConditionTrueFalse
+                // cppcheck-suppress knownConditionTrueFalse
             } else if (i <= 4210750) {
                 assert(len == 3);
             }
@@ -804,7 +804,7 @@ int32_t main(int argc, char **argv) {
                 assert(len == 1);
             } else if (i <= 16447) {
                 assert(len == 2);
-            // cppcheck-suppress knownConditionTrueFalse
+                // cppcheck-suppress knownConditionTrueFalse
             } else if (i <= 4210750) {
                 assert(len == 3);
             }
@@ -830,12 +830,15 @@ int32_t main(int argc, char **argv) {
  */
 #ifdef VARINT_TOOL
 static int32_t hexToInt(char c) {
-    if (c >= '0' && c <= '9')
+    if (c >= '0' && c <= '9') {
         return c - '0';
-    if (c >= 'a' && c <= 'f')
+    }
+    if (c >= 'a' && c <= 'f') {
         return c - 'a' + 10;
-    if (c >= 'A' && c <= 'F')
+    }
+    if (c >= 'A' && c <= 'F') {
         return c - 'A' + 10;
+    }
     return 0;
 }
 
@@ -868,8 +871,9 @@ int32_t main(int32_t argc, char **argv) {
         }
         int32_t n = varintTaggedPut64(out, x);
         printf("%llu = ", (long long unsigned)x);
-        for (j = 0; j < n; j++)
+        for (j = 0; j < n; j++) {
             printf("%02x", out[j] & 0xff);
+        }
         printf("\n");
     }
 

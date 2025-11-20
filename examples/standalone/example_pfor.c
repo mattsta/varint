@@ -5,15 +5,16 @@
  * Perfect for stock prices, response times, network latency, and sensor data.
  * Supports random access and configurable exception thresholds.
  *
- * Compile: gcc -I../../src example_pfor.c ../../src/varintPFOR.c ../../src/varintTagged.c ../../src/varintExternal.c -o example_pfor
- * Run: ./example_pfor
+ * Compile: gcc -I../../src example_pfor.c ../../src/varintPFOR.c
+ * ../../src/varintTagged.c ../../src/varintExternal.c -o example_pfor Run:
+ * ./example_pfor
  */
 
 #include "varintPFOR.h"
-#include <stdio.h>
 #include <assert.h>
-#include <string.h>
+#include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 /* Example 1: Basic PFOR encoding and decoding */
 void example_basic() {
@@ -36,8 +37,8 @@ void example_basic() {
                                           VARINT_PFOR_THRESHOLD_95, &meta);
 
     printf("Encoded in %zu bytes\n", encodedSize);
-    printf("Metadata: min=%lu, width=%d, exceptions=%u\n",
-           meta.min, meta.width, meta.exceptionCount);
+    printf("Metadata: min=%lu, width=%d, exceptions=%u\n", meta.min, meta.width,
+           meta.exceptionCount);
 
     /* Decode */
     uint64_t decoded[8];
@@ -70,11 +71,9 @@ void example_stock_prices() {
     printf("\n=== Example 2: Stock Prices ===\n");
 
     /* Simulated stock prices: mostly $100-$105, rare spike to $150 */
-    uint64_t prices[] = {
-        10050, 10075, 10100, 10090, 10110, 10095, 10105, 10088,
-        10092, 10098, 15000, 10102, 10097, 10091, 10099, 10103,
-        10096, 10094, 10101, 10089
-    };
+    uint64_t prices[] = {10050, 10075, 10100, 10090, 10110, 10095, 10105,
+                         10088, 10092, 10098, 15000, 10102, 10097, 10091,
+                         10099, 10103, 10096, 10094, 10101, 10089};
     uint32_t count = sizeof(prices) / sizeof(prices[0]);
 
     printf("Stock prices (cents): ");
@@ -89,11 +88,10 @@ void example_stock_prices() {
     size_t encodedSize = varintPFOREncode(buffer, prices, count,
                                           VARINT_PFOR_THRESHOLD_95, &meta);
 
-    printf("Encoded in %zu bytes (min=%lu, width=%d bytes)\n",
-           encodedSize, meta.min, meta.width);
-    printf("Exceptions: %u out of %u values (%.1f%%)\n",
-           meta.exceptionCount, count,
-           ((float)meta.exceptionCount / count) * 100);
+    printf("Encoded in %zu bytes (min=%lu, width=%d bytes)\n", encodedSize,
+           meta.min, meta.width);
+    printf("Exceptions: %u out of %u values (%.1f%%)\n", meta.exceptionCount,
+           count, ((float)meta.exceptionCount / count) * 100);
 
     /* Decode and verify */
     uint64_t *decoded = malloc(count * sizeof(uint64_t));
@@ -106,7 +104,8 @@ void example_stock_prices() {
 
     /* Space comparison */
     size_t uint64Size = count * sizeof(uint64_t);
-    printf("Space: %zu bytes (vs %zu with uint64_t)\n", encodedSize, uint64Size);
+    printf("Space: %zu bytes (vs %zu with uint64_t)\n", encodedSize,
+           uint64Size);
     printf("Savings: %.1f%%\n",
            ((float)(uint64Size - encodedSize) / uint64Size) * 100);
 
@@ -122,23 +121,17 @@ void example_response_times() {
 
     /* Response times in microseconds: mostly 50-100us, few slow outliers */
     uint64_t responseTimes[] = {
-        52, 48, 61, 55, 58, 63, 51, 59, 54, 62,
-        5000, /* timeout */
-        56, 60, 53, 57, 49, 64, 58, 52, 61, 55,
-        50, 59, 62, 54, 58, 51, 63, 57, 60, 53,
-        12000, /* slow query */
-        56, 61, 54, 59, 52, 58, 63, 55, 60, 57
-    };
+        52, 48, 61, 55, 58, 63, 51, 59, 54, 62,    5000, /* timeout */
+        56, 60, 53, 57, 49, 64, 58, 52, 61, 55,    50,
+        59, 62, 54, 58, 51, 63, 57, 60, 53, 12000, /* slow query */
+        56, 61, 54, 59, 52, 58, 63, 55, 60, 57};
     uint32_t count = sizeof(responseTimes) / sizeof(responseTimes[0]);
 
     printf("Response times (us): %u samples\n", count);
 
     /* Compare different thresholds */
-    uint32_t thresholds[] = {
-        VARINT_PFOR_THRESHOLD_90,
-        VARINT_PFOR_THRESHOLD_95,
-        VARINT_PFOR_THRESHOLD_99
-    };
+    uint32_t thresholds[] = {VARINT_PFOR_THRESHOLD_90, VARINT_PFOR_THRESHOLD_95,
+                             VARINT_PFOR_THRESHOLD_99};
     const char *thresholdNames[] = {"90th", "95th", "99th"};
 
     printf("\nThreshold | Width | Exceptions | Size\n");
@@ -150,8 +143,8 @@ void example_response_times() {
         size_t size = varintPFOREncode(buffer, responseTimes, count,
                                        thresholds[t], &meta);
 
-        printf("%-9s | %d     | %-10u | %zu\n",
-               thresholdNames[t], meta.width, meta.exceptionCount, size);
+        printf("%-9s | %d     | %-10u | %zu\n", thresholdNames[t], meta.width,
+               meta.exceptionCount, size);
 
         /* Verify decoding */
         uint64_t decoded[sizeof(responseTimes) / sizeof(responseTimes[0])];
@@ -172,18 +165,16 @@ void example_random_access() {
 
     /* Sensor readings: mostly 20-25°C, occasional spikes */
     uint64_t temperatures[] = {
-        20, 21, 22, 21, 23, 22, 24, 21, 22, 23,
-        45, /* heater turned on */
-        22, 21, 23, 22, 24, 23, 21, 22, 20, 23,
-        22, 24, 21, 23, 22, 21, 23, 22, 24, 21
-    };
+        20, 21, 22, 21, 23, 22, 24, 21, 22, 23, 45, /* heater turned on */
+        22, 21, 23, 22, 24, 23, 21, 22, 20, 23, 22,
+        24, 21, 23, 22, 21, 23, 22, 24, 21};
     uint32_t count = sizeof(temperatures) / sizeof(temperatures[0]);
 
     /* Encode */
     varintPFORMeta meta;
     uint8_t buffer[256];
-    varintPFOREncode(buffer, temperatures, count,
-                     VARINT_PFOR_THRESHOLD_95, &meta);
+    varintPFOREncode(buffer, temperatures, count, VARINT_PFOR_THRESHOLD_95,
+                     &meta);
 
     printf("Encoded %u temperature readings\n", count);
     printf("Random access test:\n");
@@ -216,7 +207,8 @@ void example_exception_handling() {
     size_t size1 = varintPFOREncode(buffer1, scattered, scatteredCount,
                                     VARINT_PFOR_THRESHOLD_95, &meta1);
 
-    printf("  Encoded %u scattered values in %zu bytes\n", scatteredCount, size1);
+    printf("  Encoded %u scattered values in %zu bytes\n", scatteredCount,
+           size1);
     printf("  Exceptions: %u (%.0f%%)\n", meta1.exceptionCount,
            ((float)meta1.exceptionCount / scatteredCount) * 100);
 
@@ -239,7 +231,8 @@ void example_exception_handling() {
     size_t size2 = varintPFOREncode(buffer2, clustered, clusteredCount,
                                     VARINT_PFOR_THRESHOLD_95, &meta2);
 
-    printf("  Encoded %u clustered values in %zu bytes\n", clusteredCount, size2);
+    printf("  Encoded %u clustered values in %zu bytes\n", clusteredCount,
+           size2);
     printf("  Exceptions: %u (%.0f%%)\n", meta2.exceptionCount,
            ((float)meta2.exceptionCount / clusteredCount) * 100);
     printf("  Width: %d byte(s)\n", meta2.width);
@@ -254,8 +247,8 @@ void example_exception_handling() {
 
     /* Space efficiency for perfectly clustered data */
     size_t uint64Size = clusteredCount * sizeof(uint64_t);
-    printf("  Space: %zu bytes (vs %zu with uint64_t, %.1f%% savings)\n",
-           size2, uint64Size, ((float)(uint64Size - size2) / uint64Size) * 100);
+    printf("  Space: %zu bytes (vs %zu with uint64_t, %.1f%% savings)\n", size2,
+           uint64Size, ((float)(uint64Size - size2) / uint64Size) * 100);
     printf("  ✓ Decoded correctly\n");
 
     /* Test 3: Single value */
@@ -286,13 +279,10 @@ void example_network_latency() {
 
     /* Ping times in milliseconds: mostly 10-20ms, rare packet loss/timeout */
     uint64_t latencies[] = {
-        12, 15, 11, 16, 13, 14, 17, 12, 15, 13,
-        11, 16, 14, 13, 15, 12, 17, 14, 11, 16,
-        3000, /* packet loss/timeout */
-        13, 15, 12, 14, 16, 11, 15, 13, 17, 12,
-        14, 16, 13, 15, 11, 14, 12, 16, 15, 13,
-        12, 14, 17, 15, 11, 13, 16, 12, 14, 15
-    };
+        12, 15, 11, 16, 13, 14,   17, 12, 15, 13, 11, 16, 14, 13, 15,
+        12, 17, 14, 11, 16, 3000, /* packet loss/timeout */
+        13, 15, 12, 14, 16, 11,   15, 13, 17, 12, 14, 16, 13, 15, 11,
+        14, 12, 16, 15, 13, 12,   14, 17, 15, 11, 13, 16, 12, 14, 15};
     uint32_t count = sizeof(latencies) / sizeof(latencies[0]);
 
     printf("Monitoring %u ping samples\n", count);
@@ -306,8 +296,7 @@ void example_network_latency() {
     printf("Encoded in %zu bytes\n", encodedSize);
     printf("Range: min=%lu ms, marker=%lu\n", meta.min, meta.exceptionMarker);
     printf("Frame width: %d byte(s)\n", meta.width);
-    printf("Anomalies detected: %u (%.1f%%)\n",
-           meta.exceptionCount,
+    printf("Anomalies detected: %u (%.1f%%)\n", meta.exceptionCount,
            ((float)meta.exceptionCount / count) * 100);
 
     /* Decode and verify */
@@ -321,8 +310,7 @@ void example_network_latency() {
 
     /* Report compression efficiency */
     size_t uncompressedSize = count * sizeof(uint64_t);
-    printf("Compression ratio: %.1fx\n",
-           (float)uncompressedSize / encodedSize);
+    printf("Compression ratio: %.1fx\n", (float)uncompressedSize / encodedSize);
 
     printf("✓ Network latency encoding successful\n");
 
@@ -383,18 +371,17 @@ void example_space_analysis() {
         uint64_t *values;
         uint32_t count;
     } datasets[] = {
-        {"Tightly clustered (100-110)", (uint64_t[]){
-            100, 101, 102, 103, 104, 105, 106, 107, 108, 109, 110
-        }, 11},
-        {"Mostly clustered + 1 outlier", (uint64_t[]){
-            100, 101, 102, 103, 10000, 105, 106, 107, 108, 109
-        }, 10},
-        {"Mostly clustered + 3 outliers", (uint64_t[]){
-            100, 101, 5000, 103, 104, 105, 10000, 107, 108, 15000
-        }, 10},
-        {"Wide distribution", (uint64_t[]){
-            10, 1000, 100000, 50, 200, 5000, 300, 800, 10000, 150
-        }, 10},
+        {"Tightly clustered (100-110)",
+         (uint64_t[]){100, 101, 102, 103, 104, 105, 106, 107, 108, 109, 110},
+         11},
+        {"Mostly clustered + 1 outlier",
+         (uint64_t[]){100, 101, 102, 103, 10000, 105, 106, 107, 108, 109}, 10},
+        {"Mostly clustered + 3 outliers",
+         (uint64_t[]){100, 101, 5000, 103, 104, 105, 10000, 107, 108, 15000},
+         10},
+        {"Wide distribution",
+         (uint64_t[]){10, 1000, 100000, 50, 200, 5000, 300, 800, 10000, 150},
+         10},
     };
 
     printf("Dataset                          | uint64 | PFOR | Savings\n");
@@ -411,8 +398,8 @@ void example_space_analysis() {
 
         float savings = ((float)(uint64Size - pforSize) / uint64Size) * 100;
 
-        printf("%-32s | %6zu | %4zu | %5.1f%%\n",
-               datasets[d].name, uint64Size, pforSize, savings);
+        printf("%-32s | %6zu | %4zu | %5.1f%%\n", datasets[d].name, uint64Size,
+               pforSize, savings);
 
         /* Verify encoding */
         uint64_t decoded[11];

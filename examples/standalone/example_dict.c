@@ -10,15 +10,16 @@
  *   - Good: < 10% unique values = significant savings
  *   - Poor: > 50% unique values = may cause expansion
  *
- * Compile: gcc -I../../src example_dict.c ../../src/varintDict.c ../../src/varintTagged.c ../../src/varintExternal.c -o example_dict
- * Run: ./example_dict
+ * Compile: gcc -I../../src example_dict.c ../../src/varintDict.c
+ * ../../src/varintTagged.c ../../src/varintExternal.c -o example_dict Run:
+ * ./example_dict
  */
 
 #include "varintDict.h"
-#include <stdio.h>
 #include <assert.h>
-#include <string.h>
+#include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 /* ====================================================================
  * Example 1: Basic Dictionary Encoding
@@ -80,16 +81,17 @@ void example_log_sources() {
     uint64_t *logSources = (uint64_t *)malloc(100 * sizeof(uint64_t));
     for (int i = 0; i < 100; i++) {
         /* Distribute logs across sources (realistic pattern) */
-        if (i % 10 < 4)
+        if (i % 10 < 4) {
             logSources[i] = WEBSERVER; /* 40% web logs */
-        else if (i % 10 < 7)
+        } else if (i % 10 < 7) {
             logSources[i] = DATABASE; /* 30% database logs */
-        else if (i % 10 < 9)
+        } else if (i % 10 < 9) {
             logSources[i] = NETWORK; /* 20% network logs */
-        else if (i % 10 < 10)
+        } else if (i % 10 < 10) {
             logSources[i] = AUTH; /* 10% auth logs */
-        else
+        } else {
             logSources[i] = KERNEL; /* Rare kernel logs */
+        }
     }
 
     printf("Log entries: 100\n");
@@ -208,13 +210,11 @@ void example_enum_values() {
 
     /* Simulate connection state transitions */
     uint64_t states[] = {
-        STATE_IDLE,          STATE_CONNECTING, STATE_CONNECTED,
-        STATE_SENDING,       STATE_RECEIVING,  STATE_SENDING,
-        STATE_RECEIVING,     STATE_SENDING,    STATE_RECEIVING,
-        STATE_DISCONNECTING, STATE_IDLE,       STATE_CONNECTING,
-        STATE_CONNECTED,     STATE_SENDING,    STATE_RECEIVING,
-        STATE_ERROR,         STATE_IDLE,       STATE_CONNECTING,
-        STATE_CONNECTED,     STATE_SENDING,
+        STATE_IDLE,      STATE_CONNECTING,    STATE_CONNECTED, STATE_SENDING,
+        STATE_RECEIVING, STATE_SENDING,       STATE_RECEIVING, STATE_SENDING,
+        STATE_RECEIVING, STATE_DISCONNECTING, STATE_IDLE,      STATE_CONNECTING,
+        STATE_CONNECTED, STATE_SENDING,       STATE_RECEIVING, STATE_ERROR,
+        STATE_IDLE,      STATE_CONNECTING,    STATE_CONNECTED, STATE_SENDING,
     };
     size_t count = sizeof(states) / sizeof(states[0]);
 
@@ -300,12 +300,15 @@ void example_shared_dictionary() {
     uint64_t *out3 = varintDictDecode(buffer3, size3, &dec3);
 
     assert(out1 && out2 && out3);
-    for (size_t i = 0; i < count1; i++)
+    for (size_t i = 0; i < count1; i++) {
         assert(out1[i] == array1[i]);
-    for (size_t i = 0; i < count2; i++)
+    }
+    for (size_t i = 0; i < count2; i++) {
         assert(out2[i] == array2[i]);
-    for (size_t i = 0; i < count3; i++)
+    }
+    for (size_t i = 0; i < count3; i++) {
         assert(out3[i] == array3[i]);
+    }
 
     free(out1);
     free(out2);

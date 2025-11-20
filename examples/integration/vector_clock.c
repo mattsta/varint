@@ -20,11 +20,11 @@
  */
 
 #include "varintTagged.h"
+#include <assert.h>
+#include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <assert.h>
-#include <stdbool.h>
 
 // ============================================================================
 // VECTOR CLOCK DATA STRUCTURES
@@ -35,20 +35,20 @@
  * Only stores non-zero entries for efficiency.
  */
 typedef struct {
-    uint32_t *actorIds;    // Actor IDs
-    uint64_t *counters;    // Logical timestamps
-    size_t entryCount;     // Number of entries
-    size_t capacity;       // Allocated capacity
+    uint32_t *actorIds; // Actor IDs
+    uint64_t *counters; // Logical timestamps
+    size_t entryCount;  // Number of entries
+    size_t capacity;    // Allocated capacity
 } VectorClock;
 
 /**
  * Comparison results for vector clocks
  */
 typedef enum {
-    VC_EQUAL,           // A == B (identical)
-    VC_HAPPENS_BEFORE,  // A < B (A causally precedes B)
-    VC_HAPPENS_AFTER,   // A > B (B causally precedes A)
-    VC_CONCURRENT       // A || B (concurrent, no causal relation)
+    VC_EQUAL,          // A == B (identical)
+    VC_HAPPENS_BEFORE, // A < B (A causally precedes B)
+    VC_HAPPENS_AFTER,  // A > B (B causally precedes A)
+    VC_CONCURRENT      // A || B (concurrent, no causal relation)
 } VectorClockOrdering;
 
 // ============================================================================
@@ -71,8 +71,10 @@ void vcFree(VectorClock *vc) {
 
 void vcCopy(VectorClock *dst, const VectorClock *src) {
     if (dst->capacity < src->entryCount) {
-        dst->actorIds = realloc(dst->actorIds, src->entryCount * sizeof(uint32_t));
-        dst->counters = realloc(dst->counters, src->entryCount * sizeof(uint64_t));
+        dst->actorIds =
+            realloc(dst->actorIds, src->entryCount * sizeof(uint32_t));
+        dst->counters =
+            realloc(dst->counters, src->entryCount * sizeof(uint64_t));
         dst->capacity = src->entryCount;
     }
     memcpy(dst->actorIds, src->actorIds, src->entryCount * sizeof(uint32_t));
@@ -155,10 +157,10 @@ VectorClockOrdering vcCompare(const VectorClock *a, const VectorClock *b) {
         uint64_t bCounter = vcGet(b, actorId);
 
         if (aCounter > bCounter) {
-            aLessOrEqual = false;  // a > b means NOT a <= b
+            aLessOrEqual = false; // a > b means NOT a <= b
             foundDifference = true;
         } else if (aCounter < bCounter) {
-            bLessOrEqual = false;  // a < b means NOT b <= a
+            bLessOrEqual = false; // a < b means NOT b <= a
             foundDifference = true;
         }
     }
@@ -175,7 +177,7 @@ VectorClockOrdering vcCompare(const VectorClock *a, const VectorClock *b) {
         }
 
         if (!found && b->counters[i] > 0) {
-            bLessOrEqual = false;  // b has counter > a's 0, so NOT b <= a
+            bLessOrEqual = false; // b has counter > a's 0, so NOT b <= a
             foundDifference = true;
         }
     }
@@ -251,7 +253,7 @@ size_t vcDeserialize(VectorClock *vc, const uint8_t *buffer) {
 typedef struct {
     char key[32];
     char value[64];
-    VectorClock version;  // Version vector for this key
+    VectorClock version; // Version vector for this key
 } KVEntry;
 
 typedef struct {
@@ -298,8 +300,8 @@ void nodeWrite(KVNode *node, const char *key, const char *value) {
         // Add new entry
         if (node->entryCount >= node->entryCapacity) {
             node->entryCapacity *= 2;
-            node->entries = realloc(node->entries,
-                                   node->entryCapacity * sizeof(KVEntry));
+            node->entries =
+                realloc(node->entries, node->entryCapacity * sizeof(KVEntry));
         }
         entry = &node->entries[node->entryCount++];
         strncpy(entry->key, key, sizeof(entry->key) - 1);
@@ -332,19 +334,26 @@ void nodeSendMessage(KVNode *sender, KVNode *receiver) {
 void vcPrint(const VectorClock *vc, const char *prefix) {
     printf("%s{", prefix);
     for (size_t i = 0; i < vc->entryCount; i++) {
-        if (i > 0) printf(", ");
+        if (i > 0) {
+            printf(", ");
+        }
         printf("N%u:%lu", vc->actorIds[i], vc->counters[i]);
     }
     printf("}");
 }
 
-const char* vcOrderingToString(VectorClockOrdering order) {
+const char *vcOrderingToString(VectorClockOrdering order) {
     switch (order) {
-        case VC_EQUAL: return "EQUAL";
-        case VC_HAPPENS_BEFORE: return "HAPPENS-BEFORE";
-        case VC_HAPPENS_AFTER: return "HAPPENS-AFTER";
-        case VC_CONCURRENT: return "CONCURRENT";
-        default: return "UNKNOWN";
+    case VC_EQUAL:
+        return "EQUAL";
+    case VC_HAPPENS_BEFORE:
+        return "HAPPENS-BEFORE";
+    case VC_HAPPENS_AFTER:
+        return "HAPPENS-AFTER";
+    case VC_CONCURRENT:
+        return "CONCURRENT";
+    default:
+        return "UNKNOWN";
     }
 }
 
@@ -360,7 +369,7 @@ void demonstrateVectorClocks() {
 
     KVNode nodes[4];
     for (int i = 0; i < 4; i++) {
-        nodeInit(&nodes[i], i + 1);  // Node IDs: 1, 2, 3, 4
+        nodeInit(&nodes[i], i + 1); // Node IDs: 1, 2, 3, 4
     }
 
     // 2. Local events (no communication)
@@ -496,9 +505,11 @@ void demonstrateVectorClocks() {
         }
     }
 
-    VectorClockOrdering conflict = vcCompare(&n1Entry->version, &n4Entry->version);
+    VectorClockOrdering conflict =
+        vcCompare(&n1Entry->version, &n4Entry->version);
     printf("\n   Conflict check: %s\n", vcOrderingToString(conflict));
-    printf("   → Requires conflict resolution (e.g., last-writer-wins, merge)\n");
+    printf(
+        "   → Requires conflict resolution (e.g., last-writer-wins, merge)\n");
     assert(conflict == VC_CONCURRENT);
 
     // 6. Serialization and compression analysis
@@ -513,8 +524,9 @@ void demonstrateVectorClocks() {
     printf("   Serialized size: %zu bytes (varintTagged)\n", serializedSize);
 
     // Fixed-width comparison
-    size_t fixedSize = sizeof(uint64_t) + // entry count
-                       nodes[3].clock.entryCount * (sizeof(uint32_t) + sizeof(uint64_t));
+    size_t fixedSize =
+        sizeof(uint64_t) + // entry count
+        nodes[3].clock.entryCount * (sizeof(uint32_t) + sizeof(uint64_t));
     printf("   Fixed-width size: %zu bytes\n", fixedSize);
     printf("   Compression: %.1f%%\n",
            ((float)(fixedSize - serializedSize) / fixedSize) * 100);
@@ -539,15 +551,16 @@ void demonstrateVectorClocks() {
     size_t totalSparse = 0, totalDense = 0;
     for (int i = 0; i < 4; i++) {
         size_t sparse = vcSerialize(&nodes[i].clock, buffer);
-        size_t dense = sizeof(uint32_t) * 4 + sizeof(uint64_t) * 4; // All 4 nodes
+        size_t dense =
+            sizeof(uint32_t) * 4 + sizeof(uint64_t) * 4; // All 4 nodes
         totalSparse += sparse;
         totalDense += dense;
-        printf("   Node %d: %zu bytes (sparse) vs %zu bytes (dense)\n",
-               i + 1, sparse, dense);
+        printf("   Node %d: %zu bytes (sparse) vs %zu bytes (dense)\n", i + 1,
+               sparse, dense);
     }
 
-    printf("\n   Total: %zu bytes (sparse) vs %zu bytes (dense)\n",
-           totalSparse, totalDense);
+    printf("\n   Total: %zu bytes (sparse) vs %zu bytes (dense)\n", totalSparse,
+           totalDense);
     printf("   Savings: %.1f%%\n",
            ((float)(totalDense - totalSparse) / totalDense) * 100);
 
@@ -595,7 +608,8 @@ void demonstrateAdvancedScenarios() {
 
     uint8_t buffer[1024];
     size_t sparseSize = vcSerialize(&largeClock, buffer);
-    size_t denseSize = sizeof(uint64_t) + 1000 * (sizeof(uint32_t) + sizeof(uint64_t));
+    size_t denseSize =
+        sizeof(uint64_t) + 1000 * (sizeof(uint32_t) + sizeof(uint64_t));
 
     printf("   Sparse encoding: %zu bytes\n", sparseSize);
     printf("   Dense encoding: %zu bytes (all 1000 nodes)\n", denseSize);
@@ -649,7 +663,8 @@ void demonstrateAdvancedScenarios() {
         }
     }
 
-    VectorClockOrdering partitionOrder = vcCompare(&p1Entry->version, &p2Entry->version);
+    VectorClockOrdering partitionOrder =
+        vcCompare(&p1Entry->version, &p2Entry->version);
     printf("\n   Partition reconciliation:\n");
     printf("   Version comparison: %s\n", vcOrderingToString(partitionOrder));
     printf("   → System must maintain both versions (siblings)\n");

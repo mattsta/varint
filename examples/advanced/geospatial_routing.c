@@ -19,8 +19,8 @@
  * Real-world relevance: Google Maps, OpenStreetMap, Uber, and Lyft use
  * similar encoding for billions of GPS coordinates and route calculations.
  *
- * Compile: gcc -I../../src geospatial_routing.c ../../build/src/libvarint.a -o geospatial_routing -lm
- * Run: ./geospatial_routing
+ * Compile: gcc -I../../src geospatial_routing.c ../../build/src/libvarint.a -o
+ * geospatial_routing -lm Run: ./geospatial_routing
  */
 
 // Generate varintPacked12 for elevation (0-4095 meters)
@@ -42,8 +42,8 @@
 // ============================================================================
 
 typedef struct {
-    double latitude;   // -90 to +90 degrees
-    double longitude;  // -180 to +180 degrees
+    double latitude;    // -90 to +90 degrees
+    double longitude;   // -180 to +180 degrees
     uint16_t elevation; // 0-4095 meters (12-bit)
 } GPSCoordinate;
 
@@ -63,7 +63,7 @@ double decodeLatLon(int32_t encoded) {
 typedef struct {
     GPSCoordinate *points;
     size_t pointCount;
-    uint64_t timestamp;  // Track start time
+    uint64_t timestamp; // Track start time
     char name[64];
 } GPSTrack;
 
@@ -79,8 +79,10 @@ void trackFree(GPSTrack *track) {
     free(track->points);
 }
 
-void trackAddPoint(GPSTrack *track, double lat, double lon, uint16_t elevation) {
-    GPSCoordinate *newPoints = realloc(track->points, (track->pointCount + 1) * sizeof(GPSCoordinate));
+void trackAddPoint(GPSTrack *track, double lat, double lon,
+                   uint16_t elevation) {
+    GPSCoordinate *newPoints =
+        realloc(track->points, (track->pointCount + 1) * sizeof(GPSCoordinate));
     if (!newPoints) {
         fprintf(stderr, "Error: Failed to reallocate track points\n");
         return;
@@ -134,7 +136,7 @@ size_t compressGPSTrack(const GPSTrack *track, uint8_t *buffer) {
 
         // Elevation (12-bit packed)
         varintPacked12Set(buffer + offset, 0, elev);
-        offset += 2;  // 12 bits = 2 bytes when packed
+        offset += 2; // 12 bits = 2 bytes when packed
 
         prevLat = lat;
         prevLon = lon;
@@ -157,15 +159,15 @@ typedef enum {
 
 typedef struct {
     FeatureType type;
-    GPSCoordinate *geometry;  // Polygon or line
+    GPSCoordinate *geometry; // Polygon or line
     size_t geometryCount;
     char name[64];
 } Feature;
 
 typedef struct {
-    uint32_t tileX;     // Tile X coordinate (zoom level dependent)
-    uint32_t tileY;     // Tile Y coordinate
-    uint8_t zoomLevel;  // 0-22
+    uint32_t tileX;    // Tile X coordinate (zoom level dependent)
+    uint32_t tileY;    // Tile Y coordinate
+    uint8_t zoomLevel; // 0-22
     Feature *features;
     size_t featureCount;
 } MapTile;
@@ -184,7 +186,7 @@ typedef struct {
 typedef struct {
     uint64_t fromNode;
     uint64_t toNode;
-    uint32_t distance;  // Meters
+    uint32_t distance;   // Meters
     uint16_t speedLimit; // km/h
     uint8_t roadType;
 } RouteEdge;
@@ -193,7 +195,7 @@ typedef struct {
     RouteNode *nodes;
     size_t nodeCount;
     uint32_t totalDistance;
-    uint32_t estimatedTime;  // Seconds
+    uint32_t estimatedTime; // Seconds
 } Route;
 
 size_t compressRoute(const Route *route, uint8_t *buffer) {
@@ -262,13 +264,14 @@ void demonstrateGeospatial() {
         // Simulate movement (roughly south, with some variation)
         double lat = startLat - (i * 0.0001) + (sin(i * 0.1) * 0.00005);
         double lon = startLon + (i * 0.00008) + (cos(i * 0.1) * 0.00003);
-        uint16_t elevation = (uint16_t)(100 + sin(i * 0.05) * 50);  // 50-150m
+        uint16_t elevation = (uint16_t)(100 + sin(i * 0.05) * 50); // 50-150m
 
         trackAddPoint(&track, lat, lon, elevation);
     }
 
     printf("   Track length: %zu points\n", track.pointCount);
-    printf("   Distance: ~%.1f km\n", track.pointCount * 0.01);  // Rough estimate
+    printf("   Distance: ~%.1f km\n",
+           track.pointCount * 0.01); // Rough estimate
 
     // 2. Compress GPS track
     printf("\n2. Compressing GPS track...\n");
@@ -277,12 +280,14 @@ void demonstrateGeospatial() {
     size_t compressedSize = compressGPSTrack(&track, compressedTrack);
 
     // Calculate uncompressed size
-    size_t uncompressedSize = strlen(track.name) + 1 + 8 + 8 +
-                              (track.pointCount * (8 + 8 + 2));  // lat + lon + elev
+    size_t uncompressedSize =
+        strlen(track.name) + 1 + 8 + 8 +
+        (track.pointCount * (8 + 8 + 2)); // lat + lon + elev
 
     printf("   Uncompressed size: %zu bytes\n", uncompressedSize);
     printf("   Compressed size: %zu bytes\n", compressedSize);
-    printf("   Compression ratio: %.1fx\n", (double)uncompressedSize / compressedSize);
+    printf("   Compression ratio: %.1fx\n",
+           (double)uncompressedSize / compressedSize);
     printf("   Space savings: %.1f%%\n",
            100.0 * (1.0 - (double)compressedSize / uncompressedSize));
     printf("   Bytes per point: %.1f (vs %.1f uncompressed)\n",
@@ -297,8 +302,10 @@ void demonstrateGeospatial() {
     int32_t lat1 = encodeLatLon(track.points[1].latitude);
     int32_t deltaLat = lat1 - lat0;
 
-    printf("   First coordinate: %.5f° = %d (encoded)\n", track.points[0].latitude, lat0);
-    printf("   Second coordinate: %.5f° = %d (encoded)\n", track.points[1].latitude, lat1);
+    printf("   First coordinate: %.5f° = %d (encoded)\n",
+           track.points[0].latitude, lat0);
+    printf("   Second coordinate: %.5f° = %d (encoded)\n",
+           track.points[1].latitude, lat1);
     printf("   Delta: %d\n", deltaLat);
     printf("   \n");
     printf("   Delta encoding:\n");
@@ -317,10 +324,12 @@ void demonstrateGeospatial() {
     printf("   Elevation range: ");
     uint16_t minElev = 65535, maxElev = 0;
     for (size_t i = 0; i < track.pointCount; i++) {
-        if (track.points[i].elevation < minElev)
+        if (track.points[i].elevation < minElev) {
             minElev = track.points[i].elevation;
-        if (track.points[i].elevation > maxElev)
+        }
+        if (track.points[i].elevation > maxElev) {
             maxElev = track.points[i].elevation;
+        }
     }
     printf("%u - %u meters\n", minElev, maxElev);
 
@@ -333,9 +342,9 @@ void demonstrateGeospatial() {
     printf("\n5. Creating optimized route...\n");
 
     Route route;
-    route.nodeCount = 20;  // 20 waypoints
-    route.totalDistance = 50000;  // 50 km
-    route.estimatedTime = 3600;   // 1 hour
+    route.nodeCount = 20;        // 20 waypoints
+    route.totalDistance = 50000; // 50 km
+    route.estimatedTime = 3600;  // 1 hour
     route.nodes = malloc(route.nodeCount * sizeof(RouteNode));
 
     for (size_t i = 0; i < route.nodeCount; i++) {
@@ -348,8 +357,8 @@ void demonstrateGeospatial() {
     printf("   Route waypoints: %zu\n", route.nodeCount);
     printf("   Total distance: %u meters (%.1f km)\n", route.totalDistance,
            route.totalDistance / 1000.0);
-    printf("   Estimated time: %u seconds (%.1f minutes)\n", route.estimatedTime,
-           route.estimatedTime / 60.0);
+    printf("   Estimated time: %u seconds (%.1f minutes)\n",
+           route.estimatedTime, route.estimatedTime / 60.0);
 
     // 6. Compress route
     printf("\n6. Compressing navigation route...\n");
@@ -357,7 +366,8 @@ void demonstrateGeospatial() {
     uint8_t compressedRoute[4096];
     size_t routeSize = compressRoute(&route, compressedRoute);
 
-    size_t routeUncompressed = route.nodeCount * (8 + 8 + 2);  // lat + lon + elev
+    size_t routeUncompressed =
+        route.nodeCount * (8 + 8 + 2); // lat + lon + elev
     printf("   Uncompressed: %zu bytes\n", routeUncompressed);
     printf("   Compressed: %zu bytes\n", routeSize);
     printf("   Compression: %.1fx\n", (double)routeUncompressed / routeSize);
@@ -365,7 +375,8 @@ void demonstrateGeospatial() {
     printf("\n   Turn-by-turn navigation:\n");
     printf("   - %zu waypoints\n", route.nodeCount);
     printf("   - %zu bytes total\n", routeSize);
-    printf("   - %.1f bytes per waypoint\n", (double)routeSize / route.nodeCount);
+    printf("   - %.1f bytes per waypoint\n",
+           (double)routeSize / route.nodeCount);
     printf("   - Perfect for mobile devices!\n");
 
     // 7. Real-time location updates

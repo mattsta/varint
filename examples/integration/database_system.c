@@ -12,16 +12,16 @@
  * - Schema-driven encoding
  * - Memory-efficient storage
  *
- * Compile: gcc -I../src database_system.c ../build/src/libvarint.a -o database_system
- * Run: ./database_system
+ * Compile: gcc -I../src database_system.c ../build/src/libvarint.a -o
+ * database_system Run: ./database_system
  */
 
-#include "varintTagged.h"
 #include "varintExternal.h"
+#include "varintTagged.h"
+#include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <assert.h>
 #include <time.h>
 
 // Generate 13-bit packed array for indexes
@@ -33,23 +33,24 @@
 // ============================================================================
 
 typedef enum {
-    COL_USER_ID,      // Primary key: uint64_t (varintTagged)
-    COL_AGE,          // uint8_t
-    COL_SCORE,        // uint32_t
-    COL_TIMESTAMP,    // uint64_t (40-bit unix time)
+    COL_USER_ID,   // Primary key: uint64_t (varintTagged)
+    COL_AGE,       // uint8_t
+    COL_SCORE,     // uint32_t
+    COL_TIMESTAMP, // uint64_t (40-bit unix time)
     COL_COUNT
 } ColumnType;
 
 typedef struct {
     const char *name;
-    varintWidth maxWidth;  // Maximum bytes for this column type
+    varintWidth maxWidth; // Maximum bytes for this column type
 } ColumnSchema;
 
 static const ColumnSchema SCHEMA[COL_COUNT] = {
-    {"user_id", 8},      // varintTagged key (up to 9 bytes, but we use external width)
-    {"age", 1},          // Always 1 byte
-    {"score", 4},        // Up to 4 bytes
-    {"timestamp", 5},    // 40-bit timestamp (5 bytes)
+    {"user_id",
+     8},          // varintTagged key (up to 9 bytes, but we use external width)
+    {"age", 1},   // Always 1 byte
+    {"score", 4}, // Up to 4 bytes
+    {"timestamp", 5}, // 40-bit timestamp (5 bytes)
 };
 
 // ============================================================================
@@ -58,12 +59,12 @@ static const ColumnSchema SCHEMA[COL_COUNT] = {
 
 typedef struct {
     // Primary key (varintTagged for sortability)
-    uint8_t *keys;           // Array of variable-length tagged varints
-    size_t *keyOffsets;      // Offset to each key in keys array
+    uint8_t *keys;      // Array of variable-length tagged varints
+    size_t *keyOffsets; // Offset to each key in keys array
 
     // Column data (varintExternal for efficiency)
-    uint8_t *columnData[COL_COUNT];  // One array per column
-    varintWidth columnWidths[COL_COUNT];  // Actual width used per column
+    uint8_t *columnData[COL_COUNT];      // One array per column
+    varintWidth columnWidths[COL_COUNT]; // Actual width used per column
 
     // Metadata
     size_t rowCount;
@@ -71,7 +72,7 @@ typedef struct {
 } Table;
 
 void tableInit(Table *t, size_t initialCapacity) {
-    t->keys = malloc(initialCapacity * 9);  // Max 9 bytes per key
+    t->keys = malloc(initialCapacity * 9); // Max 9 bytes per key
     t->keyOffsets = malloc(initialCapacity * sizeof(size_t));
 
     for (int i = 0; i < COL_COUNT; i++) {
@@ -117,8 +118,8 @@ void tableInsert(Table *t, const Row *row) {
         t->keyOffsets[idx] = prevKeyOffset + prevKeyLen;
     }
 
-    varintWidth keyLen = varintTaggedPut64(t->keys + t->keyOffsets[idx],
-                                           row->userId);
+    varintWidth keyLen =
+        varintTaggedPut64(t->keys + t->keyOffsets[idx], row->userId);
     (void)keyLen;
 
     // 2. Insert column data (varintExternal for efficiency)
@@ -179,7 +180,9 @@ int compareKeys(const void *a, const void *b, const Table *t) {
     size_t minLen = lenA < lenB ? lenA : lenB;
     int cmp = memcmp(keyA, keyB, minLen);
 
-    if (cmp != 0) return cmp;
+    if (cmp != 0) {
+        return cmp;
+    }
     return (lenA > lenB) - (lenA < lenB);
 }
 
@@ -188,7 +191,7 @@ int compareKeys(const void *a, const void *b, const Table *t) {
 // ============================================================================
 
 typedef struct {
-    uint8_t *packed;     // 13-bit packed array (row indices 0-8191)
+    uint8_t *packed; // 13-bit packed array (row indices 0-8191)
     size_t count;
 } SecondaryIndex;
 
@@ -199,7 +202,7 @@ void indexInit(SecondaryIndex *idx, size_t capacity) {
 }
 
 void indexAdd(SecondaryIndex *idx, uint16_t rowIdx) {
-    assert(rowIdx < 8192);  // 13-bit limit
+    assert(rowIdx < 8192); // 13-bit limit
     // Insert in sorted order
     varintPacked13InsertSorted(idx->packed, idx->count, rowIdx);
     idx->count++;
@@ -226,23 +229,19 @@ void demonstrateDatabase() {
 
     printf("1. Creating table with schema:\n");
     for (int i = 0; i < COL_COUNT; i++) {
-        printf("   - %-12s: %d bytes max\n", SCHEMA[i].name, SCHEMA[i].maxWidth);
+        printf("   - %-12s: %d bytes max\n", SCHEMA[i].name,
+               SCHEMA[i].maxWidth);
     }
 
     // 2. Insert rows
     printf("\n2. Inserting 10 rows...\n");
 
     Row rows[] = {
-        {1001, 25, 95, time(NULL)},
-        {1005, 30, 82, time(NULL) + 1},
-        {1002, 22, 98, time(NULL) + 2},
-        {1008, 28, 76, time(NULL) + 3},
-        {1003, 35, 91, time(NULL) + 4},
-        {1009, 40, 88, time(NULL) + 5},
-        {1004, 26, 93, time(NULL) + 6},
-        {1007, 32, 79, time(NULL) + 7},
-        {1006, 29, 85, time(NULL) + 8},
-        {1010, 24, 97, time(NULL) + 9},
+        {1001, 25, 95, time(NULL)},     {1005, 30, 82, time(NULL) + 1},
+        {1002, 22, 98, time(NULL) + 2}, {1008, 28, 76, time(NULL) + 3},
+        {1003, 35, 91, time(NULL) + 4}, {1009, 40, 88, time(NULL) + 5},
+        {1004, 26, 93, time(NULL) + 6}, {1007, 32, 79, time(NULL) + 7},
+        {1006, 29, 85, time(NULL) + 8}, {1010, 24, 97, time(NULL) + 9},
     };
 
     for (size_t i = 0; i < 10; i++) {
@@ -259,8 +258,8 @@ void demonstrateDatabase() {
     for (size_t i = 0; i < table.rowCount; i++) {
         Row row;
         tableGet(&table, i, &row);
-        printf("   %6lu | %3u | %5u | %lu\n",
-               row.userId, row.age, row.score, row.timestamp);
+        printf("   %6lu | %3u | %5u | %lu\n", row.userId, row.age, row.score,
+               row.timestamp);
     }
 
     // 4. Sort by primary key
@@ -288,8 +287,8 @@ void demonstrateDatabase() {
     for (size_t i = 0; i < table.rowCount; i++) {
         Row row;
         tableGet(&table, indices[i], &row);
-        printf("   %6lu | %3u | %5u | %lu\n",
-               row.userId, row.age, row.score, row.timestamp);
+        printf("   %6lu | %3u | %5u | %lu\n", row.userId, row.age, row.score,
+               row.timestamp);
     }
 
     free(indices);
@@ -305,8 +304,8 @@ void demonstrateDatabase() {
         tableGet(&table, i, &row);
         if (row.score > 90) {
             indexAdd(&scoreIndex, i);
-            printf("   Added row %zu (userID=%lu, score=%u) to index\n",
-                   i, row.userId, row.score);
+            printf("   Added row %zu (userID=%lu, score=%u) to index\n", i,
+                   row.userId, row.score);
         }
     }
 
@@ -342,7 +341,7 @@ void demonstrateDatabase() {
 
     size_t totalVarint = keyBytes + columnBytes + indexBytes;
     size_t totalFixed = (table.rowCount * 8) + columnBytes +
-                       (scoreIndex.count * sizeof(uint16_t));
+                        (scoreIndex.count * sizeof(uint16_t));
 
     printf("   Keys (varintTagged):     %zu bytes (vs %zu bytes uint64_t)\n",
            keyBytes, table.rowCount * 8);

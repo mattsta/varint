@@ -1,7 +1,7 @@
 #include "varintBitmap.h"
 #include "ctest.h"
-#include <string.h>
 #include <stdlib.h>
+#include <string.h>
 
 int varintBitmapTest(int argc, char *argv[]) {
     (void)argc;
@@ -87,7 +87,8 @@ int varintBitmapTest(int argc, char *argv[]) {
 
         /* Should have converted to BITMAP container */
         if (bm->type != VARINT_BITMAP_BITMAP) {
-            ERR("Type = %d, expected BITMAP after adding 5000 values", bm->type);
+            ERR("Type = %d, expected BITMAP after adding 5000 values",
+                bm->type);
         }
 
         /* Verify all values present */
@@ -116,7 +117,8 @@ int varintBitmapTest(int argc, char *argv[]) {
 
         /* Should convert back to ARRAY (cardinality 100 < threshold) */
         if (bm->type != VARINT_BITMAP_ARRAY) {
-            ERR("Type = %d, expected ARRAY after removing most values", bm->type);
+            ERR("Type = %d, expected ARRAY after removing most values",
+                bm->type);
         }
 
         varintBitmapFree(bm);
@@ -149,7 +151,8 @@ int varintBitmapTest(int argc, char *argv[]) {
             ERRR("AND result missing expected values");
         }
 
-        if (varintBitmapContains(result, 1) || varintBitmapContains(result, 7)) {
+        if (varintBitmapContains(result, 1) ||
+            varintBitmapContains(result, 7)) {
             ERRR("AND result contains unexpected values");
         }
 
@@ -205,11 +208,13 @@ int varintBitmapTest(int argc, char *argv[]) {
             ERR("XOR cardinality = %u, expected 2", result->cardinality);
         }
 
-        if (!varintBitmapContains(result, 1) || !varintBitmapContains(result, 4)) {
+        if (!varintBitmapContains(result, 1) ||
+            !varintBitmapContains(result, 4)) {
             ERRR("XOR result incorrect");
         }
 
-        if (varintBitmapContains(result, 2) || varintBitmapContains(result, 3)) {
+        if (varintBitmapContains(result, 2) ||
+            varintBitmapContains(result, 3)) {
             ERRR("XOR result contains common elements");
         }
 
@@ -298,7 +303,8 @@ int varintBitmapTest(int argc, char *argv[]) {
         varintBitmap *clone = varintBitmapClone(bm);
 
         if (clone->cardinality != bm->cardinality) {
-            ERR("Clone cardinality = %u, expected %u", clone->cardinality, bm->cardinality);
+            ERR("Clone cardinality = %u, expected %u", clone->cardinality,
+                bm->cardinality);
         }
 
         /* Verify all values present in clone */
@@ -349,7 +355,8 @@ int varintBitmapTest(int argc, char *argv[]) {
         varintBitmapAdd(bm, 42);
 
         if (bm->cardinality != 1) {
-            ERR("Cardinality after duplicate adds = %u, expected 1", bm->cardinality);
+            ERR("Cardinality after duplicate adds = %u, expected 1",
+                bm->cardinality);
         }
 
         varintBitmapFree(bm);

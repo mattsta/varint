@@ -33,15 +33,18 @@ int varintDeltaTest(int argc, char *argv[]) {
         /* Test decode - these assertions verify known values work correctly */
         // cppcheck-suppress knownConditionTrueFalse
         if (varintDeltaZigZagDecode(0) != 0) {
-            ERR("ZigZagDecode(0) = %" PRId64 ", expected 0", varintDeltaZigZagDecode(0));
+            ERR("ZigZagDecode(0) = %" PRId64 ", expected 0",
+                varintDeltaZigZagDecode(0));
         }
         // cppcheck-suppress knownConditionTrueFalse
         if (varintDeltaZigZagDecode(1) != -1) {
-            ERR("ZigZagDecode(1) = %" PRId64 ", expected -1", varintDeltaZigZagDecode(1));
+            ERR("ZigZagDecode(1) = %" PRId64 ", expected -1",
+                varintDeltaZigZagDecode(1));
         }
         // cppcheck-suppress knownConditionTrueFalse
         if (varintDeltaZigZagDecode(2) != 1) {
-            ERR("ZigZagDecode(2) = %" PRId64 ", expected 1", varintDeltaZigZagDecode(2));
+            ERR("ZigZagDecode(2) = %" PRId64 ", expected 1",
+                varintDeltaZigZagDecode(2));
         }
     }
 
@@ -50,7 +53,7 @@ int varintDeltaTest(int argc, char *argv[]) {
         int64_t delta = 42;
 
         size_t encoded = varintDeltaPut(buffer, delta);
-        (void)encoded;  /* Intentionally unused in test */
+        (void)encoded; /* Intentionally unused in test */
         if (encoded == 0) {
             ERRR("Failed to encode delta");
         }
@@ -62,7 +65,8 @@ int varintDeltaTest(int argc, char *argv[]) {
             ERR("Decoded size %zu != encoded size %zu", decoded_size, encoded);
         }
         if (decoded != delta) {
-            ERR("Decoded value %" PRId64 " != original %" PRId64, decoded, delta);
+            ERR("Decoded value %" PRId64 " != original %" PRId64, decoded,
+                delta);
         }
     }
 
@@ -71,12 +75,13 @@ int varintDeltaTest(int argc, char *argv[]) {
         int64_t delta = -123;
 
         size_t encoded = varintDeltaPut(buffer, delta);
-        (void)encoded;  /* Intentionally unused in test */
+        (void)encoded; /* Intentionally unused in test */
         int64_t decoded;
         varintDeltaGet(buffer, &decoded);
 
         if (decoded != delta) {
-            ERR("Decoded negative delta %" PRId64 " != original %" PRId64, decoded, delta);
+            ERR("Decoded negative delta %" PRId64 " != original %" PRId64,
+                decoded, delta);
         }
     }
 
@@ -86,7 +91,7 @@ int varintDeltaTest(int argc, char *argv[]) {
         uint8_t buffer[256];
 
         size_t encoded = varintDeltaEncode(buffer, values, count);
-        (void)encoded;  /* Intentionally unused in test */
+        (void)encoded; /* Intentionally unused in test */
         if (encoded == 0) {
             ERRR("Failed to encode delta array");
         }
@@ -100,7 +105,8 @@ int varintDeltaTest(int argc, char *argv[]) {
 
         for (size_t i = 0; i < count; i++) {
             if (decoded[i] != values[i]) {
-                ERR("Decoded[%zu] = %" PRId64 ", expected %" PRId64, i, decoded[i], values[i]);
+                ERR("Decoded[%zu] = %" PRId64 ", expected %" PRId64, i,
+                    decoded[i], values[i]);
             }
         }
     }
@@ -111,13 +117,14 @@ int varintDeltaTest(int argc, char *argv[]) {
         uint8_t buffer[256];
 
         size_t encoded = varintDeltaEncode(buffer, values, count);
-        (void)encoded;  /* Intentionally unused in test */
+        (void)encoded; /* Intentionally unused in test */
         int64_t decoded[5];
         varintDeltaDecode(buffer, count, decoded);
 
         for (size_t i = 0; i < count; i++) {
             if (decoded[i] != values[i]) {
-                ERR("Decoded[%zu] = %" PRId64 ", expected %" PRId64, i, decoded[i], values[i]);
+                ERR("Decoded[%zu] = %" PRId64 ", expected %" PRId64, i,
+                    decoded[i], values[i]);
             }
         }
     }
@@ -127,7 +134,7 @@ int varintDeltaTest(int argc, char *argv[]) {
         int64_t timestamps[100];
         int64_t base = 1700000000;
         for (int i = 0; i < 100; i++) {
-            timestamps[i] = base + i;  /* Sequential timestamps */
+            timestamps[i] = base + i; /* Sequential timestamps */
         }
 
         uint8_t buffer[1024];
@@ -136,7 +143,8 @@ int varintDeltaTest(int argc, char *argv[]) {
         /* Naive encoding would be 8 bytes * 100 = 800 bytes */
         /* Delta should be much smaller (base + 99 small deltas) */
         if (encoded >= 800) {
-            ERR("Delta encoding not efficient: %zu bytes (expected < 800)", encoded);
+            ERR("Delta encoding not efficient: %zu bytes (expected < 800)",
+                encoded);
         }
 
         /* Verify correctness */
@@ -156,13 +164,14 @@ int varintDeltaTest(int argc, char *argv[]) {
         uint8_t buffer[256];
 
         size_t encoded = varintDeltaEncode(buffer, values, count);
-        (void)encoded;  /* Intentionally unused in test */
+        (void)encoded; /* Intentionally unused in test */
         int64_t decoded[3];
         varintDeltaDecode(buffer, count, decoded);
 
         for (size_t i = 0; i < count; i++) {
             if (decoded[i] != values[i]) {
-                ERR("Large value[%zu] = %" PRId64 ", expected %" PRId64, i, decoded[i], values[i]);
+                ERR("Large value[%zu] = %" PRId64 ", expected %" PRId64, i,
+                    decoded[i], values[i]);
             }
         }
     }
@@ -172,12 +181,13 @@ int varintDeltaTest(int argc, char *argv[]) {
         uint8_t buffer[16];
 
         size_t encoded = varintDeltaEncode(buffer, value, 1);
-        (void)encoded;  /* Intentionally unused in test */
+        (void)encoded; /* Intentionally unused in test */
         int64_t decoded[1];
         varintDeltaDecode(buffer, 1, decoded);
 
         if (decoded[0] != value[0]) {
-            ERR("Single value %" PRId64 " != expected %" PRId64, decoded[0], value[0]);
+            ERR("Single value %" PRId64 " != expected %" PRId64, decoded[0],
+                value[0]);
         }
     }
 
@@ -187,7 +197,7 @@ int varintDeltaTest(int argc, char *argv[]) {
         uint8_t buffer[64];
 
         size_t encoded = varintDeltaEncode(buffer, values, count);
-        (void)encoded;  /* Intentionally unused in test */
+        (void)encoded; /* Intentionally unused in test */
         int64_t decoded[4];
         varintDeltaDecode(buffer, count, decoded);
 

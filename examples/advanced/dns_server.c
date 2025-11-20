@@ -19,8 +19,8 @@
  * Real-world relevance: Shows how DNS servers achieve incredible performance
  * through compact encoding and caching.
  *
- * Compile: gcc -I../../src dns_server.c ../../build/src/libvarint.a -o dns_server
- * Run: ./dns_server
+ * Compile: gcc -I../../src dns_server.c ../../build/src/libvarint.a -o
+ * dns_server Run: ./dns_server
  */
 
 #include "varintBitstream.h"
@@ -51,18 +51,18 @@
 typedef struct {
     uint16_t transactionId;
     // Flags (packed):
-    uint8_t qr;        // 1 bit: Query (0) or Response (1)
-    uint8_t opcode;    // 4 bits: Operation code
-    uint8_t aa;        // 1 bit: Authoritative Answer
-    uint8_t tc;        // 1 bit: Truncated
-    uint8_t rd;        // 1 bit: Recursion Desired
-    uint8_t ra;        // 1 bit: Recursion Available
-    uint8_t z;         // 3 bits: Reserved
-    uint8_t rcode;     // 4 bits: Response code
-    uint16_t qdCount;  // Question count
-    uint16_t anCount;  // Answer count
-    uint16_t nsCount;  // Authority count
-    uint16_t arCount;  // Additional count
+    uint8_t qr;       // 1 bit: Query (0) or Response (1)
+    uint8_t opcode;   // 4 bits: Operation code
+    uint8_t aa;       // 1 bit: Authoritative Answer
+    uint8_t tc;       // 1 bit: Truncated
+    uint8_t rd;       // 1 bit: Recursion Desired
+    uint8_t ra;       // 1 bit: Recursion Available
+    uint8_t z;        // 3 bits: Reserved
+    uint8_t rcode;    // 4 bits: Response code
+    uint16_t qdCount; // Question count
+    uint16_t anCount; // Answer count
+    uint16_t nsCount; // Authority count
+    uint16_t arCount; // Additional count
 } DNSHeader;
 
 void encodeDNSHeader(uint8_t *buffer, const DNSHeader *header) {
@@ -111,7 +111,8 @@ void decodeDNSHeader(const uint8_t *buffer, DNSHeader *header) {
     size_t offset = 0;
 
     // Transaction ID
-    header->transactionId = ((uint16_t)buffer[offset] << 8) | buffer[offset + 1];
+    header->transactionId =
+        ((uint16_t)buffer[offset] << 8) | buffer[offset + 1];
     offset += 2;
 
     // Unpack flags
@@ -165,7 +166,7 @@ size_t encodeDNSName(uint8_t *buffer, const char *name) {
 
     while ((dot = strchr(start, '.')) != NULL) {
         size_t labelLen = dot - start;
-        assert(labelLen < 64);  // DNS label max length
+        assert(labelLen < 64); // DNS label max length
 
         buffer[offset++] = (uint8_t)labelLen;
         memcpy(buffer + offset, start, labelLen);
@@ -182,7 +183,7 @@ size_t encodeDNSName(uint8_t *buffer, const char *name) {
         offset += lastLen;
     }
 
-    buffer[offset++] = 0;  // Null terminator
+    buffer[offset++] = 0; // Null terminator
     return offset;
 }
 
@@ -201,7 +202,7 @@ size_t decodeDNSName(const uint8_t *buffer, char *name, size_t nameSize) {
         }
 
         if (nameOffset + labelLen + 1 >= nameSize) {
-            break;  // Name too long
+            break; // Name too long
         }
 
         if (nameOffset > 0) {
@@ -214,7 +215,7 @@ size_t decodeDNSName(const uint8_t *buffer, char *name, size_t nameSize) {
     }
 
     name[nameOffset] = '\0';
-    return offset + 1;  // +1 for null terminator
+    return offset + 1; // +1 for null terminator
 }
 
 // ============================================================================
@@ -222,18 +223,18 @@ size_t decodeDNSName(const uint8_t *buffer, char *name, size_t nameSize) {
 // ============================================================================
 
 typedef enum {
-    DNS_TYPE_A = 1,      // IPv4 address
-    DNS_TYPE_NS = 2,     // Name server
-    DNS_TYPE_CNAME = 5,  // Canonical name
-    DNS_TYPE_MX = 15,    // Mail exchange
-    DNS_TYPE_TXT = 16,   // Text record
-    DNS_TYPE_AAAA = 28,  // IPv6 address
+    DNS_TYPE_A = 1,     // IPv4 address
+    DNS_TYPE_NS = 2,    // Name server
+    DNS_TYPE_CNAME = 5, // Canonical name
+    DNS_TYPE_MX = 15,   // Mail exchange
+    DNS_TYPE_TXT = 16,  // Text record
+    DNS_TYPE_AAAA = 28, // IPv6 address
 } DNSRecordType;
 
 typedef struct {
     char name[256];
     uint16_t type;
-    uint16_t class;  // Usually 1 for IN (Internet)
+    uint16_t class; // Usually 1 for IN (Internet)
     uint32_t ttl;
     uint16_t rdLength;
     uint8_t rdata[512];
@@ -316,7 +317,7 @@ size_t encodeDNSPacket(uint8_t *buffer, const DNSPacket *packet) {
 
     // Encode header
     encodeDNSHeader(buffer, &packet->header);
-    offset += 12;  // DNS header is always 12 bytes
+    offset += 12; // DNS header is always 12 bytes
 
     // Encode questions
     for (size_t i = 0; i < packet->questionCount; i++) {
@@ -354,7 +355,8 @@ void dnsZoneFree(DNSZone *zone) {
 void dnsZoneAddRecord(DNSZone *zone, const DNSRecord *record) {
     if (zone->count >= zone->capacity) {
         size_t newCapacity = zone->capacity * 2;
-        DNSRecord *newRecords = realloc(zone->records, newCapacity * sizeof(DNSRecord));
+        DNSRecord *newRecords =
+            realloc(zone->records, newCapacity * sizeof(DNSRecord));
         if (!newRecords) {
             fprintf(stderr, "Error: Failed to reallocate DNS records\n");
             return;
@@ -379,14 +381,14 @@ void demonstrateDNS() {
     memset(&query, 0, sizeof(query));
 
     query.header.transactionId = 0x1234;
-    query.header.qr = 0;  // Query
-    query.header.opcode = 0;  // Standard query
-    query.header.rd = 1;  // Recursion desired
+    query.header.qr = 0;     // Query
+    query.header.opcode = 0; // Standard query
+    query.header.rd = 1;     // Recursion desired
     query.header.qdCount = 1;
 
     strcpy(query.questions[0].qname, "www.example.com");
     query.questions[0].qtype = DNS_TYPE_A;
-    query.questions[0].qclass = 1;  // IN
+    query.questions[0].qclass = 1; // IN
     query.questionCount = 1;
 
     printf("   Query: %s (type A)\n", query.questions[0].qname);
@@ -409,10 +411,10 @@ void demonstrateDNS() {
     memset(&response, 0, sizeof(response));
 
     response.header.transactionId = 0x1234;
-    response.header.qr = 1;  // Response
-    response.header.aa = 1;  // Authoritative
+    response.header.qr = 1; // Response
+    response.header.aa = 1; // Authoritative
     response.header.rd = 1;
-    response.header.ra = 1;  // Recursion available
+    response.header.ra = 1; // Recursion available
     response.header.qdCount = 1;
     response.header.anCount = 1;
 
@@ -424,12 +426,12 @@ void demonstrateDNS() {
     strcpy(response.answers[0].name, "www.example.com");
     response.answers[0].type = DNS_TYPE_A;
     response.answers[0].class = 1;
-    response.answers[0].ttl = 3600;  // 1 hour
-    response.answers[0].rdLength = 4;  // IPv4 = 4 bytes
+    response.answers[0].ttl = 3600;   // 1 hour
+    response.answers[0].rdLength = 4; // IPv4 = 4 bytes
     response.answers[0].rdata[0] = 93;
     response.answers[0].rdata[1] = 184;
     response.answers[0].rdata[2] = 216;
-    response.answers[0].rdata[3] = 34;  // 93.184.216.34
+    response.answers[0].rdata[3] = 34; // 93.184.216.34
     response.answerCount = 1;
 
     printf("   Answer: %s -> %u.%u.%u.%u\n", response.answers[0].name,
@@ -445,8 +447,11 @@ void demonstrateDNS() {
 
     printf("   Encoded size: %zu bytes\n", responseSize);
     printf("   Header: 12 bytes\n");
-    printf("   Question: %zu bytes\n", encodeDNSQuestion(responseBuffer + 12, &response.questions[0]));
-    printf("   Answer: %zu bytes\n", responseSize - 12 - encodeDNSQuestion(responseBuffer + 12, &response.questions[0]));
+    printf("   Question: %zu bytes\n",
+           encodeDNSQuestion(responseBuffer + 12, &response.questions[0]));
+    printf("   Answer: %zu bytes\n",
+           responseSize - 12 -
+               encodeDNSQuestion(responseBuffer + 12, &response.questions[0]));
 
     // 5. DNS zone compression
     printf("\n5. Creating DNS zone with multiple records...\n");
@@ -455,8 +460,9 @@ void demonstrateDNS() {
     dnsZoneInit(&zone, 100);
 
     // Add multiple records for same domain
-    const char *domains[] = {"www.example.com", "mail.example.com", "ftp.example.com",
-                             "blog.example.com", "api.example.com"};
+    const char *domains[] = {"www.example.com", "mail.example.com",
+                             "ftp.example.com", "blog.example.com",
+                             "api.example.com"};
 
     for (size_t i = 0; i < 5; i++) {
         DNSRecord record;
@@ -482,16 +488,18 @@ void demonstrateDNS() {
     }
 
     printf("   Total zone size: %zu bytes\n", zoneSize);
-    printf("   Average record size: %.1f bytes\n", (double)zoneSize / zone.count);
+    printf("   Average record size: %.1f bytes\n",
+           (double)zoneSize / zone.count);
 
     // With compression (simulated - shared suffix "example.com")
-    size_t sharedSuffixLen = strlen("example.com") + 1;  // +1 for length byte
+    size_t sharedSuffixLen = strlen("example.com") + 1; // +1 for length byte
     size_t compressedSize = zoneSize - (zone.count - 1) * sharedSuffixLen;
-    compressedSize += (zone.count - 1) * 2;  // 2-byte pointers instead
+    compressedSize += (zone.count - 1) * 2; // 2-byte pointers instead
 
     printf("\n   With label compression:\n");
     printf("   - Compressed size: %zu bytes\n", compressedSize);
-    printf("   - Compression ratio: %.2fx\n", (double)zoneSize / compressedSize);
+    printf("   - Compression ratio: %.2fx\n",
+           (double)zoneSize / compressedSize);
     printf("   - Space savings: %.1f%%\n",
            100.0 * (1.0 - (double)compressedSize / zoneSize));
 
@@ -511,7 +519,8 @@ void demonstrateDNS() {
 
     printf("   Encoded %zu queries in %.3f seconds\n", iterations, elapsed);
     printf("   Throughput: %.0f queries/sec\n", queriesPerSec);
-    printf("   Latency: %.3f microseconds/query\n", (elapsed / iterations) * 1000000);
+    printf("   Latency: %.3f microseconds/query\n",
+           (elapsed / iterations) * 1000000);
 
     // 7. Flag encoding efficiency
     printf("\n7. DNS header flag encoding (varintBitstream)...\n");
@@ -550,8 +559,8 @@ void demonstrateDNS() {
     mxRecord.type = DNS_TYPE_MX;
     mxRecord.class = 1;
     mxRecord.ttl = 3600;
-    mxRecord.rdata[0] = 0;   // Priority high byte
-    mxRecord.rdata[1] = 10;  // Priority low byte
+    mxRecord.rdata[0] = 0;  // Priority high byte
+    mxRecord.rdata[1] = 10; // Priority low byte
     size_t mxNameLen = encodeDNSName(mxRecord.rdata + 2, "mail.example.com");
     mxRecord.rdLength = (uint16_t)(2 + mxNameLen);
 
@@ -564,7 +573,7 @@ void demonstrateDNS() {
     aaaaRecord.type = DNS_TYPE_AAAA;
     aaaaRecord.class = 1;
     aaaaRecord.ttl = 3600;
-    aaaaRecord.rdLength = 16;  // IPv6 = 16 bytes
+    aaaaRecord.rdLength = 16; // IPv6 = 16 bytes
     // 2606:2800:220:1:248:1893:25c8:1946
     memset(aaaaRecord.rdata, 0, 16);
 
@@ -576,8 +585,11 @@ void demonstrateDNS() {
 
     printf("   Query packet: %zu bytes\n", querySize);
     printf("   Response packet (1 answer): %zu bytes\n", responseSize);
-    printf("   Response with 5 answers: ~%zu bytes (with compression)\n",
-           responseSize + compressedSize - (responseSize - 12 - encodeDNSQuestion(responseBuffer + 12, &response.questions[0])));
+    printf(
+        "   Response with 5 answers: ~%zu bytes (with compression)\n",
+        responseSize + compressedSize -
+            (responseSize - 12 -
+             encodeDNSQuestion(responseBuffer + 12, &response.questions[0])));
 
     printf("\n   Average DNS query: ~40 bytes\n");
     printf("   Average DNS response: ~120 bytes\n");

@@ -19,8 +19,8 @@
  * Real-world relevance: Elasticsearch, Lucene, and Solr use similar
  * varint encoding for posting list compression.
  *
- * Compile: gcc -I../../src inverted_index.c ../../build/src/libvarint.a -o inverted_index -lm
- * Run: ./inverted_index
+ * Compile: gcc -I../../src inverted_index.c ../../build/src/libvarint.a -o
+ * inverted_index -lm Run: ./inverted_index
  */
 
 #include "varintChained.h"
@@ -40,14 +40,14 @@
 
 typedef struct {
     uint32_t docId;
-    uint16_t termFreq;     // How many times term appears
-    uint16_t *positions;   // Positions where term appears
+    uint16_t termFreq;   // How many times term appears
+    uint16_t *positions; // Positions where term appears
     uint16_t posCount;
 } Posting;
 
 typedef struct {
     char term[64];
-    Posting *postings;     // Sorted by docId
+    Posting *postings; // Sorted by docId
     size_t postingCount;
     size_t postingCapacity;
 } PostingList;
@@ -80,8 +80,10 @@ void postingListAdd(PostingList *list, uint32_t docId, uint16_t position) {
     if (!posting) {
         // Create new posting
         if (list->postingCount >= list->postingCapacity) {
-            list->postingCapacity = list->postingCapacity ? list->postingCapacity * 2 : 4;
-            list->postings = realloc(list->postings, list->postingCapacity * sizeof(Posting));
+            list->postingCapacity =
+                list->postingCapacity ? list->postingCapacity * 2 : 4;
+            list->postings = realloc(list->postings,
+                                     list->postingCapacity * sizeof(Posting));
         }
 
         posting = &list->postings[list->postingCount++];
@@ -93,7 +95,8 @@ void postingListAdd(PostingList *list, uint32_t docId, uint16_t position) {
 
     // Add position
     posting->termFreq++;
-    posting->positions = realloc(posting->positions, posting->termFreq * sizeof(uint16_t));
+    posting->positions =
+        realloc(posting->positions, posting->termFreq * sizeof(uint16_t));
     posting->positions[posting->posCount++] = position;
 }
 
@@ -185,8 +188,8 @@ PostingList *indexGetOrCreateTerm(InvertedIndex *index, const char *term) {
 // DOCUMENT INDEXING
 // ============================================================================
 
-void tokenizeAndLowercase(const char *text, char tokens[][64], size_t *tokenCount,
-                          size_t maxTokens) {
+void tokenizeAndLowercase(const char *text, char tokens[][64],
+                          size_t *tokenCount, size_t maxTokens) {
     *tokenCount = 0;
     const char *start = text;
     size_t textLen = strlen(text);
@@ -195,8 +198,9 @@ void tokenizeAndLowercase(const char *text, char tokens[][64], size_t *tokenCoun
         if (isspace(text[i]) || text[i] == '\0') {
             if (i > (size_t)(start - text)) {
                 size_t tokenLen = i - (start - text);
-                if (tokenLen >= 64)
+                if (tokenLen >= 64) {
                     tokenLen = 63;
+                }
 
                 for (size_t j = 0; j < tokenLen; j++) {
                     tokens[*tokenCount][j] = tolower(start[j]);
@@ -250,7 +254,8 @@ void resultSetFree(ResultSet *results) {
 void resultSetAdd(ResultSet *results, uint32_t docId) {
     if (results->count >= results->capacity) {
         results->capacity *= 2;
-        results->docIds = realloc(results->docIds, results->capacity * sizeof(uint32_t));
+        results->docIds =
+            realloc(results->docIds, results->capacity * sizeof(uint32_t));
     }
     results->docIds[results->count++] = docId;
 }
@@ -283,14 +288,17 @@ ResultSet searchOR(const PostingList *list1, const PostingList *list2) {
 
     size_t i = 0, j = 0;
     while (i < list1->postingCount || j < list2->postingCount) {
-        uint32_t docId1 = (i < list1->postingCount) ? list1->postings[i].docId : UINT32_MAX;
-        uint32_t docId2 = (j < list2->postingCount) ? list2->postings[j].docId : UINT32_MAX;
+        uint32_t docId1 =
+            (i < list1->postingCount) ? list1->postings[i].docId : UINT32_MAX;
+        uint32_t docId2 =
+            (j < list2->postingCount) ? list2->postings[j].docId : UINT32_MAX;
 
         if (docId1 <= docId2) {
             resultSetAdd(&results, docId1);
             i++;
-            if (docId1 == docId2)
+            if (docId1 == docId2) {
                 j++;
+            }
         } else {
             resultSetAdd(&results, docId2);
             j++;
@@ -338,7 +346,7 @@ ScoredResult *rankResults(const InvertedIndex *index, const char *query,
 
     for (size_t i = 0; i < list->postingCount; i++) {
         const Posting *posting = &list->postings[i];
-        double tf = computeTF(posting->termFreq, 1000);  // Assume 1000 word docs
+        double tf = computeTF(posting->termFreq, 1000); // Assume 1000 word docs
         results[i].docId = posting->docId;
         results[i].score = tf * idf;
     }
@@ -387,23 +395,27 @@ void demonstrateInvertedIndex() {
     PostingList *lazyList = NULL;
 
     for (size_t i = 0; i < index.termCount; i++) {
-        if (strcmp(index.lists[i].term, "fox") == 0)
+        if (strcmp(index.lists[i].term, "fox") == 0) {
             foxList = &index.lists[i];
-        if (strcmp(index.lists[i].term, "dog") == 0)
+        }
+        if (strcmp(index.lists[i].term, "dog") == 0) {
             dogList = &index.lists[i];
-        if (strcmp(index.lists[i].term, "lazy") == 0)
+        }
+        if (strcmp(index.lists[i].term, "lazy") == 0) {
             lazyList = &index.lists[i];
+        }
     }
 
     if (foxList) {
         printf("   Term 'fox': %zu documents\n", foxList->postingCount);
         for (size_t i = 0; i < foxList->postingCount; i++) {
-            printf("     - Doc %u: TF=%u, positions=[", foxList->postings[i].docId,
-                   foxList->postings[i].termFreq);
+            printf("     - Doc %u: TF=%u, positions=[",
+                   foxList->postings[i].docId, foxList->postings[i].termFreq);
             for (uint16_t j = 0; j < foxList->postings[i].posCount; j++) {
                 printf("%u", foxList->postings[i].positions[j]);
-                if (j < foxList->postings[i].posCount - 1)
+                if (j < foxList->postings[i].posCount - 1) {
                     printf(",");
+                }
             }
             printf("]\n");
         }
@@ -418,14 +430,15 @@ void demonstrateInvertedIndex() {
     printf("   Term 'fox' compressed size: %zu bytes\n", foxCompressedSize);
 
     // Calculate uncompressed size
-    size_t uncompressedSize = strlen(foxList->term) + 1;  // term + null
+    size_t uncompressedSize = strlen(foxList->term) + 1; // term + null
     for (size_t i = 0; i < foxList->postingCount; i++) {
         uncompressedSize += 4 + 2 + (foxList->postings[i].posCount * 2);
         // 4 bytes docId + 2 bytes TF + 2 bytes per position
     }
 
     printf("   Uncompressed size: ~%zu bytes\n", uncompressedSize);
-    printf("   Compression ratio: %.2fx\n", (double)uncompressedSize / foxCompressedSize);
+    printf("   Compression ratio: %.2fx\n",
+           (double)uncompressedSize / foxCompressedSize);
     printf("   Space savings: %.1f%%\n",
            100.0 * (1.0 - (double)foxCompressedSize / uncompressedSize));
 
@@ -438,8 +451,9 @@ void demonstrateInvertedIndex() {
         printf("   Results: %zu documents [", andResults.count);
         for (size_t i = 0; i < andResults.count; i++) {
             printf("%u", andResults.docIds[i]);
-            if (i < andResults.count - 1)
+            if (i < andResults.count - 1) {
                 printf(", ");
+            }
         }
         printf("]\n");
         resultSetFree(&andResults);
@@ -449,8 +463,9 @@ void demonstrateInvertedIndex() {
         printf("   Results: %zu documents [", orResults.count);
         for (size_t i = 0; i < orResults.count; i++) {
             printf("%u", orResults.docIds[i]);
-            if (i < orResults.count - 1)
+            if (i < orResults.count - 1) {
                 printf(", ");
+            }
         }
         printf("]\n");
         resultSetFree(&orResults);
@@ -465,7 +480,8 @@ void demonstrateInvertedIndex() {
     if (ranked) {
         printf("   Results (sorted by relevance):\n");
         for (size_t i = 0; i < rankedCount; i++) {
-            printf("     Doc %u: score=%.4f\n", ranked[i].docId, ranked[i].score);
+            printf("     Doc %u: score=%.4f\n", ranked[i].docId,
+                   ranked[i].score);
         }
         free(ranked);
     }
@@ -485,7 +501,8 @@ void demonstrateInvertedIndex() {
 
     printf("   Executed 100K AND queries in %.3f seconds\n", elapsed);
     printf("   Throughput: %.0f queries/sec\n", queriesPerSec);
-    printf("   Latency: %.1f microseconds/query\n", (elapsed / 100000) * 1000000);
+    printf("   Latency: %.1f microseconds/query\n",
+           (elapsed / 100000) * 1000000);
 
     // 8. Delta encoding efficiency
     printf("\n8. Delta encoding efficiency...\n");
@@ -531,13 +548,14 @@ void demonstrateInvertedIndex() {
     double avgTermsPerDoc = (double)totalPositions / index.documentCount;
     double bytesPerPosting = (double)totalCompressedSize / totalPostings;
 
-    size_t projectedTerms = 100000;  // 100K unique terms
+    size_t projectedTerms = 100000; // 100K unique terms
     size_t projectedPostings = (size_t)(projectedTerms * docsPerTerm * 200000);
     size_t projectedSize = (size_t)(projectedPostings * bytesPerPosting);
 
     printf("   Estimated unique terms: %zu\n", projectedTerms);
     printf("   Estimated postings: %zu\n", projectedPostings);
-    printf("   Estimated index size: %.1f MB\n", (double)projectedSize / (1024 * 1024));
+    printf("   Estimated index size: %.1f MB\n",
+           (double)projectedSize / (1024 * 1024));
     printf("   \n");
     printf("   Query performance estimate:\n");
     printf("   - AND query (2 terms): < 1 ms\n");

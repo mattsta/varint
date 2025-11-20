@@ -30,12 +30,12 @@
 */
 
 #include "varintDict.h"
+#include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
-#include <stdint.h>
 
 /* Maximum dictionary size to prevent DoS via excessive memory allocation */
-#define VARINT_DICT_MAX_SIZE 1048576  /* 1M entries = 8MB for dict values */
+#define VARINT_DICT_MAX_SIZE 1048576 /* 1M entries = 8MB for dict values */
 
 /* Check for overflow in size_t multiplication */
 static inline bool size_mul_overflow(size_t a, size_t b, size_t *result) {
@@ -51,8 +51,12 @@ static inline bool size_mul_overflow(size_t a, size_t b, size_t *result) {
 static int compareUint64(const void *a, const void *b) {
     uint64_t va = *(const uint64_t *)a;
     uint64_t vb = *(const uint64_t *)b;
-    if (va < vb) return -1;
-    if (va > vb) return 1;
+    if (va < vb) {
+        return -1;
+    }
+    if (va > vb) {
+        return 1;
+    }
     return 0;
 }
 
@@ -174,8 +178,7 @@ uint64_t varintDictLookup(const varintDict *dict, uint32_t index) {
  * Encoding and Decoding
  * ==================================================================== */
 
-size_t varintDictEncode(uint8_t *buffer, const uint64_t *values,
-                        size_t count) {
+size_t varintDictEncode(uint8_t *buffer, const uint64_t *values, size_t count) {
     if (!buffer || !values || count == 0) {
         return 0;
     }
@@ -251,14 +254,14 @@ uint64_t *varintDictDecode(const uint8_t *buffer, size_t bufferLen,
 
     /* Validate dictionary size to prevent DoS and integer overflow */
     if (dictSize64 > VARINT_DICT_MAX_SIZE) {
-        return NULL;  /* Dictionary too large */
+        return NULL; /* Dictionary too large */
     }
     uint32_t dictSize = (uint32_t)dictSize64;
 
     /* Check for overflow in size calculation */
     size_t allocSize;
     if (size_mul_overflow(dictSize, sizeof(uint64_t), &allocSize)) {
-        return NULL;  /* Integer overflow in allocation size */
+        return NULL; /* Integer overflow in allocation size */
     }
 
     /* Read dictionary entries */
@@ -345,14 +348,14 @@ size_t varintDictDecodeInto(const uint8_t *buffer, size_t bufferLen,
 
     /* Validate dictionary size to prevent DoS and integer overflow */
     if (dictSize64 > VARINT_DICT_MAX_SIZE) {
-        return 0;  /* Dictionary too large */
+        return 0; /* Dictionary too large */
     }
     uint32_t dictSize = (uint32_t)dictSize64;
 
     /* Check for overflow in size calculation */
     size_t allocSize;
     if (size_mul_overflow(dictSize, sizeof(uint64_t), &allocSize)) {
-        return 0;  /* Integer overflow in allocation size */
+        return 0; /* Integer overflow in allocation size */
     }
 
     /* Read dictionary entries */
@@ -516,7 +519,8 @@ int varintDictGetStats(const uint64_t *values, size_t count,
     stats->compressionRatio =
         (float)stats->originalBytes / (float)stats->totalBytes;
     stats->spaceReduction =
-        (1.0f - (float)stats->totalBytes / (float)stats->originalBytes) * 100.0f;
+        (1.0f - (float)stats->totalBytes / (float)stats->originalBytes) *
+        100.0f;
 
     varintDictFree(dict);
     return 0;
