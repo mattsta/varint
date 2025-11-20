@@ -181,7 +181,12 @@ void varintDimensionPairEntrySetFloat(void *_dst, const size_t row,
     memcpy(dst + entryOffset, &entryValue, sizeof(float));
 }
 
+/* x86/x64 intrinsics are only available on x86 architectures */
+#if defined(__x86_64__) || defined(__i386__) || defined(_M_X64) ||             \
+    defined(_M_IX86)
 #include <x86intrin.h>
+#endif
+
 #ifdef __F16C__
 void varintDimensionPairEntrySetFloatHalfIntrinsic(
     void *_dst, const size_t row, const size_t col, const float entryValue,
