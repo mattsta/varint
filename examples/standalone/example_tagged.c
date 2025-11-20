@@ -16,7 +16,7 @@
 #include <string.h>
 
 // Example 1: Basic encode/decode
-void example_basic() {
+void example_basic(void) {
     printf("\n=== Example 1: Basic Encode/Decode ===\n");
 
     uint8_t buffer[9];
@@ -36,7 +36,7 @@ void example_basic() {
 }
 
 // Example 2: Boundary values
-void example_boundaries() {
+void example_boundaries(void) {
     printf("\n=== Example 2: Boundary Values ===\n");
 
     struct {
@@ -73,7 +73,7 @@ void example_boundaries() {
 }
 
 // Example 3: Sortable keys (memcmp)
-void example_sortable() {
+void example_sortable(void) {
     printf("\n=== Example 3: Sortable Keys ===\n");
 
     uint64_t keys[] = {100, 50, 200, 25, 150};
@@ -127,7 +127,7 @@ void decodeCompositeKey(const CompositeKey *key, uint64_t *tableId,
     varintTaggedGet64(key->encoded + w1, rowId);
 }
 
-void example_composite_key() {
+void example_composite_key(void) {
     printf("\n=== Example 4: Composite Keys ===\n");
 
     CompositeKey keys[3];
@@ -172,7 +172,7 @@ void example_composite_key() {
 }
 
 // Example 5: In-place arithmetic
-void example_arithmetic() {
+void example_arithmetic(void) {
     printf("\n=== Example 5: In-Place Arithmetic ===\n");
 
     uint8_t counter[9];
@@ -207,7 +207,7 @@ void example_arithmetic() {
 }
 
 // Example 6: Fixed-width encoding
-void example_fixed_width() {
+void example_fixed_width(void) {
     printf("\n=== Example 6: Fixed-Width Encoding ===\n");
 
     uint8_t slot[9];
@@ -228,7 +228,7 @@ void example_fixed_width() {
 }
 
 // Example 7: Performance comparison
-void example_performance() {
+void example_performance(void) {
     printf("\n=== Example 7: Space Efficiency ===\n");
 
     uint64_t testValues[] = {10, 100, 1000, 10000, 100000, 1000000, 10000000};
@@ -246,7 +246,7 @@ void example_performance() {
     }
 }
 
-int main() {
+int main(void) {
     printf("===========================================\n");
     printf("    varintTagged Example Suite\n");
     printf("===========================================\n");

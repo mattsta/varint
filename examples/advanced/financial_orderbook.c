@@ -324,7 +324,7 @@ size_t serializeTrade(const Trade *trade, uint8_t *buffer) {
 // DEMONSTRATION
 // ============================================================================
 
-void demonstrateOrderBook() {
+void demonstrateOrderBook(void) {
     printf("\n=== Financial Order Book (Advanced) ===\n\n");
 
     // 1. Initialize order book
@@ -522,7 +522,7 @@ void demonstrateOrderBook() {
     printf("\n✓ Financial order book demonstration complete\n");
 }
 
-int main() {
+int main(void) {
     printf("===============================================\n");
     printf("  Financial Order Book (Advanced)\n");
     printf("===============================================\n");

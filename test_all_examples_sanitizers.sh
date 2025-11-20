@@ -21,6 +21,7 @@ echo
 # Cleanup
 pkill -9 trie_server 2>/dev/null || true
 pkill -9 dns_server 2>/dev/null || true
+rm -rf /tmp/sanitizer_failures 2>/dev/null || true
 
 # Build with sanitizers
 echo "Building ALL examples with -fsanitize=address,undefined..."
@@ -40,7 +41,12 @@ echo -e "${GREEN}✓${NC} Build complete with sanitizers enabled"
 echo
 
 # Export sanitizer options
-export ASAN_OPTIONS=detect_leaks=1:halt_on_error=0:abort_on_error=0:print_summary=1
+# Note: LeakSanitizer is not supported on macOS, so disable detect_leaks on Darwin
+if [[ "$OSTYPE" == "darwin"* ]]; then
+    export ASAN_OPTIONS=detect_leaks=0:halt_on_error=0:abort_on_error=0:print_summary=1
+else
+    export ASAN_OPTIONS=detect_leaks=1:halt_on_error=0:abort_on_error=0:print_summary=1
+fi
 export UBSAN_OPTIONS=halt_on_error=0:print_stacktrace=1
 
 # Test counters
@@ -55,24 +61,28 @@ declare -a PASSED_EXAMPLES
 # Function to run an example
 run_example() {
     local name="$1"
-    local path="$BUILD_DIR/examples/$name"
     local category="$2"
+    local path="$BUILD_DIR/examples/$name"
 
     TOTAL=$((TOTAL + 1))
 
     if [ ! -f "$path" ]; then
-        echo -e "  ${YELLOW}⊘${NC} $name (not built)"
+        echo -e "  ${YELLOW}⊘${NC} $name (not built at $path)"
         SKIPPED=$((SKIPPED + 1))
         return
     fi
 
     # Run with timeout and capture output
-    if timeout 5s "$path" > /tmp/example_output_$name.txt 2>&1; then
+    local output_file="/tmp/example_output_$name.txt"
+    if timeout 5s "$path" > "$output_file" 2>&1; then
         # Check for sanitizer errors in output
-        if grep -q "ERROR: AddressSanitizer\|ERROR: UndefinedBehaviorSanitizer" /tmp/example_output_$name.txt 2>/dev/null; then
+        if grep -q "ERROR: AddressSanitizer\|ERROR: UndefinedBehaviorSanitizer" "$output_file" 2>/dev/null; then
             echo -e "  ${RED}✗${NC} $name (sanitizer error)"
             FAILED=$((FAILED + 1))
-            FAILED_EXAMPLES+=("$category/$name")
+            FAILED_EXAMPLES+=("$category/$name:sanitizer")
+            # Save error details
+            mkdir -p /tmp/sanitizer_failures
+            cp "$output_file" "/tmp/sanitizer_failures/${category}_${name}.txt"
         else
             echo -e "  ${GREEN}✓${NC} $name"
             PASSED=$((PASSED + 1))
@@ -86,11 +96,14 @@ run_example() {
         else
             echo -e "  ${RED}✗${NC} $name (exit code $EXIT_CODE)"
             FAILED=$((FAILED + 1))
-            FAILED_EXAMPLES+=("$category/$name")
+            FAILED_EXAMPLES+=("$category/$name:exit-$EXIT_CODE")
+            # Save error details
+            mkdir -p /tmp/sanitizer_failures
+            cp "$output_file" "/tmp/sanitizer_failures/${category}_${name}.txt" 2>/dev/null || true
         fi
     fi
 
-    rm -f /tmp/example_output_$name.txt
+    rm -f "$output_file"
 }
 
 # ============================================================================
@@ -165,8 +178,10 @@ if [ $FAILED -gt 0 ]; then
     done
     echo
 
-    echo "To debug a failed example:"
-    echo "  $BUILD_DIR/examples/<example_name>"
+    echo "Error logs saved to: /tmp/sanitizer_failures/"
+    echo "To view errors:"
+    echo "  ls /tmp/sanitizer_failures/"
+    echo "  cat /tmp/sanitizer_failures/<category>_<example>.txt"
     echo
 fi
 

@@ -21,7 +21,7 @@
 #include <string.h>
 
 // Example 1: Basic encode/decode
-void example_basic() {
+void example_basic(void) {
     printf("\n=== Example 1: Basic Encode/Decode ===\n");
 
     uint8_t buffer[9];
@@ -33,9 +33,9 @@ void example_basic() {
 
     // Show the encoded bytes
     printf("Encoded bytes: ");
-    for (int i = 0; i < width; i++) {
+    for (uint8_t i = 0; i < (uint8_t)width; i++) {
         printf("%02x ", buffer[i]);
-        if (i < width - 1) {
+        if (i < (uint8_t)width - 1) {
             printf("(cont) ");
         }
     }
@@ -53,7 +53,7 @@ void example_basic() {
 }
 
 // Example 2: Continuation bit encoding
-void example_continuation_bits() {
+void example_continuation_bits(void) {
     printf("\n=== Example 2: Continuation Bit Encoding ===\n");
 
     struct {
@@ -83,7 +83,7 @@ void example_continuation_bits() {
 
         // Show continuation bits
         printf("[");
-        for (int j = 0; j < width; j++) {
+        for (uint8_t j = 0; j < (uint8_t)width; j++) {
             printf("%c", (buffer[j] & 0x80) ? '1' : '0');
         }
         printf("] ");
@@ -99,7 +99,7 @@ void example_continuation_bits() {
 }
 
 // Example 3: SQLite3 varint format validation
-void example_sqlite3_format() {
+void example_sqlite3_format(void) {
     printf("\n=== Example 3: SQLite3 Varint Format Validation ===\n");
 
     // These test vectors use SQLite3 varint format (big-endian continuation
@@ -129,11 +129,11 @@ void example_sqlite3_format() {
 
         printf("Value %" PRIu64 ":\n", tests[i].value);
         printf("  Expected: ");
-        for (int j = 0; j < tests[i].expectedLen; j++) {
+        for (uint8_t j = 0; j < (uint8_t)tests[i].expectedLen; j++) {
             printf("%02x ", tests[i].expected[j]);
         }
         printf("\n  Got:      ");
-        for (int j = 0; j < width; j++) {
+        for (uint8_t j = 0; j < (uint8_t)width; j++) {
             printf("%02x ", buffer[j]);
         }
         printf("\n");
@@ -146,7 +146,7 @@ void example_sqlite3_format() {
 }
 
 // Example 4: Stream decoding
-void example_stream_decoding() {
+void example_stream_decoding(void) {
     printf("\n=== Example 4: Stream Decoding ===\n");
 
     // Encode multiple values into a stream
@@ -181,7 +181,7 @@ void example_stream_decoding() {
 }
 
 // Example 5: Length detection
-void example_length_detection() {
+void example_length_detection(void) {
     printf("\n=== Example 5: Length Detection ===\n");
 
     uint64_t testValues[] = {50, 500, 5000, 50000};
@@ -210,7 +210,7 @@ void example_length_detection() {
 }
 
 // Example 6: 9-byte special case
-void example_nine_bytes() {
+void example_nine_bytes(void) {
     printf("\n=== Example 6: 9-Byte Special Case ===\n");
 
     // Values requiring 9 bytes (> 63 bits)
@@ -242,7 +242,7 @@ void example_nine_bytes() {
 }
 
 // Example 7: Performance comparison
-void example_performance() {
+void example_performance(void) {
     printf("\n=== Example 7: Space Usage Analysis ===\n");
 
     uint64_t testValues[] = {10, 100, 1000, 10000, 100000, 1000000, 10000000};
@@ -261,14 +261,14 @@ void example_performance() {
 }
 
 // Example 8: Comparison with other formats
-void example_format_comparison() {
+void example_format_comparison(void) {
     printf("\n=== Example 8: Format Comparison ===\n");
 
     printf("Understanding continuation bit encoding:\n\n");
 
     uint64_t value = 300; // Example value
     uint8_t buffer[9];
-    varintWidth width = varintChainedPutVarint(buffer, value);
+    (void)varintChainedPutVarint(buffer, value);
 
     printf("Value: %" PRIu64 " (binary: ", value);
     for (int i = 13; i >= 0; i--) {
@@ -315,7 +315,7 @@ void example_format_comparison() {
     printf("\n✓ Continuation bit encoding explained\n");
 }
 
-int main() {
+int main(void) {
     printf("===========================================\n");
     printf("    varintChained Example Suite\n");
     printf("===========================================\n");

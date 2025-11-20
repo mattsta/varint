@@ -18,7 +18,7 @@
 #include <string.h>
 
 // Example 1: Basic encode/decode
-void example_basic() {
+void example_basic(void) {
     printf("\n=== Example 1: Basic Encode/Decode ===\n");
 
     uint8_t buffer[9];
@@ -42,7 +42,7 @@ void example_basic() {
 }
 
 // Example 2: Three-level encoding boundaries
-void example_three_levels() {
+void example_three_levels(void) {
     printf("\n=== Example 2: Three-Level Encoding ===\n");
 
     struct {
@@ -89,7 +89,7 @@ void example_three_levels() {
 }
 
 // Example 3: Type detection
-void example_type_detection() {
+void example_type_detection(void) {
     printf("\n=== Example 3: Type Detection ===\n");
 
     struct {
@@ -132,7 +132,7 @@ void example_type_detection() {
 }
 
 // Example 4: Reversed split (for backward traversal)
-void example_reversed() {
+void example_reversed(void) {
     printf("\n=== Example 4: Reversed Split Encoding ===\n");
 
     uint64_t values[] = {10, 100, 1000, 10000};
@@ -183,7 +183,7 @@ void example_reversed() {
 }
 
 // Example 5: Bit-packing integration
-void example_bitpacking() {
+void example_bitpacking(void) {
     printf("\n=== Example 5: Integration with Bit-Packing ===\n");
 
     // Store array of values with mixed sizes
@@ -234,7 +234,7 @@ void example_bitpacking() {
 }
 
 // Example 6: Performance comparison
-void example_performance() {
+void example_performance(void) {
     printf("\n=== Example 6: Encoding Type Distribution ===\n");
 
     uint64_t ranges[] = {0, 64, 16447, 1000000};
@@ -280,7 +280,7 @@ void example_performance() {
 }
 
 // Example 7: Length calculation
-void example_length() {
+void example_length(void) {
     printf("\n=== Example 7: Length Calculation ===\n");
 
     uint8_t buffer[64];
@@ -313,7 +313,7 @@ void example_length() {
     }
 }
 
-int main() {
+int main(void) {
     printf("===========================================\n");
     printf("     varintSplit Example Suite\n");
     printf("===========================================\n");

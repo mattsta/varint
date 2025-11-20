@@ -221,7 +221,7 @@ void indexFree(SecondaryIndex *idx) {
 // DEMONSTRATION
 // ============================================================================
 
-void demonstrateDatabase() {
+void demonstrateDatabase(void) {
     printf("\n=== Database System Example ===\n\n");
 
     // 1. Create table
@@ -361,7 +361,7 @@ void demonstrateDatabase() {
     printf("\n✓ Database system example complete\n");
 }
 
-int main() {
+int main(void) {
     printf("===========================================\n");
     printf("  Database System Integration Example\n");
     printf("===========================================\n");

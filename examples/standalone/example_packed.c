@@ -27,7 +27,7 @@
 #define BYTES_FOR_COUNT(count) ((((count) * 12 + 31) / 32) * 4)
 
 // Example 1: Basic set/get operations
-void example_basic() {
+void example_basic(void) {
     printf("\n=== Example 1: Basic Set/Get Operations ===\n");
 
     // Array for 10 elements, each 12 bits
@@ -62,7 +62,7 @@ void example_basic() {
 }
 
 // Example 2: Sorted array with binary search
-void example_sorted() {
+void example_sorted(void) {
     printf("\n=== Example 2: Sorted Array with Binary Search ===\n");
 
     size_t count = 8;
@@ -100,7 +100,7 @@ void example_sorted() {
 }
 
 // Example 3: Sorted insert
-void example_sorted_insert() {
+void example_sorted_insert(void) {
     printf("\n=== Example 3: Sorted Insert ===\n");
 
     // Start with small array, grow as needed
@@ -137,7 +137,7 @@ void example_sorted_insert() {
 }
 
 // Example 4: Member testing
-void example_member() {
+void example_member(void) {
     printf("\n=== Example 4: Membership Testing ===\n");
 
     size_t count = 5;
@@ -179,7 +179,7 @@ void example_member() {
 }
 
 // Example 5: Space efficiency
-void example_space_efficiency() {
+void example_space_efficiency(void) {
     printf("\n=== Example 5: Space Efficiency ===\n");
 
     size_t arraySize = 1000;
@@ -218,7 +218,7 @@ void example_space_efficiency() {
 }
 
 // Example 6: Game coordinates
-void example_game_coordinates() {
+void example_game_coordinates(void) {
     printf("\n=== Example 6: Game Coordinates (12-bit) ===\n");
 
     // Game world: 4096×4096 grid (needs 12 bits per coordinate)
@@ -265,7 +265,7 @@ void example_game_coordinates() {
 }
 
 // Example 7: Deletion
-void example_deletion() {
+void example_deletion(void) {
     printf("\n=== Example 7: Deletion ===\n");
 
     size_t count = 6;
@@ -305,7 +305,7 @@ void example_deletion() {
     free(array);
 }
 
-int main() {
+int main(void) {
     printf("===========================================\n");
     printf("    varintPacked Example Suite\n");
     printf("===========================================\n");

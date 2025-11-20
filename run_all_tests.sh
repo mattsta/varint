@@ -5,8 +5,8 @@
 set -e
 
 SANITIZER="${1:-none}"
-BUILD_DIR="/home/user/varint/build_tests"
-SRC_DIR="/home/user/varint/src"
+BUILD_DIR="build_tests"
+SRC_DIR="$(dirname $0)/src"
 
 # Sanitizer flags
 if [ "$SANITIZER" = "asan" ]; then

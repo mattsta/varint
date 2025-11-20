@@ -371,7 +371,7 @@ void dnsZoneAddRecord(DNSZone *zone, const DNSRecord *record) {
 // DEMONSTRATION
 // ============================================================================
 
-void demonstrateDNS() {
+void demonstrateDNS(void) {
     printf("\n=== DNS Server Packet Encoding (Advanced) ===\n\n");
 
     // 1. Create DNS query
@@ -601,7 +601,7 @@ void demonstrateDNS() {
     printf("\n✓ DNS server packet encoding demonstration complete\n");
 }
 
-int main() {
+int main(void) {
     printf("===============================================\n");
     printf("  DNS Server Packet Encoding (Advanced)\n");
     printf("===============================================\n");

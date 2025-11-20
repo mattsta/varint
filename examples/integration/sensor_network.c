@@ -310,7 +310,7 @@ size_t batchCompressorSerialize(const BatchCompressor *compressor,
 // DEMONSTRATION
 // ============================================================================
 
-void demonstrateSensorNetwork() {
+void demonstrateSensorNetwork(void) {
     printf("\n=== Sensor Network Example ===\n\n");
 
     // 1. Basic timestamp encoding
@@ -473,7 +473,7 @@ void demonstrateSensorNetwork() {
     printf("\n✓ Sensor network example complete\n");
 }
 
-int main() {
+int main(void) {
     printf("===========================================\n");
     printf("  Sensor Network Integration Example\n");
     printf("===========================================\n");

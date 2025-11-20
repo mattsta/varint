@@ -309,6 +309,7 @@ void compileFibonacci(BytecodeBuffer *buffer, uint32_t n) {
     emitOpVarint(buffer, OP_PUSH, n);        // PUSH n
     emitOp(buffer, OP_SUB);                  // i - n
     size_t jumpPatch = buffer->size;
+    (void)jumpPatch; // Unused: jump patching not implemented
     emitOpVarint(buffer, OP_JUMP_IF_FALSE, 0); // JUMP_IF_FALSE (will patch)
 
     // Print a
@@ -340,6 +341,7 @@ void compileFibonacci(BytecodeBuffer *buffer, uint32_t n) {
 
     // End of loop (patch jump target)
     size_t loopEnd = buffer->size;
+    (void)loopEnd; // Unused: jump patching not implemented
     // Note: In real implementation, would patch the jump offset here
 
     emitOp(buffer, OP_HALT);
@@ -349,7 +351,7 @@ void compileFibonacci(BytecodeBuffer *buffer, uint32_t n) {
 // DEMONSTRATION
 // ============================================================================
 
-void demonstrateBytecodeVM() {
+void demonstrateBytecodeVM(void) {
     printf("\n=== Bytecode Virtual Machine (Advanced) ===\n\n");
 
     // 1. Compile simple arithmetic
@@ -532,7 +534,7 @@ void demonstrateBytecodeVM() {
     printf("\n✓ Bytecode VM demonstration complete\n");
 }
 
-int main() {
+int main(void) {
     printf("===============================================\n");
     printf("  Bytecode Virtual Machine (Advanced)\n");
     printf("===============================================\n");

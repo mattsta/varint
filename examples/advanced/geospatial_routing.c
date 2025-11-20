@@ -113,7 +113,6 @@ size_t compressGPSTrack(const GPSTrack *track, uint8_t *buffer) {
     // Delta-encode coordinates
     int32_t prevLat = 0;
     int32_t prevLon = 0;
-    uint16_t prevElev = 0;
 
     for (size_t i = 0; i < track->pointCount; i++) {
         // Encode current coordinates
@@ -140,7 +139,6 @@ size_t compressGPSTrack(const GPSTrack *track, uint8_t *buffer) {
 
         prevLat = lat;
         prevLon = lon;
-        prevElev = elev;
     }
 
     return offset;
@@ -242,7 +240,7 @@ size_t compressRoute(const Route *route, uint8_t *buffer) {
 // DEMONSTRATION
 // ============================================================================
 
-void demonstrateGeospatial() {
+void demonstrateGeospatial(void) {
     printf("\n=== Geospatial Routing System (Advanced) ===\n\n");
 
     // 1. Create GPS track
@@ -450,7 +448,7 @@ void demonstrateGeospatial() {
     printf("\n✓ Geospatial routing demonstration complete\n");
 }
 
-int main() {
+int main(void) {
     printf("===============================================\n");
     printf("  Geospatial Routing System (Advanced)\n");
     printf("===============================================\n");

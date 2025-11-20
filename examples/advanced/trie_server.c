@@ -1478,6 +1478,7 @@ bool serverInit(TrieServer *server, uint16_t port, const char *authToken,
 static volatile bool g_shutdown = false;
 
 static void signalHandler(int sig) {
+    (void)sig;
     g_shutdown = true;
 }
 
@@ -1576,11 +1577,9 @@ void serverRun(TrieServer *server) {
 
             // Find client for this fd
             ClientConnection *client = NULL;
-            int clientSlot = -1;
             for (int i = 0; i < MAX_CLIENTS; i++) {
                 if (server->clients[i].fd == fd) {
                     client = &server->clients[i];
-                    clientSlot = i;
                     break;
                 }
             }
@@ -1769,11 +1768,9 @@ void sendResponse(int eventFd, ClientConnection *client, StatusCode status,
         "Modifying event queue for fd=%d to EVENT_READ|EVENT_WRITE|EVENT_ET, "
         "writeLength=%zu\n",
         client->fd, client->writeLength);
-    int ret = event_queue_mod(eventFd, client->fd,
-                              EVENT_READ | EVENT_WRITE | EVENT_ET,
-                              (void *)(intptr_t)client->fd);
-    DEBUG_LOG("event_queue_mod returned %d (errno=%d)\n", ret,
-              ret < 0 ? errno : 0);
+    (void)event_queue_mod(eventFd, client->fd,
+                          EVENT_READ | EVENT_WRITE | EVENT_ET,
+                          (void *)(intptr_t)client->fd);
 }
 
 bool processCommand(TrieServer *server, ClientConnection *client,
@@ -1805,7 +1802,6 @@ bool processCommand(TrieServer *server, ClientConnection *client,
     server->commandsSinceLastSave++;
 
     uint8_t responseBuf[MAX_MESSAGE_SIZE];
-    size_t responseLen = 0;
 
     switch (cmd) {
     case CMD_PING: {

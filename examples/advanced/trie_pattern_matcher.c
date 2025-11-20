@@ -514,7 +514,7 @@ void trieStats(const PatternTrie *trie, size_t *totalNodes,
 // COMPREHENSIVE TEST SUITE
 // ============================================================================
 
-void testExactMatching() {
+void testExactMatching(void) {
     printf("\n[TEST 1] Exact pattern matching\n");
 
     PatternTrie trie;
@@ -544,7 +544,7 @@ void testExactMatching() {
     printf("  PASS: Exact matching works correctly\n");
 }
 
-void testStarWildcard() {
+void testStarWildcard(void) {
     printf("\n[TEST 2] Star (*) wildcard matching\n");
 
     PatternTrie trie;
@@ -583,7 +583,7 @@ void testStarWildcard() {
     printf("  PASS: Star wildcard works correctly\n");
 }
 
-void testHashWildcard() {
+void testHashWildcard(void) {
     printf("\n[TEST 3] Hash (#) wildcard matching\n");
 
     PatternTrie trie;
@@ -621,7 +621,7 @@ void testHashWildcard() {
     printf("  PASS: Hash wildcard works correctly\n");
 }
 
-void testComplexPatterns() {
+void testComplexPatterns(void) {
     printf("\n[TEST 4] Complex mixed patterns\n");
 
     PatternTrie trie;
@@ -651,7 +651,7 @@ void testComplexPatterns() {
     printf("  PASS: Complex patterns work correctly\n");
 }
 
-void testMultipleSubscribers() {
+void testMultipleSubscribers(void) {
     printf("\n[TEST 5] Multiple subscribers per pattern\n");
 
     PatternTrie trie;
@@ -670,7 +670,7 @@ void testMultipleSubscribers() {
     printf("  PASS: Multiple subscribers work correctly\n");
 }
 
-void testSerialization() {
+void testSerialization(void) {
     printf("\n[TEST 6] Trie serialization and deserialization (roundtrip)\n");
 
     PatternTrie originalTrie;
@@ -766,7 +766,7 @@ void testSerialization() {
     printf("  PASS: Serialization roundtrip works correctly\n");
 }
 
-void testEdgeCases() {
+void testEdgeCases(void) {
     printf("\n[TEST 7] Edge cases\n");
 
     PatternTrie trie;
@@ -795,7 +795,7 @@ void testEdgeCases() {
     printf("  PASS: Edge cases handled correctly\n");
 }
 
-void testPerformance() {
+void testPerformance(void) {
     printf("\n[TEST 8] Performance benchmark\n");
 
     PatternTrie trie;
@@ -985,7 +985,7 @@ size_t trieMemoryUsage(const PatternTrie *trie) {
 
 // Simple PRNG for reproducible pattern generation
 static uint32_t xorshift32_state = 123456789;
-uint32_t xorshift32() {
+uint32_t xorshift32(void) {
     uint32_t x = xorshift32_state;
     x ^= x << 13;
     x ^= x >> 17;
@@ -1003,7 +1003,6 @@ void generateRealisticPatterns(NaivePatternList *naive, PatternTrie *trie,
                              "amzn", "nvda", "btc",  "eth"};
     const char *events[] = {"trade",  "quote", "order",
                             "cancel", "fill",  "update"};
-    const char *priorities[] = {"low", "normal", "high", "urgent"};
 
     for (int i = 0; i < count; i++) {
         char pattern[128];
@@ -1054,7 +1053,7 @@ void generateQueryWorkload(char queries[][128], int count, int hotPathRatio) {
                             "cancel", "fill",  "update"};
 
     for (int i = 0; i < count; i++) {
-        if ((xorshift32() % 100) < hotPathRatio) {
+        if ((xorshift32() % 100) < (uint32_t)hotPathRatio) {
             // Hot path: popular queries (e.g., AAPL trades)
             snprintf(queries[i], 128, "stock.nasdaq.aapl.trade");
         } else {
@@ -1066,7 +1065,7 @@ void generateQueryWorkload(char queries[][128], int count, int hotPathRatio) {
     }
 }
 
-void testBenchmarkComparisons() {
+void testBenchmarkComparisons(void) {
     printf("\n[TEST 9] Large-Scale Trie vs Naive Benchmarks\n");
     printf("\n  Testing with realistic message routing patterns...\n");
 
@@ -1154,7 +1153,7 @@ void testBenchmarkComparisons() {
     printf("\n  PASS: Large-scale benchmark comparisons complete\n");
 }
 
-void testWildcardComplexity() {
+void testWildcardComplexity(void) {
     printf("\n[TEST 10] Wildcard Pattern Complexity at Scale\n");
     printf("\n  Testing with 1000 patterns of each wildcard type...\n");
 
@@ -1275,7 +1274,7 @@ void testWildcardComplexity() {
     printf("\n  PASS: Wildcard complexity comparison complete\n");
 }
 
-void testMemoryEfficiency() {
+void testMemoryEfficiency(void) {
     printf("\n[TEST 11] Memory Efficiency Analysis\n");
     printf("\n  Comparing memory usage with pattern sharing...\n");
 
@@ -1351,7 +1350,7 @@ void testMemoryEfficiency() {
     printf("\n  PASS: Memory efficiency analysis complete\n");
 }
 
-void testExtremeScale() {
+void testExtremeScale(void) {
     printf("\n[TEST 12] Extreme Scale: 1 Million Patterns\n");
     printf("\n  Testing trie-only at production scale...\n");
     printf("  (Naive would take hours at this scale)\n\n");
@@ -1460,7 +1459,7 @@ void testExtremeScale() {
 // DEMONSTRATION
 // ============================================================================
 
-void demonstrateTriePatternMatcher() {
+void demonstrateTriePatternMatcher(void) {
     printf("\n=== AMQP-Style Trie Pattern Matcher ===\n\n");
 
     PatternTrie trie;
@@ -1552,7 +1551,7 @@ void demonstrateTriePatternMatcher() {
 // MAIN
 // ============================================================================
 
-int main() {
+int main(void) {
     printf("===============================================\n");
     printf("  AMQP-Style Trie Pattern Matcher\n");
     printf("===============================================\n");

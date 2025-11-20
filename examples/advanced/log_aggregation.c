@@ -226,7 +226,7 @@ void logStreamFlushBatch(LogStream *stream, LogBatch *batch) {
 // DEMONSTRATION
 // ============================================================================
 
-void demonstrateLogAggregation() {
+void demonstrateLogAggregation(void) {
     printf("\n=== Log Aggregation System (Advanced) ===\n\n");
 
     // 1. Initialize log stream
@@ -341,8 +341,10 @@ void demonstrateLogAggregation() {
     // 7. Query performance simulation
     printf("\n7. Query performance (time-range filtering)...\n");
 
-    uint64_t queryStart = startTime + 5000 * 1000; // After 5 seconds
-    uint64_t queryEnd = startTime + 6000 * 1000;   // 1-second window
+    (void)(startTime +
+           5000 * 1000); // After 5 seconds - would be used in real query
+    (void)(startTime +
+           6000 * 1000); // 1-second window - would be used in real query
 
     printf("   Query: logs between T+5s and T+6s\n");
     printf("   Expected results: ~1000 logs\n");
@@ -431,7 +433,7 @@ void demonstrateLogAggregation() {
     printf("\n✓ Log aggregation demonstration complete\n");
 }
 
-int main() {
+int main(void) {
     printf("===============================================\n");
     printf("  Log Aggregation System (Advanced)\n");
     printf("===============================================\n");

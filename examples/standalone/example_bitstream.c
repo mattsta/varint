@@ -23,7 +23,7 @@
 #include <string.h>
 
 // Example 1: Basic bit-level operations
-void example_basic() {
+void example_basic(void) {
     printf("\n=== Example 1: Basic Bit-Level Operations ===\n");
 
     vbits buffer[8]; // 8 slots × 64 bits = 512 bits
@@ -59,7 +59,7 @@ void example_basic() {
 }
 
 // Example 2: Bit offset calculations
-void example_bit_offsets() {
+void example_bit_offsets(void) {
     printf("\n=== Example 2: Arbitrary Bit Offsets ===\n");
 
     vbits buffer[4];
@@ -100,7 +100,7 @@ void example_bit_offsets() {
 }
 
 // Example 3: Cross-slot values
-void example_cross_slot() {
+void example_cross_slot(void) {
     printf("\n=== Example 3: Cross-Slot Values ===\n");
 
     vbits buffer[4];
@@ -127,7 +127,7 @@ void example_cross_slot() {
 }
 
 // Example 4: Protocol header packing
-void example_protocol_header() {
+void example_protocol_header(void) {
     printf("\n=== Example 4: Protocol Header Packing ===\n");
 
     // Custom protocol header:
@@ -146,7 +146,7 @@ void example_protocol_header() {
     // Pack header
     uint8_t version = 5;
     uint8_t msgType = 12;
-    uint8_t flags = 0b10110;
+    uint8_t flags = 0x16; /* 0b10110 */
     uint8_t priority = 3;
     uint16_t payloadLen = 1500;
 
@@ -169,7 +169,7 @@ void example_protocol_header() {
            (offset + 7) / 8);
     printf("  Version: %u\n", version);
     printf("  Message Type: %u\n", msgType);
-    printf("  Flags: 0b%05u\n", flags);
+    printf("  Flags: 0x%02x\n", flags);
     printf("  Priority: %u\n", priority);
     printf("  Payload Length: %u\n", payloadLen);
 
@@ -193,7 +193,7 @@ void example_protocol_header() {
     printf("\nUnpacked:\n");
     printf("  Version: %u ✓\n", readVersion);
     printf("  Message Type: %u ✓\n", readMsgType);
-    printf("  Flags: 0b%05u ✓\n", readFlags);
+    printf("  Flags: 0x%02x ✓\n", readFlags);
     printf("  Priority: %u ✓\n", readPriority);
     printf("  Payload Length: %u ✓\n", readPayloadLen);
 
@@ -205,7 +205,7 @@ void example_protocol_header() {
 }
 
 // Example 5: Signed values
-void example_signed_values() {
+void example_signed_values(void) {
     printf("\n=== Example 5: Signed Values ===\n");
 
     vbits buffer[2];
@@ -255,7 +255,7 @@ void example_signed_values() {
 }
 
 // Example 6: Trie node encoding
-void example_trie_node() {
+void example_trie_node(void) {
     printf("\n=== Example 6: Trie Node Encoding ===\n");
 
     // Compact trie node representation:
@@ -322,7 +322,7 @@ void example_trie_node() {
 }
 
 // Example 7: Space efficiency
-void example_space_efficiency() {
+void example_space_efficiency(void) {
     printf("\n=== Example 7: Space Efficiency ===\n");
 
     printf("Comparison of different data representations:\n\n");
@@ -360,7 +360,7 @@ void example_space_efficiency() {
     }
 }
 
-int main() {
+int main(void) {
     printf("===========================================\n");
     printf("   varintBitstream Example Suite\n");
     printf("===========================================\n");

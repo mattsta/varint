@@ -489,7 +489,7 @@ DownsampleResult timeSeriesDownsample(const TimeSeries *ts,
 // DEMONSTRATION
 // ============================================================================
 
-void demonstrateTimeSeriesDB() {
+void demonstrateTimeSeriesDB(void) {
     printf("\n=== Time-Series Database Reference Implementation ===\n\n");
 
     // 1. Initialize database
@@ -673,7 +673,7 @@ void demonstrateTimeSeriesDB() {
     printf("\n✓ Time-series database reference implementation complete\n");
 }
 
-int main() {
+int main(void) {
     printf("===============================================\n");
     printf("  Time-Series Database Reference\n");
     printf("===============================================\n");

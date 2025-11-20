@@ -285,7 +285,7 @@ void streamFree(MessageStream *stream) {
 // DEMONSTRATION
 // ============================================================================
 
-void demonstrateProtocol() {
+void demonstrateProtocol(void) {
     printf("\n=== Network Protocol Example ===\n\n");
 
     // 1. Create and encode packet
@@ -395,7 +395,7 @@ void demonstrateProtocol() {
     printf("\n✓ Network protocol example complete\n");
 }
 
-int main() {
+int main(void) {
     printf("===========================================\n");
     printf("  Network Protocol Integration Example\n");
     printf("===========================================\n");

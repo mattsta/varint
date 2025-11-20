@@ -294,7 +294,7 @@ uint16_t embeddingTableGetValue(const EmbeddingTable *table, size_t tokenId,
 // DEMONSTRATION
 // ============================================================================
 
-void demonstrateMLFeatures() {
+void demonstrateMLFeatures(void) {
     printf("\n=== ML Features Example ===\n\n");
 
     // 1. Dense feature matrix
@@ -472,7 +472,7 @@ void demonstrateMLFeatures() {
     printf("\n✓ ML features example complete\n");
 }
 
-int main() {
+int main(void) {
     printf("===========================================\n");
     printf("  ML Features Integration Example\n");
     printf("===========================================\n");

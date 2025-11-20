@@ -435,7 +435,7 @@ ShortestPath graphDijkstra(const Graph *graph, NodeID start, NodeID end) {
 // DEMONSTRATION
 // ============================================================================
 
-void demonstrateGraphDB() {
+void demonstrateGraphDB(void) {
     printf("\n=== Graph Database Reference Implementation ===\n\n");
 
     // 1. Create graph
@@ -584,7 +584,7 @@ void demonstrateGraphDB() {
     printf("\n✓ Graph database reference implementation complete\n");
 }
 
-int main() {
+int main(void) {
     printf("===============================================\n");
     printf("  Graph Database Reference Implementation\n");
     printf("===============================================\n");

@@ -27,7 +27,7 @@
     } while (0)
 
 // Example 1: Basic encode/decode with external width
-void example_basic() {
+void example_basic(void) {
     printf("\n=== Example 1: Basic Encode/Decode ===\n");
 
     uint8_t buffer[8];
@@ -52,7 +52,7 @@ void example_basic() {
 }
 
 // Example 2: Width detection for various values
-void example_width_detection() {
+void example_width_detection(void) {
     printf("\n=== Example 2: Width Detection ===\n");
 
     struct {
@@ -151,7 +151,7 @@ void freeColumnStore(ColumnStore *store) {
     free(store);
 }
 
-void example_column_store() {
+void example_column_store(void) {
     printf("\n=== Example 3: Column Store ===\n");
 
     ColumnStore *store = createColumnStore(5, 3);
@@ -197,7 +197,7 @@ void example_column_store() {
 }
 
 // Example 4: Array compression with uniform width
-void example_array_compression() {
+void example_array_compression(void) {
     printf("\n=== Example 4: Array Compression ===\n");
 
     // Array of timestamps (40-bit values)
@@ -245,7 +245,7 @@ void example_array_compression() {
 }
 
 // Example 5: Endianness handling
-void example_endianness() {
+void example_endianness(void) {
     printf("\n=== Example 5: Endianness ===\n");
 
     uint64_t value = 0x0102030405060708UL;
@@ -268,7 +268,7 @@ void example_endianness() {
 }
 
 // Example 6: Signed values
-void example_signed() {
+void example_signed(void) {
     printf("\n=== Example 6: Signed Values ===\n");
 
     int64_t signedValues[] = {0, 100, 1000, 10000, 100000};
@@ -295,7 +295,7 @@ void example_signed() {
 }
 
 // Example 7: Performance and space analysis
-void example_performance() {
+void example_performance(void) {
     printf("\n=== Example 7: Space Efficiency Comparison ===\n");
 
     uint64_t testValues[] = {10, 100, 1000, 10000, 100000, 1000000, 10000000};
@@ -313,7 +313,7 @@ void example_performance() {
     }
 }
 
-int main() {
+int main(void) {
     printf("===========================================\n");
     printf("   varintExternal Example Suite\n");
     printf("===========================================\n");

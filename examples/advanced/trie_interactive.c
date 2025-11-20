@@ -281,7 +281,8 @@ static TrieNode *trieNodeFindChild(TrieNode *parent, const char *segment,
     return NULL;
 }
 
-static bool trieNodeRemoveChild(TrieNode *parent, TrieNode *child) {
+__attribute__((unused)) static bool trieNodeRemoveChild(TrieNode *parent,
+                                                        TrieNode *child) {
     if (!parent || !child) {
         return false;
     }

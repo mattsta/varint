@@ -361,7 +361,7 @@ uint64_t columnStoreMax(const ColumnStore *store, size_t colIndex) {
 // DEMONSTRATION
 // ============================================================================
 
-void demonstrateColumnStore() {
+void demonstrateColumnStore(void) {
     printf("\n=== Column Store Example ===\n\n");
 
     // 1. Create schema
@@ -512,7 +512,7 @@ void demonstrateColumnStore() {
     printf("\n✓ Column store example complete\n");
 }
 
-int main() {
+int main(void) {
     printf("===========================================\n");
     printf("  Column Store Integration Example\n");
     printf("===========================================\n");

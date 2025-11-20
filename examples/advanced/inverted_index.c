@@ -359,7 +359,7 @@ ScoredResult *rankResults(const InvertedIndex *index, const char *query,
 // DEMONSTRATION
 // ============================================================================
 
-void demonstrateInvertedIndex() {
+void demonstrateInvertedIndex(void) {
     printf("\n=== Inverted Index Search Engine (Advanced) ===\n\n");
 
     // 1. Create inverted index
@@ -392,7 +392,6 @@ void demonstrateInvertedIndex() {
 
     PostingList *foxList = NULL;
     PostingList *dogList = NULL;
-    PostingList *lazyList = NULL;
 
     for (size_t i = 0; i < index.termCount; i++) {
         if (strcmp(index.lists[i].term, "fox") == 0) {
@@ -400,9 +399,6 @@ void demonstrateInvertedIndex() {
         }
         if (strcmp(index.lists[i].term, "dog") == 0) {
             dogList = &index.lists[i];
-        }
-        if (strcmp(index.lists[i].term, "lazy") == 0) {
-            lazyList = &index.lists[i];
         }
     }
 
@@ -545,7 +541,6 @@ void demonstrateInvertedIndex() {
     printf("\n10. Scalability projections (1M documents)...\n");
 
     double docsPerTerm = (double)totalPostings / index.termCount;
-    double avgTermsPerDoc = (double)totalPositions / index.documentCount;
     double bytesPerPosting = (double)totalCompressedSize / totalPostings;
 
     size_t projectedTerms = 100000; // 100K unique terms
@@ -567,7 +562,7 @@ void demonstrateInvertedIndex() {
     printf("\n✓ Inverted index demonstration complete\n");
 }
 
-int main() {
+int main(void) {
     printf("===============================================\n");
     printf("  Inverted Index Search Engine (Advanced)\n");
     printf("===============================================\n");

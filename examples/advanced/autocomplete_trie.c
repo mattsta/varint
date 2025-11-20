@@ -749,6 +749,7 @@ void demonstrateSearchEngine(AutocompleteTrie *trie) {
 }
 
 void demonstrateProductSearch(AutocompleteTrie *trie) {
+    (void)trie;
     printf("\n=== SCENARIO 2: E-commerce Product Autocomplete ===\n\n");
 
     AutocompleteTrie productTrie;
@@ -800,6 +801,7 @@ void demonstrateProductSearch(AutocompleteTrie *trie) {
 }
 
 void demonstrateCommandCompletion(AutocompleteTrie *trie) {
+    (void)trie;
     printf("\n=== SCENARIO 3: Command-Line Autocomplete ===\n\n");
 
     AutocompleteTrie cmdTrie;
@@ -855,7 +857,7 @@ void demonstrateCommandCompletion(AutocompleteTrie *trie) {
     autocompleteTrieFree(&cmdTrie);
 }
 
-void demonstrateFuzzyMatching() {
+void demonstrateFuzzyMatching(void) {
     printf("\n=== SCENARIO 4: Fuzzy Matching (Typo Tolerance) ===\n\n");
 
     AutocompleteTrie fuzzyTrie;
@@ -895,7 +897,7 @@ void demonstrateFuzzyMatching() {
     autocompleteTrieFree(&fuzzyTrie);
 }
 
-void demonstrateLargeScale() {
+void demonstrateLargeScale(void) {
     // Reduce dataset when running with sanitizers (much slower)
     int datasetSize = 50000;
     int searchCount = 10000;
@@ -991,7 +993,7 @@ void demonstrateLargeScale() {
     autocompleteTrieFree(&largeTrie);
 }
 
-void demonstrateTrendingUpdates() {
+void demonstrateTrendingUpdates(void) {
     printf("\n=== SCENARIO 6: Real-time Trending Updates ===\n\n");
 
     AutocompleteTrie trendTrie;
@@ -1038,7 +1040,7 @@ void demonstrateTrendingUpdates() {
 // MAIN DEMONSTRATION
 // ============================================================================
 
-int main() {
+int main(void) {
     printf("===============================================\n");
     printf("  Autocomplete/Typeahead Engine\n");
     printf("  High-Performance Prefix Search with Ranking\n");

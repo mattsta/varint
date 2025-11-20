@@ -387,7 +387,7 @@ void printValue(uint64_t key, const void *value, size_t valueLen,
            (const char *)value);
 }
 
-void demonstrateKVStore() {
+void demonstrateKVStore(void) {
     printf("\n=== Key-Value Store Reference Implementation ===\n\n");
 
     // 1. Initialize store
@@ -519,7 +519,7 @@ void demonstrateKVStore() {
     printf("\n✓ Key-value store reference implementation complete\n");
 }
 
-int main() {
+int main(void) {
     printf("===============================================\n");
     printf("  Key-Value Store Reference Implementation\n");
     printf("===============================================\n");

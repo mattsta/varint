@@ -32,7 +32,7 @@
     } while (0)
 
 // Example 1: Basic matrix storage
-void example_basic_matrix() {
+void example_basic_matrix(void) {
     printf("\n=== Example 1: Basic Matrix Storage ===\n");
 
     // 3×4 matrix of small integers (0-255)
@@ -89,7 +89,7 @@ void example_basic_matrix() {
 }
 
 // Example 2: Vector storage (1D array)
-void example_vector() {
+void example_vector(void) {
     printf("\n=== Example 2: Vector Storage ===\n");
 
     // Vector: row=0, cols=length
@@ -136,7 +136,7 @@ void example_vector() {
 }
 
 // Example 3: Bit matrix
-void example_bit_matrix() {
+void example_bit_matrix(void) {
     printf("\n=== Example 3: Bit Matrix (1 bit per entry) ===\n");
 
     // 8×8 adjacency matrix for a graph
@@ -200,7 +200,7 @@ void example_bit_matrix() {
 }
 
 // Example 4: Sparse matrix
-void example_sparse_matrix() {
+void example_sparse_matrix(void) {
     printf("\n=== Example 4: Sparse Matrix ===\n");
 
     // Large sparse matrix: 100×100 with only 10 non-zero entries
@@ -222,7 +222,7 @@ void example_sparse_matrix() {
 }
 
 // Example 5: Dimension encoding/decoding
-void example_dimension_encoding() {
+void example_dimension_encoding(void) {
     printf("\n=== Example 5: Dimension Encoding ===\n");
 
     struct {
@@ -262,7 +262,7 @@ void example_dimension_encoding() {
 }
 
 // Example 6: ML feature matrix
-void example_ml_features() {
+void example_ml_features(void) {
     printf("\n=== Example 6: ML Feature Matrix ===\n");
 
     // 1000 samples × 50 features
@@ -296,7 +296,7 @@ void example_ml_features() {
 }
 
 // Example 7: Dynamic dimension calculation
-void example_dynamic_dimensions() {
+void example_dynamic_dimensions(void) {
     printf("\n=== Example 7: Dynamic Dimension Calculation ===\n");
 
     // Automatically determine dimensions from data
@@ -360,7 +360,7 @@ void example_dynamic_dimensions() {
     free(matrix);
 }
 
-int main() {
+int main(void) {
     printf("===========================================\n");
     printf("   varintDimension Example Suite\n");
     printf("===========================================\n");

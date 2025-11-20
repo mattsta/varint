@@ -294,7 +294,7 @@ void packetReadEntityState(const NetworkPacket *packet, size_t *offset,
 // DEMONSTRATION
 // ============================================================================
 
-void demonstrateGameEngine() {
+void demonstrateGameEngine(void) {
     printf("\n=== Game Engine Example ===\n\n");
 
     // 1. Initialize entity manager
@@ -452,7 +452,7 @@ void demonstrateGameEngine() {
     printf("\n✓ Game engine example complete\n");
 }
 
-int main() {
+int main(void) {
     printf("===========================================\n");
     printf("  Game Engine Integration Example\n");
     printf("===========================================\n");

@@ -360,7 +360,7 @@ bool utxoSetRemove(UTXOSet *set, uint64_t txId, uint8_t outputIndex) {
 // DEMONSTRATION
 // ============================================================================
 
-void demonstrateBlockchain() {
+void demonstrateBlockchain(void) {
     printf("\n=== Blockchain Transaction Ledger (Advanced) ===\n\n");
 
     // 1. Initialize blockchain
@@ -571,7 +571,7 @@ void demonstrateBlockchain() {
     printf("\n✓ Blockchain ledger demonstration complete\n");
 }
 
-int main() {
+int main(void) {
     printf("===============================================\n");
     printf("  Blockchain Transaction Ledger (Advanced)\n");
     printf("===============================================\n");

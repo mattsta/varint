@@ -385,7 +385,7 @@ void simulatePlayer(PlayerState *player, uint32_t frame, uint8_t playerIndex) {
 // DEMONSTRATION
 // ============================================================================
 
-void demonstrateGameReplay() {
+void demonstrateGameReplay(void) {
     printf("\n=== Game Replay System (Advanced) ===\n\n");
 
     // 1. Initialize replay recorder
@@ -471,6 +471,9 @@ void demonstrateGameReplay() {
 
         offset += frameSize;
     }
+
+    (void)keyframeBytes;   // Intentionally unused
+    (void)deltaFrameBytes; // Intentionally unused
 
     printf("   Keyframes: %zu (%.1f%%)\n", keyframeCount,
            100.0 * keyframeCount / totalFrames);
@@ -571,7 +574,7 @@ void demonstrateGameReplay() {
     printf("\n✓ Game replay system demonstration complete\n");
 }
 
-int main() {
+int main(void) {
     printf("===============================================\n");
     printf("  Game Replay System (Advanced)\n");
     printf("===============================================\n");

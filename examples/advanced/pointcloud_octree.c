@@ -743,7 +743,7 @@ PointCloud generateTerrain(size_t pointCount) {
 // DEMONSTRATION
 // ============================================================================
 
-void demonstratePointCloudCompression() {
+void demonstratePointCloudCompression(void) {
     printf("\n=== 3D Point Cloud Compression (Advanced) ===\n\n");
 
     // Reduce dataset when running with sanitizers (much slower)
@@ -973,7 +973,7 @@ void demonstratePointCloudCompression() {
     printf("\n✓ Point cloud compression demonstration complete\n");
 }
 
-int main() {
+int main(void) {
     printf("===============================================\n");
     printf("  3D Point Cloud Compression (Advanced)\n");
     printf("===============================================\n");
