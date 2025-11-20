@@ -23,6 +23,9 @@ static inline uint64_t _perfTimeUs(void) {
 }
 
 static inline uint64_t _perfTSC(void) {
+#if defined(__x86_64__) || defined(__i386__) || defined(_M_X64) ||             \
+    defined(_M_IX86)
+    /* x86/x64: use RDTSC instruction */
     uint32_t lo = 0;
     uint32_t hi = 0;
 
@@ -31,6 +34,21 @@ static inline uint64_t _perfTSC(void) {
     __sync_synchronize();
     __asm__ __volatile__("rdtsc" : "=a"(lo), "=d"(hi));
     return ((uint64_t)hi << 32) | lo;
+#elif defined(__aarch64__) || defined(__arm64__)
+    /* ARM64: use virtual counter register for cycle counting */
+    uint64_t val;
+    __asm__ __volatile__("mrs %0, cntvct_el0" : "=r"(val));
+    return val;
+#elif defined(__arm__)
+    /* ARM32: use performance monitor cycle counter if available */
+    uint32_t val;
+    __asm__ __volatile__("mrc p15, 0, %0, c9, c13, 0" : "=r"(val));
+    return val;
+#else
+    /* Fallback for other architectures: use microsecond timer * 1000 as
+     * approximation */
+    return _perfTimeUs() * 1000;
+#endif
 }
 
 typedef struct perfStateGlobal {
