@@ -42,7 +42,7 @@ add_custom_target(check
             # --suppress=constVariable
             # --suppress=constParameter
             # --suppress=constParameterPointer
-            -I ${CMAKE_SOURCE_DIR}/src/ ${CMAKE_SOURCE_DIR}/src/*.c
+            -I ${CMAKE_SOURCE_DIR}/src/ ${CMAKE_SOURCE_DIR}/src/*.c ${CMAKE_SOURCE_DIR}/examples/**/*.c
     COMMAND ${CMAKE_COMMAND} --build ${CMAKE_BINARY_DIR} --target test
     WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
     COMMENT "Running pre-upload validation: cppcheck + all tests"
