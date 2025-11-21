@@ -157,15 +157,15 @@ void example_column_store(void) {
     ColumnStore *store = createColumnStore(5, 3);
 
     // Column 0: Small IDs (1-100)
-    uint64_t col0[] = {1, 2, 3, 4, 5};
+    const uint64_t col0[] = {1, 2, 3, 4, 5};
     setColumn(store, 0, col0);
 
     // Column 1: Medium values (0-10000)
-    uint64_t col1[] = {100, 500, 1000, 5000, 10000};
+    const uint64_t col1[] = {100, 500, 1000, 5000, 10000};
     setColumn(store, 1, col1);
 
     // Column 2: Large values
-    uint64_t col2[] = {1000000, 2000000, 3000000, 4000000, 5000000};
+    const uint64_t col2[] = {1000000, 2000000, 3000000, 4000000, 5000000};
     setColumn(store, 2, col2);
 
     printf("Column widths: %d, %d, %d bytes\n", store->widths[0],

@@ -73,13 +73,17 @@ void example_log_sources() {
     printf("\n=== Example 2: Log Source Codes ===\n");
 
     /* Simulate 100 log entries from only 5 different sources */
-    const uint64_t KERNEL = 1;
+    const uint64_t KERNEL __attribute__((unused)) = 1;
     const uint64_t NETWORK = 2;
     const uint64_t DATABASE = 3;
     const uint64_t WEBSERVER = 4;
     const uint64_t AUTH = 5;
 
     uint64_t *logSources = (uint64_t *)malloc(100 * sizeof(uint64_t));
+    if (!logSources) {
+        fprintf(stderr, "Memory allocation failed\n");
+        return;
+    }
     for (int i = 0; i < 100; i++) {
         /* Distribute logs across sources (realistic pattern) */
         if (i % 10 < 4) {
@@ -88,10 +92,8 @@ void example_log_sources() {
             logSources[i] = DATABASE; /* 30% database logs */
         } else if (i % 10 < 9) {
             logSources[i] = NETWORK; /* 20% network logs */
-        } else if (i % 10 < 10) {
-            logSources[i] = AUTH; /* 10% auth logs */
         } else {
-            logSources[i] = KERNEL; /* Rare kernel logs */
+            logSources[i] = AUTH; /* 10% auth logs */
         }
     }
 
@@ -338,7 +340,7 @@ void example_lookup() {
 
     /* Find indices for values */
     printf("\nValue -> Index lookups:\n");
-    uint64_t testValues[] = {100, 200, 300, 400};
+    const uint64_t testValues[] = {100, 200, 300, 400};
     for (size_t i = 0; i < 4; i++) {
         int32_t index = varintDictFind(dict, testValues[i]);
         if (index >= 0) {
@@ -367,7 +369,7 @@ void example_poor_compression() {
 
     /* Unique values (no repetition) - worst case for dictionary encoding */
     uint64_t uniqueValues[20];
-    for (int i = 0; i < 20; i++) {
+    for (size_t i = 0; i < 20; i++) {
         uniqueValues[i] = i * 100;
     }
 
@@ -395,7 +397,7 @@ void example_poor_compression() {
     /* Show when it becomes beneficial */
     printf("\nComparison with repetitive data:\n");
     uint64_t repetitiveValues[20];
-    for (int i = 0; i < 20; i++) {
+    for (size_t i = 0; i < 20; i++) {
         repetitiveValues[i] = (i % 3) * 100; /* Only 3 unique values */
     }
 

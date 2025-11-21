@@ -226,6 +226,9 @@ BoundingBox getOctantBounds(const BoundingBox *bounds, int octant) {
 // Create new octree node
 OctreeNode *octreeNodeCreate(const BoundingBox *bounds) {
     OctreeNode *node = (OctreeNode *)calloc(1, sizeof(OctreeNode));
+    if (!node) {
+        return NULL;
+    }
     node->bounds = *bounds;
     node->points = NULL;
     node->pointCount = 0;
@@ -430,6 +433,10 @@ int compareMorton(const void *a, const void *b) {
 
 // Compress point cloud to buffer
 size_t compressPointCloud(const PointCloud *pc, uint8_t *buffer) {
+    if (!buffer) {
+        return 0;
+    }
+
     size_t offset = 0;
 
     // 1. Metadata

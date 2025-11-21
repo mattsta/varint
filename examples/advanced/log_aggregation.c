@@ -210,7 +210,7 @@ void logStreamFree(LogStream *stream) {
     free(stream->batches);
 }
 
-void logStreamFlushBatch(LogStream *stream, LogBatch *batch) {
+void logStreamFlushBatch(LogStream *stream, const LogBatch *batch) {
     if (stream->batchCount >= stream->batchCapacity) {
         stream->batchCapacity *= 2;
         stream->batches =

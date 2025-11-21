@@ -85,12 +85,21 @@ void example_temperature_sensors() {
     for (int p = 0; p < 4; p++) {
         size_t max_size = varintFloatMaxEncodedSize(count, precisions[p]);
         uint8_t *encoded = malloc(max_size);
+        if (!encoded) {
+            fprintf(stderr, "Memory allocation failed\n");
+            return;
+        }
 
         size_t encoded_size =
             varintFloatEncode(encoded, temperatures, count, precisions[p],
                               VARINT_FLOAT_MODE_COMMON_EXPONENT);
 
         double *decoded = malloc(count * sizeof(double));
+        if (!decoded) {
+            fprintf(stderr, "Memory allocation failed\n");
+            free(encoded);
+            return;
+        }
         varintFloatDecode(encoded, count, decoded);
 
         ErrorStats errors = calculateErrors(temperatures, decoded, count);
@@ -130,12 +139,21 @@ void example_gps_coordinates() {
     size_t max_size =
         varintFloatMaxEncodedSize(count, VARINT_FLOAT_PRECISION_HIGH);
     uint8_t *encoded = malloc(max_size);
+    if (!encoded) {
+        fprintf(stderr, "Memory allocation failed\n");
+        return;
+    }
 
     size_t encoded_size = varintFloatEncode(encoded, coordinates, count,
                                             VARINT_FLOAT_PRECISION_HIGH,
                                             VARINT_FLOAT_MODE_COMMON_EXPONENT);
 
     double *decoded = malloc(count * sizeof(double));
+    if (!decoded) {
+        fprintf(stderr, "Memory allocation failed\n");
+        free(encoded);
+        return;
+    }
     size_t decoded_bytes = varintFloatDecode(encoded, count, decoded);
 
     printf("Sample coordinates:\n");
@@ -182,12 +200,21 @@ void example_scientific_data() {
     size_t max_size =
         varintFloatMaxEncodedSize(count, VARINT_FLOAT_PRECISION_MEDIUM);
     uint8_t *encoded = malloc(max_size);
+    if (!encoded) {
+        fprintf(stderr, "Memory allocation failed\n");
+        return;
+    }
 
     size_t encoded_size = varintFloatEncode(encoded, pressures, count,
                                             VARINT_FLOAT_PRECISION_MEDIUM,
                                             VARINT_FLOAT_MODE_COMMON_EXPONENT);
 
     double *decoded = malloc(count * sizeof(double));
+    if (!decoded) {
+        fprintf(stderr, "Memory allocation failed\n");
+        free(encoded);
+        return;
+    }
     varintFloatDecode(encoded, count, decoded);
 
     printf("First 5 values:\n");
@@ -223,6 +250,10 @@ void example_precision_comparison() {
     /* Generate test data: sine wave */
     size_t count = 100;
     double *data = malloc(count * sizeof(double));
+    if (!data) {
+        fprintf(stderr, "Memory allocation failed\n");
+        return;
+    }
     for (size_t i = 0; i < count; i++) {
         data[i] = sin(2.0 * M_PI * i / count) * 1000.0;
     }
@@ -244,11 +275,22 @@ void example_precision_comparison() {
     for (int m = 0; m < 4; m++) {
         size_t max_size = varintFloatMaxEncodedSize(count, modes[m]);
         uint8_t *encoded = malloc(max_size);
+        if (!encoded) {
+            fprintf(stderr, "Memory allocation failed\n");
+            free(data);
+            return;
+        }
 
         size_t encoded_size = varintFloatEncode(encoded, data, count, modes[m],
                                                 VARINT_FLOAT_MODE_INDEPENDENT);
 
         double *decoded = malloc(count * sizeof(double));
+        if (!decoded) {
+            fprintf(stderr, "Memory allocation failed\n");
+            free(encoded);
+            free(data);
+            return;
+        }
         varintFloatDecode(encoded, count, decoded);
 
         ErrorStats errors = calculateErrors(data, decoded, count);
@@ -299,11 +341,20 @@ void example_encoding_modes() {
         size_t max_size =
             varintFloatMaxEncodedSize(count, VARINT_FLOAT_PRECISION_HIGH);
         uint8_t *encoded = malloc(max_size);
+        if (!encoded) {
+            fprintf(stderr, "Memory allocation failed\n");
+            return;
+        }
 
         size_t encoded_size = varintFloatEncode(
             encoded, readings, count, VARINT_FLOAT_PRECISION_HIGH, modes[m]);
 
         double *decoded = malloc(count * sizeof(double));
+        if (!decoded) {
+            fprintf(stderr, "Memory allocation failed\n");
+            free(encoded);
+            return;
+        }
         varintFloatDecode(encoded, count, decoded);
 
         /* Verify correctness */
@@ -342,12 +393,21 @@ void example_special_values() {
     size_t max_size =
         varintFloatMaxEncodedSize(count, VARINT_FLOAT_PRECISION_HIGH);
     uint8_t *encoded = malloc(max_size);
+    if (!encoded) {
+        fprintf(stderr, "Memory allocation failed\n");
+        return;
+    }
 
-    size_t encoded_size = varintFloatEncode(encoded, special_values, count,
-                                            VARINT_FLOAT_PRECISION_HIGH,
-                                            VARINT_FLOAT_MODE_INDEPENDENT);
+    varintFloatEncode(encoded, special_values, count,
+                      VARINT_FLOAT_PRECISION_HIGH,
+                      VARINT_FLOAT_MODE_INDEPENDENT);
 
     double *decoded = malloc(count * sizeof(double));
+    if (!decoded) {
+        fprintf(stderr, "Memory allocation failed\n");
+        free(encoded);
+        return;
+    }
     varintFloatDecode(encoded, count, decoded);
 
     printf("Index | Original    | Decoded     | Type       | Match\n");
@@ -394,7 +454,7 @@ void example_auto_precision() {
 
     printf("Measurements: 8 values around 100.0\n\n");
 
-    double error_thresholds[] = {1e-15, 1e-6, 1e-3, 1e-1};
+    const double error_thresholds[] = {1e-15, 1e-6, 1e-3, 1e-1};
     const char *threshold_names[] = {"1e-15 (lossless)", "1e-6  (7 digits)",
                                      "1e-3  (3 digits)", "1e-1  (1 digit) "};
 
@@ -409,6 +469,10 @@ void example_auto_precision() {
         size_t max_size =
             varintFloatMaxEncodedSize(count, VARINT_FLOAT_PRECISION_FULL);
         uint8_t *encoded = malloc(max_size);
+        if (!encoded) {
+            fprintf(stderr, "Memory allocation failed\n");
+            return;
+        }
 
         varintFloatPrecision selected;
         size_t encoded_size = varintFloatEncodeAuto(
@@ -416,6 +480,11 @@ void example_auto_precision() {
             VARINT_FLOAT_MODE_COMMON_EXPONENT, &selected);
 
         double *decoded = malloc(count * sizeof(double));
+        if (!decoded) {
+            fprintf(stderr, "Memory allocation failed\n");
+            free(encoded);
+            return;
+        }
         varintFloatDecode(encoded, count, decoded);
 
         ErrorStats errors = calculateErrors(measurements, decoded, count);
@@ -457,6 +526,10 @@ void example_large_dataset() {
 
     size_t count = 10000;
     double *sensor_data = malloc(count * sizeof(double));
+    if (!sensor_data) {
+        fprintf(stderr, "Memory allocation failed\n");
+        return;
+    }
 
     /* Generate realistic sensor data: temperature with noise */
     for (size_t i = 0; i < count; i++) {
@@ -472,12 +545,23 @@ void example_large_dataset() {
     size_t max_size =
         varintFloatMaxEncodedSize(count, VARINT_FLOAT_PRECISION_MEDIUM);
     uint8_t *encoded = malloc(max_size);
+    if (!encoded) {
+        fprintf(stderr, "Memory allocation failed\n");
+        free(sensor_data);
+        return;
+    }
 
     size_t encoded_size = varintFloatEncode(encoded, sensor_data, count,
                                             VARINT_FLOAT_PRECISION_MEDIUM,
                                             VARINT_FLOAT_MODE_COMMON_EXPONENT);
 
     double *decoded = malloc(count * sizeof(double));
+    if (!decoded) {
+        fprintf(stderr, "Memory allocation failed\n");
+        free(encoded);
+        free(sensor_data);
+        return;
+    }
     varintFloatDecode(encoded, count, decoded);
 
     ErrorStats errors = calculateErrors(sensor_data, decoded, count);
@@ -531,12 +615,21 @@ void example_round_trip() {
         size_t max_size =
             varintFloatMaxEncodedSize(tests[t].count, tests[t].precision);
         uint8_t *encoded = malloc(max_size);
+        if (!encoded) {
+            fprintf(stderr, "Memory allocation failed\n");
+            return;
+        }
 
         size_t encoded_size = varintFloatEncode(
             encoded, tests[t].values, tests[t].count, tests[t].precision,
             VARINT_FLOAT_MODE_INDEPENDENT);
 
         double *decoded = malloc(tests[t].count * sizeof(double));
+        if (!decoded) {
+            fprintf(stderr, "Memory allocation failed\n");
+            free(encoded);
+            return;
+        }
         size_t decoded_bytes =
             varintFloatDecode(encoded, tests[t].count, decoded);
 
@@ -578,12 +671,21 @@ void example_error_bounds() {
     for (int p = 0; p < 3; p++) {
         size_t max_size = varintFloatMaxEncodedSize(count, precisions[p]);
         uint8_t *encoded = malloc(max_size);
+        if (!encoded) {
+            fprintf(stderr, "Memory allocation failed\n");
+            return;
+        }
 
-        size_t encoded_size =
+        size_t encoded_size __attribute__((unused)) =
             varintFloatEncode(encoded, test_values, count, precisions[p],
                               VARINT_FLOAT_MODE_INDEPENDENT);
 
         double *decoded = malloc(count * sizeof(double));
+        if (!decoded) {
+            fprintf(stderr, "Memory allocation failed\n");
+            free(encoded);
+            return;
+        }
         varintFloatDecode(encoded, count, decoded);
 
         ErrorStats errors = calculateErrors(test_values, decoded, count);

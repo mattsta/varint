@@ -656,7 +656,7 @@ void demonstrateTimeSeriesDB(void) {
     printf("\n8. Multi-metric statistics:\n");
 
     for (size_t i = 0; i < db.seriesCount; i++) {
-        TimeSeries *ts = &db.series[i];
+        const TimeSeries *ts = &db.series[i];
         printf("   Metric: %s\n", ts->metricName);
         printf("   - Data points: %zu\n", ts->count);
         printf("   - Time range: %" PRIu64 " - %" PRIu64 " (%" PRIu64

@@ -57,7 +57,7 @@ void example_basic_matrix(void) {
            metadataSize, rows * cols * entryWidth, totalSize);
 
     // Set some values
-    uint64_t values[3][4] = {
+    const uint64_t values[3][4] = {
         {10, 20, 30, 40}, {50, 60, 70, 80}, {90, 100, 110, 120}};
 
     for (size_t r = 0; r < rows; r++) {
@@ -111,7 +111,7 @@ void example_vector(void) {
            metadataSize, length * entryWidth);
 
     // Set values
-    uint64_t values[] = {100, 200, 300, 400, 500, 600, 700, 800};
+    const uint64_t values[] = {100, 200, 300, 400, 500, 600, 700, 800};
     for (size_t i = 0; i < length; i++) {
         varintDimensionPairEntrySetUnsigned(vector, 0, i, values[i], entryWidth,
                                             dim);
@@ -300,7 +300,8 @@ void example_dynamic_dimensions(void) {
     printf("\n=== Example 7: Dynamic Dimension Calculation ===\n");
 
     // Automatically determine dimensions from data
-    uint64_t dataset[] = {10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 110, 120};
+    const uint64_t dataset[] = {10, 20, 30, 40,  50,  60,
+                                70, 80, 90, 100, 110, 120};
     size_t rows = 4;
     size_t cols = 3;
     size_t count = rows * cols;

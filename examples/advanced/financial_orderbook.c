@@ -209,6 +209,9 @@ BookLevel *findOrCreateLevel(BookLevel **levelList, Price price, bool isBid) {
 
     // Create new level
     BookLevel *newLevel = malloc(sizeof(BookLevel));
+    if (!newLevel) {
+        return NULL;
+    }
     newLevel->price = price;
     newLevel->totalQuantity = 0;
     newLevel->orders = NULL;
@@ -346,7 +349,7 @@ void demonstrateOrderBook(void) {
     Price buyPrices[] = {encodePrice(150.00), encodePrice(149.95),
                          encodePrice(149.90), encodePrice(149.85),
                          encodePrice(149.80)};
-    uint32_t buyQtys[] = {100, 200, 150, 300, 250};
+    const uint32_t buyQtys[] = {100, 200, 150, 300, 250};
 
     for (size_t i = 0; i < 5; i++) {
         buyOrders[i] = malloc(sizeof(Order));
@@ -371,7 +374,7 @@ void demonstrateOrderBook(void) {
     Price sellPrices[] = {encodePrice(150.05), encodePrice(150.10),
                           encodePrice(150.15), encodePrice(150.20),
                           encodePrice(150.25)};
-    uint32_t sellQtys[] = {150, 100, 200, 175, 225};
+    const uint32_t sellQtys[] = {150, 100, 200, 175, 225};
 
     for (size_t i = 0; i < 5; i++) {
         sellOrders[i] = malloc(sizeof(Order));
@@ -470,7 +473,7 @@ void demonstrateOrderBook(void) {
     // 8. Order ID encoding
     printf("\n8. Order ID encoding (varintTagged - sortable)...\n");
 
-    uint64_t orderIds[] = {1, 100, 10000, 1000000};
+    const uint64_t orderIds[] = {1, 100, 10000, 1000000};
     for (size_t i = 0; i < 4; i++) {
         varintWidth width = varintTaggedLen(orderIds[i]);
         printf("   Order %" PRIu64 ": %d bytes (vs 8 bytes fixed)\n",

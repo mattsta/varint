@@ -106,11 +106,11 @@ static inline int event_queue_wait(int eq, event_t *events, int maxevents,
     return epoll_wait(eq, events, maxevents, timeout);
 }
 
-static inline void *event_get_data(event_t *ev) {
+static inline void *event_get_data(const event_t *ev) {
     return ev->data.ptr;
 }
 
-static inline uint32_t event_get_events(event_t *ev) {
+static inline uint32_t event_get_events(const event_t *ev) {
     return ev->events;
 }
 
@@ -176,11 +176,11 @@ static inline int event_queue_wait(int kq, event_t *events, int maxevents,
     return kevent(kq, NULL, 0, events, maxevents, tsp);
 }
 
-static inline void *event_get_data(event_t *ev) {
+static inline void *event_get_data(const event_t *ev) {
     return ev->udata;
 }
 
-static inline uint32_t event_get_events(event_t *ev) {
+static inline uint32_t event_get_events(const event_t *ev) {
     uint32_t events = 0;
     if (ev->filter == EVFILT_READ) {
         events |= EVENT_READ;
@@ -593,8 +593,8 @@ void clientMgrFree(ClientManager *mgr, ClientConnection *conn);
 ClientConnection *clientMgrGetById(ClientManager *mgr, uint64_t clientId);
 ClientConnection *clientMgrGetByFd(ClientManager *mgr, int fd);
 bool clientMgrAdd(ClientManager *mgr, ClientConnection *conn);
-void clientMgrRemove(ClientManager *mgr, ClientConnection *conn);
-size_t clientMgrGetActiveCount(ClientManager *mgr);
+void clientMgrRemove(ClientManager *mgr, const ClientConnection *conn);
+size_t clientMgrGetActiveCount(const ClientManager *mgr);
 
 // ============================================================================
 // FORWARD DECLARATIONS - MESSAGE POOLS (PHASE 3)
@@ -1882,7 +1882,7 @@ bool clientMgrAdd(ClientManager *mgr, ClientConnection *conn) {
 }
 
 // Remove client from active set
-void clientMgrRemove(ClientManager *mgr, ClientConnection *conn) {
+void clientMgrRemove(ClientManager *mgr, const ClientConnection *conn) {
     if (!conn) {
         return;
     }
@@ -1913,7 +1913,7 @@ ClientConnection *clientMgrGetByFd(ClientManager *mgr, int fd) {
 }
 
 // Get active client count
-size_t clientMgrGetActiveCount(ClientManager *mgr) {
+size_t clientMgrGetActiveCount(const ClientManager *mgr) {
     return mgr->activeCount;
 }
 
@@ -2620,7 +2620,7 @@ void processNotificationQueue(TrieServer *server, ClientConnection *client) {
             continue; // Message was already cleaned up
         }
 
-        BufferedMessage *msg = &server->globalMessageBuffer[msgIndex];
+        const BufferedMessage *msg = &server->globalMessageBuffer[msgIndex];
         sendNotification(server, client, msg);
     }
 
@@ -3474,6 +3474,7 @@ bool processCommand(TrieServer *server, ClientConnection *client,
             return false;
         }
         offset += width;
+        (void)offset; // Suppress unused value warning
 
         if (trieRemoveSubscriber(&server->trie, pattern,
                                  (uint32_t)subscriberId)) {
@@ -3856,7 +3857,7 @@ bool processCommand(TrieServer *server, ClientConnection *client,
         // Find messages this client needs to acknowledge
         size_t backlogCount = 0;
         for (size_t i = 0; i < server->globalBufferSize; i++) {
-            BufferedMessage *msg = &server->globalMessageBuffer[i];
+            const BufferedMessage *msg = &server->globalMessageBuffer[i];
             for (size_t j = 0; j < msg->pendingClientCount; j++) {
                 if (msg->pendingClientFds[j] == client->fd) {
                     backlogCount++;
@@ -3870,7 +3871,7 @@ bool processCommand(TrieServer *server, ClientConnection *client,
         // Send up to 100 messages
         size_t sent = 0;
         for (size_t i = 0; i < server->globalBufferSize && sent < 100; i++) {
-            BufferedMessage *msg = &server->globalMessageBuffer[i];
+            const BufferedMessage *msg = &server->globalMessageBuffer[i];
 
             bool isPending = false;
             for (size_t j = 0; j < msg->pendingClientCount; j++) {
@@ -4105,10 +4106,10 @@ void handleClient(TrieServer *server, ClientConnection *client) {
 // MAIN
 // ============================================================================
 
-int main(int argc, char *argv[]) {
+int main(int argc, const char *argv[]) {
     uint16_t port = DEFAULT_PORT;
-    char *authToken = NULL;
-    char *saveFile = NULL;
+    const char *authToken = NULL;
+    const char *saveFile = NULL;
 
     printf("DEBUG: Starting trie_server\n");
 

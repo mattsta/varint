@@ -135,8 +135,8 @@ void example_type_detection(void) {
 void example_reversed(void) {
     printf("\n=== Example 4: Reversed Split Encoding ===\n");
 
-    uint64_t values[] = {10, 100, 1000, 10000};
-    uint8_t buffer[64];
+    const uint64_t values[] = {10, 100, 1000, 10000};
+    uint8_t buffer[64] = {0};
     size_t offset = 0;
 
     printf("Forward encoding:\n");
@@ -217,7 +217,7 @@ void example_bitpacking(void) {
 
     // Random access
     printf("\nRandom access:\n");
-    size_t testIndices[] = {0, 4, 8};
+    const size_t testIndices[] = {0, 4, 8};
     for (size_t i = 0; i < 3; i++) {
         size_t idx = testIndices[i];
         uint64_t decoded;
@@ -245,9 +245,7 @@ void example_performance(void) {
     printf("---------------|------------|-------|------------\n");
 
     for (size_t i = 0; i < sizeof(ranges) / sizeof(ranges[0]); i++) {
-        uint64_t testVal = (i < sizeof(ranges) / sizeof(ranges[0]) - 1)
-                               ? ranges[i]
-                               : ranges[i];
+        uint64_t testVal = ranges[i];
         if (i > 0) {
             testVal += 10; // Move into range
         }
@@ -283,8 +281,8 @@ void example_performance(void) {
 void example_length(void) {
     printf("\n=== Example 7: Length Calculation ===\n");
 
-    uint8_t buffer[64];
-    uint64_t values[] = {10, 1000, 100000};
+    uint8_t buffer[64] = {0};
+    const uint64_t values[] = {10, 1000, 100000};
     size_t offset = 0;
 
     // Encode multiple values

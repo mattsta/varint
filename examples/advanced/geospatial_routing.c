@@ -156,18 +156,19 @@ typedef enum {
 } FeatureType;
 
 typedef struct {
-    FeatureType type;
-    GPSCoordinate *geometry; // Polygon or line
-    size_t geometryCount;
-    char name[64];
+    FeatureType type __attribute__((unused));
+    GPSCoordinate *geometry __attribute__((unused)); // Polygon or line
+    size_t geometryCount __attribute__((unused));
+    char name[64] __attribute__((unused));
 } Feature;
 
 typedef struct {
-    uint32_t tileX;    // Tile X coordinate (zoom level dependent)
-    uint32_t tileY;    // Tile Y coordinate
-    uint8_t zoomLevel; // 0-22
-    Feature *features;
-    size_t featureCount;
+    uint32_t tileX
+        __attribute__((unused)); // Tile X coordinate (zoom level dependent)
+    uint32_t tileY __attribute__((unused));    // Tile Y coordinate
+    uint8_t zoomLevel __attribute__((unused)); // 0-22
+    Feature *features __attribute__((unused));
+    size_t featureCount __attribute__((unused));
 } MapTile;
 
 // ============================================================================
@@ -182,11 +183,11 @@ typedef struct {
 } RouteNode;
 
 typedef struct {
-    uint64_t fromNode;
-    uint64_t toNode;
-    uint32_t distance;   // Meters
-    uint16_t speedLimit; // km/h
-    uint8_t roadType;
+    uint64_t fromNode __attribute__((unused));
+    uint64_t toNode __attribute__((unused));
+    uint32_t distance __attribute__((unused));   // Meters
+    uint16_t speedLimit __attribute__((unused)); // km/h
+    uint8_t roadType __attribute__((unused));
 } RouteEdge;
 
 typedef struct {

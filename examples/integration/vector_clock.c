@@ -149,7 +149,6 @@ void vcMerge(VectorClock *dst, const VectorClock *src) {
 VectorClockOrdering vcCompare(const VectorClock *a, const VectorClock *b) {
     bool aLessOrEqual = true;
     bool bLessOrEqual = true;
-    bool foundDifference = false;
 
     // Check all actors in A
     for (size_t i = 0; i < a->entryCount; i++) {
@@ -159,10 +158,8 @@ VectorClockOrdering vcCompare(const VectorClock *a, const VectorClock *b) {
 
         if (aCounter > bCounter) {
             aLessOrEqual = false; // a > b means NOT a <= b
-            foundDifference = true;
         } else if (aCounter < bCounter) {
             bLessOrEqual = false; // a < b means NOT b <= a
-            foundDifference = true;
         }
     }
 
@@ -179,7 +176,6 @@ VectorClockOrdering vcCompare(const VectorClock *a, const VectorClock *b) {
 
         if (!found && b->counters[i] > 0) {
             bLessOrEqual = false; // b has counter > a's 0, so NOT b <= a
-            foundDifference = true;
         }
     }
 
@@ -597,7 +593,7 @@ void demonstrateAdvancedScenarios() {
     vcInit(&largeClock, 100);
 
     // Simulate: 1000 potential nodes, only 5 active
-    uint32_t activeNodes[] = {7, 42, 103, 517, 999};
+    const uint32_t activeNodes[] = {7, 42, 103, 517, 999};
     for (int i = 0; i < 5; i++) {
         vcSet(&largeClock, activeNodes[i], i * 10 + 5);
     }

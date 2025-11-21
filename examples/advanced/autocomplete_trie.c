@@ -151,6 +151,9 @@ typedef struct TrieNode {
 
 TrieNode *trieNodeCreate(char c) {
     TrieNode *node = malloc(sizeof(TrieNode));
+    if (!node) {
+        return NULL;
+    }
     node->character = c;
     node->isTerminal = false;
     node->frequency = 0;
@@ -562,6 +565,10 @@ size_t serializeTrieNode(const TrieNode *node, uint8_t *buffer) {
 
 size_t autocompleteTrieSerialize(const AutocompleteTrie *trie,
                                  uint8_t *buffer) {
+    if (!buffer) {
+        return 0;
+    }
+
     size_t offset = 0;
 
     // Trie metadata

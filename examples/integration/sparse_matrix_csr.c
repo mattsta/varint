@@ -105,8 +105,20 @@ void csrMatrixInit(CSRMatrix *matrix, size_t rows, size_t cols,
 
     // Allocate storage
     matrix->values = malloc(matrix->capacity * sizeof(double));
+    if (!matrix->values) {
+        return;
+    }
     matrix->columnIndices = malloc(matrix->capacity * matrix->colWidth);
+    if (!matrix->columnIndices) {
+        free(matrix->values);
+        return;
+    }
     matrix->rowPointers = malloc((rows + 1) * matrix->ptrWidth);
+    if (!matrix->rowPointers) {
+        free(matrix->values);
+        free(matrix->columnIndices);
+        return;
+    }
 
     // Initialize row pointers to zero
     memset(matrix->rowPointers, 0, (rows + 1) * matrix->ptrWidth);
@@ -124,9 +136,18 @@ void csrMatrixFree(CSRMatrix *matrix) {
 
 void csrMatrixGrow(CSRMatrix *matrix) {
     matrix->capacity *= 2;
-    matrix->values = realloc(matrix->values, matrix->capacity * sizeof(double));
-    matrix->columnIndices =
+    double *newValues =
+        realloc(matrix->values, matrix->capacity * sizeof(double));
+    if (!newValues) {
+        return;
+    }
+    matrix->values = newValues;
+    uint8_t *newIndices =
         realloc(matrix->columnIndices, matrix->capacity * matrix->colWidth);
+    if (!newIndices) {
+        return;
+    }
+    matrix->columnIndices = newIndices;
 }
 
 // ============================================================================
@@ -308,6 +329,9 @@ void csrMatrixTranspose(const CSRMatrix *matrix, CSRMatrix *result) {
 
     // Count nnz per column (which becomes nnz per row in transpose)
     size_t *colCounts = calloc(matrix->cols, sizeof(size_t));
+    if (!colCounts) {
+        return;
+    }
     for (size_t i = 0; i < matrix->nnz; i++) {
         uint64_t col = csrMatrixGetColumnIndex(matrix, i);
         colCounts[col]++;
@@ -326,6 +350,10 @@ void csrMatrixTranspose(const CSRMatrix *matrix, CSRMatrix *result) {
 
     // Fill in values and column indices
     size_t *colOffsets = calloc(matrix->cols, sizeof(size_t));
+    if (!colOffsets) {
+        free(colCounts);
+        return;
+    }
     for (size_t row = 0; row < matrix->rows; row++) {
         uint64_t rowStart = csrMatrixGetRowPointer(matrix, row);
         uint64_t rowEnd = csrMatrixGetRowPointer(matrix, row + 1);
@@ -362,8 +390,20 @@ void csrMatrixAdd(const CSRMatrix *A, const CSRMatrix *B, CSRMatrix *C) {
     // Simple implementation: convert to dense, add, convert back
     // (For production, implement direct sparse addition)
     double *denseA = calloc(A->rows * A->cols, sizeof(double));
+    if (!denseA) {
+        return;
+    }
     double *denseB = calloc(B->rows * B->cols, sizeof(double));
+    if (!denseB) {
+        free(denseA);
+        return;
+    }
     double *denseC = calloc(A->rows * A->cols, sizeof(double));
+    if (!denseC) {
+        free(denseA);
+        free(denseB);
+        return;
+    }
 
     csrMatrixToDense(A, denseA);
     csrMatrixToDense(B, denseB);
@@ -388,7 +428,7 @@ void demonstrateGraphAdjacency() {
 
     // Small social network: 6 users, sparse connections
     size_t numUsers = 6;
-    double dense[36] = {
+    const double dense[36] = {
         0, 1, 1, 0, 0, 0, // User 0 follows users 1, 2
         1, 0, 0, 1, 0, 0, // User 1 follows users 0, 3
         0, 0, 0, 1, 1, 0, // User 2 follows users 3, 4
@@ -447,6 +487,9 @@ void demonstrateFiniteElementMesh() {
     // Simplified 8x8 stiffness matrix (band diagonal pattern)
     size_t n = 8;
     double *dense = calloc(n * n, sizeof(double));
+    if (!dense) {
+        return;
+    }
 
     printf("Creating stiffness matrix for 8-node FEM mesh...\n");
 
@@ -472,7 +515,7 @@ void demonstrateFiniteElementMesh() {
 
     // Matrix-vector multiply (displacement calculation)
     printf("\nComputing displacement vector (SpMV)...\n");
-    double force[8] = {1.0, 2.0, 3.0, 4.0, 3.0, 2.0, 1.0, 0.5};
+    const double force[8] = {1.0, 2.0, 3.0, 4.0, 3.0, 2.0, 1.0, 0.5};
     double displacement[8];
 
     csrMatrixVectorMultiply(&stiffness, force, displacement);
@@ -572,7 +615,7 @@ void demonstrateDocumentTermMatrix() {
            invertedIndex.cols);
 
     printf("\nTerm document postings:\n");
-    for (size_t term = 0; term < (numTerms < 6 ? numTerms : 6); term++) {
+    for (size_t term = 0; term < 6; term++) {
         printf("   Term %zu appears in docs: ", term);
         uint64_t rowStart = csrMatrixGetRowPointer(&invertedIndex, term);
         uint64_t rowEnd = csrMatrixGetRowPointer(&invertedIndex, term + 1);
@@ -623,6 +666,10 @@ void demonstrateLargeSparseMatrix() {
     // Generate random sparse pattern
     srand(12345); // Fixed seed for reproducibility
     size_t *rowNnzCounts = calloc(n, sizeof(size_t));
+    if (!rowNnzCounts) {
+        csrMatrixFree(&large);
+        return;
+    }
     size_t actualNnz = 0;
 
     // Distribute non-zeros across rows
@@ -669,7 +716,18 @@ void demonstrateLargeSparseMatrix() {
     // Matrix-vector multiply benchmark
     printf("\nPerforming SpMV (y = A * x)...\n");
     double *x = malloc(n * sizeof(double));
+    if (!x) {
+        free(rowNnzCounts);
+        csrMatrixFree(&large);
+        return;
+    }
     double *y = malloc(n * sizeof(double));
+    if (!y) {
+        free(x);
+        free(rowNnzCounts);
+        csrMatrixFree(&large);
+        return;
+    }
 
     for (size_t i = 0; i < n; i++) {
         x[i] = 1.0; // Unit vector

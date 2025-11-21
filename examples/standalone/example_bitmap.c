@@ -130,11 +130,11 @@ void example_set_operations() {
     varintBitmap *setB = varintBitmapCreate();
 
     /* Set A: {1, 2, 3, 4, 5} */
-    uint16_t valuesA[] = {1, 2, 3, 4, 5};
+    const uint16_t valuesA[] = {1, 2, 3, 4, 5};
     varintBitmapAddMany(setA, valuesA, 5);
 
     /* Set B: {4, 5, 6, 7, 8} */
-    uint16_t valuesB[] = {4, 5, 6, 7, 8};
+    const uint16_t valuesB[] = {4, 5, 6, 7, 8};
     varintBitmapAddMany(setB, valuesB, 5);
 
     printf("Set A: {1, 2, 3, 4, 5}\n");
@@ -296,7 +296,7 @@ void example_iteration() {
     varintBitmap *vb = varintBitmapCreate();
 
     /* Add some values */
-    uint16_t values[] = {5, 15, 25, 35, 45, 55, 65, 75, 85, 95};
+    const uint16_t values[] = {5, 15, 25, 35, 45, 55, 65, 75, 85, 95};
     varintBitmapAddMany(vb, values, 10);
 
     printf("Iterating through bitmap:\n");
@@ -333,7 +333,7 @@ void example_iteration() {
  * Example 7: Use case - Inverted index posting list
  * ==================================================================== */
 typedef struct InvertedIndex {
-    const char *term;
+    const char *term __attribute__((unused));
     varintBitmap *postings; /* Document IDs */
 } InvertedIndex;
 

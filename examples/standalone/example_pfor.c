@@ -96,6 +96,11 @@ void example_stock_prices() {
 
     /* Decode and verify */
     uint64_t *decoded = malloc(count * sizeof(uint64_t));
+    if (!decoded) {
+        fprintf(stderr, "Memory allocation failed\n");
+        free(buffer);
+        return;
+    }
     varintPFORMeta decodeMeta = {0};
     varintPFORDecode(buffer, decoded, &decodeMeta);
 
@@ -131,8 +136,9 @@ void example_response_times() {
     printf("Response times (us): %u samples\n", count);
 
     /* Compare different thresholds */
-    uint32_t thresholds[] = {VARINT_PFOR_THRESHOLD_90, VARINT_PFOR_THRESHOLD_95,
-                             VARINT_PFOR_THRESHOLD_99};
+    const uint32_t thresholds[] = {VARINT_PFOR_THRESHOLD_90,
+                                   VARINT_PFOR_THRESHOLD_95,
+                                   VARINT_PFOR_THRESHOLD_99};
     const char *thresholdNames[] = {"90th", "95th", "99th"};
 
     printf("\nThreshold | Width | Exceptions | Size\n");
@@ -254,7 +260,7 @@ void example_exception_handling() {
 
     /* Test 3: Single value */
     printf("\nTest 3: Single value\n");
-    uint64_t single[] = {42};
+    const uint64_t single[] = {42};
     uint32_t singleCount = 1;
 
     varintPFORMeta meta3;
@@ -303,6 +309,11 @@ void example_network_latency() {
 
     /* Decode and verify */
     uint64_t *decoded = malloc(count * sizeof(uint64_t));
+    if (!decoded) {
+        fprintf(stderr, "Memory allocation failed\n");
+        free(buffer);
+        return;
+    }
     varintPFORMeta decodeMeta = {0};
     varintPFORDecode(buffer, decoded, &decodeMeta);
 

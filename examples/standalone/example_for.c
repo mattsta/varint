@@ -262,7 +262,7 @@ void example_edge_cases() {
 
     // Test 1: Single value
     printf("Test 1: Single value\n");
-    uint64_t single[] = {42};
+    const uint64_t single[] = {42};
     varintFORMeta meta1;
     varintFORAnalyze(single, 1, &meta1);
     uint8_t *enc1 = malloc(meta1.encodedSize);
@@ -288,7 +288,7 @@ void example_edge_cases() {
 
     // Test 3: Maximum range (requires 8 bytes)
     printf("Test 3: Large range\n");
-    uint64_t large[] = {0, UINT64_MAX};
+    const uint64_t large[] = {0, UINT64_MAX};
     varintFORMeta meta3;
     varintFORAnalyze(large, 2, &meta3);
     assert(meta3.offsetWidth == 8);
@@ -310,7 +310,7 @@ void example_edge_cases() {
     };
 
     for (size_t i = 0; i < sizeof(tests) / sizeof(tests[0]); i++) {
-        uint64_t vals[] = {tests[i].min, tests[i].max};
+        const uint64_t vals[] = {tests[i].min, tests[i].max};
         varintFORMeta meta;
         varintFORAnalyze(vals, 2, &meta);
         assert(meta.offsetWidth == tests[i].expectedWidth);

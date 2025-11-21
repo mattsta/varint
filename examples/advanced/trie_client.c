@@ -314,7 +314,7 @@ bool cmdStats(TrieClient *client) {
     offset += varintTaggedGetLen(data + offset);
 
     varintTaggedGet64(data + offset, &uptime);
-    offset += varintTaggedGetLen(data + offset);
+    (void)offset; // Last use of offset
 
     printf("\nServer Statistics:\n");
     printf("  Patterns:     %" PRIu64 "\n", patterns);
@@ -831,7 +831,7 @@ bool cmdSubscribeLive(TrieClient *client, const char *pattern, uint8_t qos,
                       uint32_t clientId, const char *clientName) {
     printf("Sending SUBSCRIBE_LIVE pattern='%s' qos=%d clientId=%u "
            "clientName='%s'...\n",
-           pattern, qos, clientId, clientName);
+           pattern, qos, clientId, clientName ? clientName : "");
 
     uint8_t *payload = (uint8_t *)malloc(4096);
     if (!payload) {
@@ -1016,10 +1016,10 @@ bool listenForNotifications(TrieClient *client, int timeout_seconds) {
 
         // Parse message type
         uint8_t msgType = msgBuf[0];
-        size_t offset = 1;
 
         if (msgType == MSG_NOTIFICATION) {
             receivedAny = true;
+            size_t offset = 1;
 
             // Parse notification
             uint64_t seqNum;

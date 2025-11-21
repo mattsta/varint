@@ -374,11 +374,11 @@ void demonstrateBlockchain(void) {
     printf("\n2. Creating transactions with variable amounts...\n");
 
     Transaction txs[5];
-    uint64_t txAmounts[] = {100,              // 0.000001 BTC (1 byte)
-                            100000,           // 0.001 BTC (3 bytes)
-                            100000000,        // 1 BTC (4 bytes)
-                            10000000000ULL,   // 100 BTC (5 bytes)
-                            100000000000ULL}; // 1000 BTC (6 bytes)
+    const uint64_t txAmounts[] = {100,              // 0.000001 BTC (1 byte)
+                                  100000,           // 0.001 BTC (3 bytes)
+                                  100000000,        // 1 BTC (4 bytes)
+                                  10000000000ULL,   // 100 BTC (5 bytes)
+                                  100000000000ULL}; // 1000 BTC (6 bytes)
 
     for (size_t i = 0; i < 5; i++) {
         txs[i].txId = 1000 + i;

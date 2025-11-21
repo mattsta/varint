@@ -109,6 +109,9 @@ typedef struct TrieNode {
 
 TrieNode *trieNodeCreate(const char *segment, SegmentType type) {
     TrieNode *node = malloc(sizeof(TrieNode));
+    if (!node) {
+        return NULL;
+    }
     strncpy(node->segment, segment, 63);
     node->segment[63] = '\0';
     node->type = type;
@@ -186,7 +189,7 @@ void parsePattern(const char *pattern, ParsedPattern *parsed) {
     strncpy(buffer, pattern, 255);
     buffer[255] = '\0';
 
-    char *token = strtok(buffer, ".");
+    const char *token = strtok(buffer, ".");
     while (token && parsed->count < 16) {
         if (strcmp(token, "*") == 0) {
             strcpy(parsed->segments[parsed->count], "*");
@@ -894,8 +897,6 @@ bool naiveMatchPattern(const ParsedPattern *pattern,
             }
             // Otherwise, try matching 0 to remaining segments
             for (size_t skip = 0; skip <= input->count - inpIdx; skip++) {
-                ParsedPattern subInput = *input;
-                subInput.count = input->count;
                 // Recursively check if rest matches
                 ParsedPattern subPattern = *pattern;
                 for (size_t j = patIdx + 1; j < pattern->count; j++) {
@@ -1070,8 +1071,8 @@ void testBenchmarkComparisons(void) {
     printf("\n  Testing with realistic message routing patterns...\n");
 
     // Test with increasingly large pattern sets
-    int patternCounts[] = {100, 1000, 10000, 100000};
-    int numTests = 4;
+    const int patternCounts[] = {100, 1000, 10000, 100000};
+    const int numTests = 4;
 
     printf("\n  %-10s | %-12s | %-12s | %-10s | %-12s | %-12s\n", "Patterns",
            "Naive (μs)", "Trie (μs)", "Speedup", "Naive (MB)", "Trie (MB)");
@@ -1157,7 +1158,7 @@ void testWildcardComplexity(void) {
     printf("\n[TEST 10] Wildcard Pattern Complexity at Scale\n");
     printf("\n  Testing with 1000 patterns of each wildcard type...\n");
 
-    struct {
+    const struct {
         const char *name;
         int patternCount;
     } scenarios[] = {{"Exact matches only", 1000},
@@ -1412,7 +1413,7 @@ void testExtremeScale(void) {
 
     xorshift32_state = 777777777;
     for (int i = 0; i < queryCount; i++) {
-        snprintf(queries[i], 128, "app.service%d.method%d.endpoint%d.extra",
+        snprintf(queries[i], 128, "app.service%u.method%u.endpoint%u.extra",
                  xorshift32() % 100, xorshift32() % 500, xorshift32() % 1000);
     }
 

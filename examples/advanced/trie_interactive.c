@@ -282,7 +282,7 @@ static TrieNode *trieNodeFindChild(TrieNode *parent, const char *segment,
 }
 
 __attribute__((unused)) static bool trieNodeRemoveChild(TrieNode *parent,
-                                                        TrieNode *child) {
+                                                        const TrieNode *child) {
     if (!parent || !child) {
         return false;
     }
@@ -1269,29 +1269,34 @@ static void testBasicOperations(void) {
     trieInit(&trie);
 
     // Test add
-    assert(trieInsert(&trie, "stock.nasdaq.aapl", 1, "Sub1"));
+    bool result = trieInsert(&trie, "stock.nasdaq.aapl", 1, "Sub1");
+    assert(result);
     assert(trie.patternCount == 1);
     assert(trie.subscriberCount == 1);
     printf("  ✓ Add pattern\n");
 
     // Test add duplicate subscriber to same pattern
-    assert(!trieInsert(&trie, "stock.nasdaq.aapl", 1, "Sub1"));
+    result = trieInsert(&trie, "stock.nasdaq.aapl", 1, "Sub1");
+    assert(!result);
     assert(trie.subscriberCount == 1);
     printf("  ✓ Reject duplicate subscriber\n");
 
     // Test add different subscriber to same pattern
-    assert(trieInsert(&trie, "stock.nasdaq.aapl", 2, "Sub2"));
+    result = trieInsert(&trie, "stock.nasdaq.aapl", 2, "Sub2");
+    assert(result);
     assert(trie.patternCount == 1);
     assert(trie.subscriberCount == 2);
     printf("  ✓ Add second subscriber to pattern\n");
 
     // Test remove subscriber
-    assert(trieRemoveSubscriber(&trie, "stock.nasdaq.aapl", 1));
+    result = trieRemoveSubscriber(&trie, "stock.nasdaq.aapl", 1);
+    assert(result);
     assert(trie.subscriberCount == 1);
     printf("  ✓ Remove subscriber\n");
 
     // Test remove pattern
-    assert(trieRemovePattern(&trie, "stock.nasdaq.aapl"));
+    result = trieRemovePattern(&trie, "stock.nasdaq.aapl");
+    assert(result);
     assert(trie.patternCount == 0);
     assert(trie.subscriberCount == 0);
     printf("  ✓ Remove pattern\n");
@@ -1307,20 +1312,25 @@ static void testInputValidation(void) {
     trieInit(&trie);
 
     // Test invalid patterns
-    assert(!trieInsert(&trie, "", 1, "Sub1"));
+    bool result = trieInsert(&trie, "", 1, "Sub1");
+    assert(!result);
     printf("  ✓ Reject empty pattern\n");
 
-    assert(!trieInsert(&trie, "valid.pattern", 0, "Sub1"));
+    result = trieInsert(&trie, "valid.pattern", 0, "Sub1");
+    assert(!result);
     printf("  ✓ Reject invalid subscriber ID (0)\n");
 
-    assert(!trieInsert(&trie, "valid.pattern", 1, ""));
+    result = trieInsert(&trie, "valid.pattern", 1, "");
+    assert(!result);
     printf("  ✓ Reject empty subscriber name\n");
 
-    assert(!trieInsert(&trie, "invalid..pattern", 1, "Sub1"));
+    result = trieInsert(&trie, "invalid..pattern", 1, "Sub1");
+    assert(!result);
     printf("  ✓ Reject pattern with consecutive dots\n");
 
     // Test valid pattern
-    assert(trieInsert(&trie, "valid.pattern", 1, "Sub1"));
+    result = trieInsert(&trie, "valid.pattern", 1, "Sub1");
+    assert(result);
     printf("  ✓ Accept valid pattern\n");
 
     trieFree(&trie);
@@ -1364,26 +1374,30 @@ static void testMultipleSubscribers(void) {
 
     PatternTrie trie;
     trieInit(&trie);
-    MatchResult result;
+    MatchResult matchResult;
 
     // Add multiple subscribers to same pattern
-    assert(trieInsert(&trie, "alert.#", 1, "Email"));
-    assert(trieInsert(&trie, "alert.#", 2, "SMS"));
-    assert(trieInsert(&trie, "alert.#", 3, "Slack"));
+    bool result = trieInsert(&trie, "alert.#", 1, "Email");
+    assert(result);
+    result = trieInsert(&trie, "alert.#", 2, "SMS");
+    assert(result);
+    result = trieInsert(&trie, "alert.#", 3, "Slack");
+    assert(result);
 
     assert(trie.patternCount == 1);
     assert(trie.subscriberCount == 3);
     printf("  ✓ Multiple subscribers added\n");
 
     // Test matching returns all subscribers
-    trieMatch(&trie, "alert.critical.disk", &result);
-    assert(result.count == 3);
+    trieMatch(&trie, "alert.critical.disk", &matchResult);
+    assert(matchResult.count == 3);
     printf("  ✓ All subscribers returned\n");
 
     // Remove one subscriber
-    assert(trieRemoveSubscriber(&trie, "alert.#", 2));
-    trieMatch(&trie, "alert.critical.disk", &result);
-    assert(result.count == 2);
+    result = trieRemoveSubscriber(&trie, "alert.#", 2);
+    assert(result);
+    trieMatch(&trie, "alert.critical.disk", &matchResult);
+    assert(matchResult.count == 2);
     printf("  ✓ Subscriber removed correctly\n");
 
     trieFree(&trie);
@@ -1416,28 +1430,32 @@ static void testEdgeCases(void) {
 
     PatternTrie trie;
     trieInit(&trie);
-    MatchResult result;
+    MatchResult matchResult;
 
     // Remove non-existent pattern
-    assert(!trieRemovePattern(&trie, "nonexistent"));
+    bool result = trieRemovePattern(&trie, "nonexistent");
+    assert(!result);
     printf("  ✓ Remove non-existent pattern fails gracefully\n");
 
     // Remove non-existent subscriber
-    trieInsert(&trie, "test", 1, "Sub1");
-    assert(!trieRemoveSubscriber(&trie, "test", 999));
+    result = trieInsert(&trie, "test", 1, "Sub1");
+    assert(result);
+    result = trieRemoveSubscriber(&trie, "test", 999);
+    assert(!result);
     printf("  ✓ Remove non-existent subscriber fails gracefully\n");
 
     // Match empty trie
     trieInit(&trie);
-    trieMatch(&trie, "anything", &result);
-    assert(result.count == 0);
+    trieMatch(&trie, "anything", &matchResult);
+    assert(matchResult.count == 0);
     printf("  ✓ Match on empty trie returns no results\n");
 
     // Very long pattern (should fail validation)
     char longPattern[MAX_PATTERN_LENGTH + 10];
     memset(longPattern, 'a', sizeof(longPattern) - 1);
     longPattern[sizeof(longPattern) - 1] = '\0';
-    assert(!trieInsert(&trie, longPattern, 1, "Sub1"));
+    result = trieInsert(&trie, longPattern, 1, "Sub1");
+    assert(!result);
     printf("  ✓ Reject too-long pattern\n");
 
     trieFree(&trie);
@@ -1461,12 +1479,14 @@ static void testPersistence(void) {
 
     // Save to file
     const char *filename = "/tmp/trie_test.dat";
-    assert(trieSave(&trie1, filename));
+    bool result = trieSave(&trie1, filename);
+    assert(result);
     printf("  ✓ Saved trie to disk\n");
 
     // Load into new trie
     PatternTrie trie2;
-    assert(trieLoad(&trie2, filename));
+    result = trieLoad(&trie2, filename);
+    assert(result);
     printf("  ✓ Loaded trie from disk\n");
 
     // Verify metadata
@@ -1522,15 +1542,18 @@ static void testBinaryRoundtrip(void) {
     const char *file2 = "/tmp/trie_roundtrip2.dat";
 
     // Save original trie
-    assert(trieSave(&trie1, file1));
+    bool result = trieSave(&trie1, file1);
+    assert(result);
     printf("  ✓ Saved original trie\n");
 
     // Load into second trie
-    assert(trieLoad(&trie2, file1));
+    result = trieLoad(&trie2, file1);
+    assert(result);
     printf("  ✓ Loaded into second trie\n");
 
     // Save second trie
-    assert(trieSave(&trie2, file2));
+    result = trieSave(&trie2, file2);
+    assert(result);
     printf("  ✓ Saved second trie\n");
 
     // Compare binary files byte-for-byte
@@ -1563,7 +1586,8 @@ static void testBinaryRoundtrip(void) {
            bytesCompared);
 
     // Load into third trie and verify all functionality
-    assert(trieLoad(&trie3, file2));
+    result = trieLoad(&trie3, file2);
+    assert(result);
     printf("  ✓ Loaded third trie from second file\n");
 
     // Verify metadata is identical across all three tries

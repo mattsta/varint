@@ -82,8 +82,12 @@ void postingListAdd(PostingList *list, uint32_t docId, uint16_t position) {
         if (list->postingCount >= list->postingCapacity) {
             list->postingCapacity =
                 list->postingCapacity ? list->postingCapacity * 2 : 4;
-            list->postings = realloc(list->postings,
-                                     list->postingCapacity * sizeof(Posting));
+            Posting *newPostings = realloc(
+                list->postings, list->postingCapacity * sizeof(Posting));
+            if (!newPostings) {
+                return;
+            }
+            list->postings = newPostings;
         }
 
         posting = &list->postings[list->postingCount++];
@@ -95,8 +99,13 @@ void postingListAdd(PostingList *list, uint32_t docId, uint16_t position) {
 
     // Add position
     posting->termFreq++;
-    posting->positions =
+    uint16_t *newPositions =
         realloc(posting->positions, posting->termFreq * sizeof(uint16_t));
+    if (!newPositions) {
+        posting->termFreq--;
+        return;
+    }
+    posting->positions = newPositions;
     posting->positions[posting->posCount++] = position;
 }
 
@@ -105,6 +114,10 @@ void postingListAdd(PostingList *list, uint32_t docId, uint16_t position) {
 // ============================================================================
 
 size_t compressPostingList(const PostingList *list, uint8_t *buffer) {
+    if (!list) {
+        return 0;
+    }
+
     size_t offset = 0;
 
     // Write term
@@ -157,6 +170,12 @@ typedef struct {
 
 void indexInit(InvertedIndex *index) {
     index->lists = malloc(MAX_TERMS * sizeof(PostingList));
+    if (!index->lists) {
+        index->termCount = 0;
+        index->termCapacity = 0;
+        index->documentCount = 0;
+        return;
+    }
     index->termCount = 0;
     index->termCapacity = MAX_TERMS;
     index->documentCount = 0;
@@ -243,6 +262,11 @@ typedef struct {
 
 void resultSetInit(ResultSet *results) {
     results->docIds = malloc(1000 * sizeof(uint32_t));
+    if (!results->docIds) {
+        results->count = 0;
+        results->capacity = 0;
+        return;
+    }
     results->count = 0;
     results->capacity = 1000;
 }
@@ -254,8 +278,12 @@ void resultSetFree(ResultSet *results) {
 void resultSetAdd(ResultSet *results, uint32_t docId) {
     if (results->count >= results->capacity) {
         results->capacity *= 2;
-        results->docIds =
+        uint32_t *newDocIds =
             realloc(results->docIds, results->capacity * sizeof(uint32_t));
+        if (!newDocIds) {
+            return;
+        }
+        results->docIds = newDocIds;
     }
     results->docIds[results->count++] = docId;
 }
@@ -342,6 +370,11 @@ ScoredResult *rankResults(const InvertedIndex *index, const char *query,
     }
 
     ScoredResult *results = malloc(list->postingCount * sizeof(ScoredResult));
+    if (!results) {
+        *resultCount = 0;
+        return NULL;
+    }
+
     double idf = computeIDF(index->documentCount, list->postingCount);
 
     for (size_t i = 0; i < list->postingCount; i++) {
@@ -391,7 +424,7 @@ void demonstrateInvertedIndex(void) {
     printf("\n3. Analyzing posting lists...\n");
 
     PostingList *foxList = NULL;
-    PostingList *dogList = NULL;
+    const PostingList *dogList = NULL;
 
     for (size_t i = 0; i < index.termCount; i++) {
         if (strcmp(index.lists[i].term, "fox") == 0) {
@@ -420,23 +453,26 @@ void demonstrateInvertedIndex(void) {
     // 4. Compress posting lists
     printf("\n4. Compressing posting lists...\n");
 
-    uint8_t compressedBuffer[1024];
-    size_t foxCompressedSize = compressPostingList(foxList, compressedBuffer);
+    if (foxList) {
+        uint8_t compressedBuffer[1024];
+        size_t foxCompressedSize =
+            compressPostingList(foxList, compressedBuffer);
 
-    printf("   Term 'fox' compressed size: %zu bytes\n", foxCompressedSize);
+        printf("   Term 'fox' compressed size: %zu bytes\n", foxCompressedSize);
 
-    // Calculate uncompressed size
-    size_t uncompressedSize = strlen(foxList->term) + 1; // term + null
-    for (size_t i = 0; i < foxList->postingCount; i++) {
-        uncompressedSize += 4 + 2 + (foxList->postings[i].posCount * 2);
-        // 4 bytes docId + 2 bytes TF + 2 bytes per position
+        // Calculate uncompressed size
+        size_t uncompressedSize = strlen(foxList->term) + 1; // term + null
+        for (size_t i = 0; i < foxList->postingCount; i++) {
+            uncompressedSize += 4 + 2 + (foxList->postings[i].posCount * 2);
+            // 4 bytes docId + 2 bytes TF + 2 bytes per position
+        }
+
+        printf("   Uncompressed size: ~%zu bytes\n", uncompressedSize);
+        printf("   Compression ratio: %.2fx\n",
+               (double)uncompressedSize / foxCompressedSize);
+        printf("   Space savings: %.1f%%\n",
+               100.0 * (1.0 - (double)foxCompressedSize / uncompressedSize));
     }
-
-    printf("   Uncompressed size: ~%zu bytes\n", uncompressedSize);
-    printf("   Compression ratio: %.2fx\n",
-           (double)uncompressedSize / foxCompressedSize);
-    printf("   Space savings: %.1f%%\n",
-           100.0 * (1.0 - (double)foxCompressedSize / uncompressedSize));
 
     // 5. Boolean search queries
     printf("\n5. Executing boolean queries...\n");
@@ -518,6 +554,7 @@ void demonstrateInvertedIndex(void) {
     size_t totalPostings = 0;
     size_t totalPositions = 0;
     size_t totalCompressedSize = 0;
+    uint8_t statsBuffer[1024];
 
     for (size_t i = 0; i < index.termCount; i++) {
         totalPostings += index.lists[i].postingCount;
@@ -525,7 +562,7 @@ void demonstrateInvertedIndex(void) {
             totalPositions += index.lists[i].postings[j].posCount;
         }
         totalCompressedSize +=
-            compressPostingList(&index.lists[i], compressedBuffer);
+            compressPostingList(&index.lists[i], statsBuffer);
     }
 
     printf("   Total terms: %zu\n", index.termCount);

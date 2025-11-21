@@ -61,7 +61,7 @@ void encodeHeader(uint8_t *buffer, const PacketHeader *header) {
     offset += 8;
 
     varintBitstreamSet(&packed, offset, 12, header->length);
-    offset += 12;
+    (void)offset; // Last use of offset
 
     // varintBitstream packs from high bits down, so shift right to move data to
     // low bits We used 28 bits total, so shift right by (64 - 28) = 36 bits

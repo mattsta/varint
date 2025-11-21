@@ -310,7 +310,7 @@ void example_trie_node(void) {
     uint32_t readValueId = 0;
     if (readTerminal) {
         readValueId = (uint32_t)varintBitstreamGet(buffer, offset, 24);
-        offset += 24;
+        (void)offset; // Last use of offset
     }
 
     assert(readTerminal == isTerminal);

@@ -76,7 +76,7 @@ void example_boundaries(void) {
 void example_sortable(void) {
     printf("\n=== Example 3: Sortable Keys ===\n");
 
-    uint64_t keys[] = {100, 50, 200, 25, 150};
+    const uint64_t keys[] = {100, 50, 200, 25, 150};
     uint8_t encoded[5][9];
 
     // Encode all keys

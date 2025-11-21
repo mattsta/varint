@@ -70,7 +70,7 @@ void example_sorted(void) {
     uint8_t *array = calloc(1, bytes);
 
     // Build sorted array manually
-    uint16_t values[] = {10, 25, 50, 100, 200, 500, 1000, 2000};
+    const uint16_t values[] = {10, 25, 50, 100, 200, 500, 1000, 2000};
     for (size_t i = 0; i < count; i++) {
         varintPacked12Set(array, i, values[i]);
     }
@@ -82,7 +82,7 @@ void example_sorted(void) {
     printf("\n");
 
     // Binary search
-    uint16_t searchValues[] = {10, 100, 2000, 99, 1001};
+    const uint16_t searchValues[] = {10, 100, 2000, 99, 1001};
     const char *searchDesc[] = {"10 (exists)", "100 (exists)", "2000 (exists)",
                                 "99 (not found)", "1001 (not found)"};
 
@@ -110,7 +110,7 @@ void example_sorted_insert(void) {
     uint8_t *array = calloc(1, bytes);
 
     // Insert values in random order (will be kept sorted)
-    uint16_t insertValues[] = {500, 100, 1000, 50, 750, 25};
+    const uint16_t insertValues[] = {500, 100, 1000, 50, 750, 25};
     printf("Inserting: ");
     for (size_t i = 0; i < 6; i++) {
         printf("%u ", insertValues[i]);
@@ -145,7 +145,7 @@ void example_member(void) {
     uint8_t *set = calloc(1, bytes);
 
     // Create a sorted set
-    uint16_t members[] = {10, 20, 30, 40, 50};
+    const uint16_t members[] = {10, 20, 30, 40, 50};
     for (size_t i = 0; i < count; i++) {
         varintPacked12Set(set, i, members[i]);
     }
@@ -160,7 +160,7 @@ void example_member(void) {
     printf("}\n\n");
 
     // Test membership
-    uint16_t testValues[] = {10, 15, 30, 45, 50};
+    const uint16_t testValues[] = {10, 15, 30, 45, 50};
     const char *expected[] = {"member", "not member", "member", "not member",
                               "member"};
 

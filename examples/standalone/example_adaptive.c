@@ -85,6 +85,10 @@ void example_timestamps() {
 
     /* Auto-encode */
     uint8_t *encoded = malloc(varintAdaptiveMaxSize(count));
+    if (!encoded) {
+        fprintf(stderr, "Failed to allocate memory for encoding\n");
+        return;
+    }
     varintAdaptiveMeta meta;
     size_t encodedSize =
         varintAdaptiveEncode(encoded, timestamps, count, &meta);
@@ -94,6 +98,11 @@ void example_timestamps() {
 
     /* Decode and verify */
     uint64_t *decoded = malloc(count * sizeof(uint64_t));
+    if (!decoded) {
+        fprintf(stderr, "Failed to allocate memory for decoding\n");
+        free(encoded);
+        return;
+    }
     size_t decodedCount = varintAdaptiveDecode(encoded, decoded, count, NULL);
 
     assert(decodedCount == count);
@@ -129,6 +138,10 @@ void example_status_codes() {
 
     /* Auto-encode */
     uint8_t *encoded = malloc(varintAdaptiveMaxSize(count));
+    if (!encoded) {
+        fprintf(stderr, "Failed to allocate memory for encoding\n");
+        return;
+    }
     varintAdaptiveMeta meta;
     size_t encodedSize =
         varintAdaptiveEncode(encoded, statusCodes, count, &meta);
@@ -138,6 +151,11 @@ void example_status_codes() {
 
     /* Decode and verify */
     uint64_t *decoded = malloc(count * sizeof(uint64_t));
+    if (!decoded) {
+        fprintf(stderr, "Failed to allocate memory for decoding\n");
+        free(encoded);
+        return;
+    }
     size_t decodedCount = varintAdaptiveDecode(encoded, decoded, count, NULL);
 
     assert(decodedCount == count);
@@ -172,6 +190,10 @@ void example_user_ids() {
 
     /* Auto-encode */
     uint8_t *encoded = malloc(varintAdaptiveMaxSize(count));
+    if (!encoded) {
+        fprintf(stderr, "Failed to allocate memory for encoding\n");
+        return;
+    }
     varintAdaptiveMeta meta;
     size_t encodedSize = varintAdaptiveEncode(encoded, userIds, count, &meta);
 
@@ -179,6 +201,11 @@ void example_user_ids() {
 
     /* Decode and verify */
     uint64_t *decoded = malloc(count * sizeof(uint64_t));
+    if (!decoded) {
+        fprintf(stderr, "Failed to allocate memory for decoding\n");
+        free(encoded);
+        return;
+    }
     size_t decodedCount = varintAdaptiveDecode(encoded, decoded, count, NULL);
 
     assert(decodedCount == count);
@@ -214,6 +241,10 @@ void example_prices() {
 
     /* Auto-encode */
     uint8_t *encoded = malloc(varintAdaptiveMaxSize(count));
+    if (!encoded) {
+        fprintf(stderr, "Failed to allocate memory for encoding\n");
+        return;
+    }
     varintAdaptiveMeta meta;
     size_t encodedSize = varintAdaptiveEncode(encoded, prices, count, &meta);
 
@@ -222,6 +253,11 @@ void example_prices() {
 
     /* Decode and verify */
     uint64_t *decoded = malloc(count * sizeof(uint64_t));
+    if (!decoded) {
+        fprintf(stderr, "Failed to allocate memory for decoding\n");
+        free(encoded);
+        return;
+    }
     size_t decodedCount = varintAdaptiveDecode(encoded, decoded, count, NULL);
 
     assert(decodedCount == count);
@@ -255,6 +291,10 @@ void example_flags() {
 
     /* Auto-encode */
     uint8_t *encoded = malloc(varintAdaptiveMaxSize(count));
+    if (!encoded) {
+        fprintf(stderr, "Failed to allocate memory for encoding\n");
+        return;
+    }
     varintAdaptiveMeta meta;
     size_t encodedSize =
         varintAdaptiveEncode(encoded, enabledFlags, count, &meta);
@@ -263,6 +303,11 @@ void example_flags() {
 
     /* Decode and verify */
     uint64_t *decoded = malloc(count * sizeof(uint64_t));
+    if (!decoded) {
+        fprintf(stderr, "Failed to allocate memory for decoding\n");
+        free(encoded);
+        return;
+    }
     size_t decodedCount = varintAdaptiveDecode(encoded, decoded, count, NULL);
 
     assert(decodedCount == count);
@@ -298,6 +343,10 @@ void example_random() {
 
     /* Auto-encode */
     uint8_t *encoded = malloc(varintAdaptiveMaxSize(count));
+    if (!encoded) {
+        fprintf(stderr, "Failed to allocate memory for encoding\n");
+        return;
+    }
     varintAdaptiveMeta meta;
     size_t encodedSize =
         varintAdaptiveEncode(encoded, randomData, count, &meta);
@@ -306,6 +355,11 @@ void example_random() {
 
     /* Decode and verify */
     uint64_t *decoded = malloc(count * sizeof(uint64_t));
+    if (!decoded) {
+        fprintf(stderr, "Failed to allocate memory for decoding\n");
+        free(encoded);
+        return;
+    }
     size_t decodedCount = varintAdaptiveDecode(encoded, decoded, count, NULL);
 
     assert(decodedCount == count);
@@ -339,6 +393,10 @@ void example_counters() {
 
     /* Auto-encode */
     uint8_t *encoded = malloc(varintAdaptiveMaxSize(count));
+    if (!encoded) {
+        fprintf(stderr, "Failed to allocate memory for encoding\n");
+        return;
+    }
     varintAdaptiveMeta meta;
     size_t encodedSize = varintAdaptiveEncode(encoded, counters, count, &meta);
 
@@ -347,6 +405,11 @@ void example_counters() {
 
     /* Decode and verify */
     uint64_t *decoded = malloc(count * sizeof(uint64_t));
+    if (!decoded) {
+        fprintf(stderr, "Failed to allocate memory for decoding\n");
+        free(encoded);
+        return;
+    }
     size_t decodedCount = varintAdaptiveDecode(encoded, decoded, count, NULL);
 
     assert(decodedCount == count);
@@ -374,6 +437,10 @@ void example_comparison() {
     size_t count = sizeof(testData) / sizeof(testData[0]);
 
     uint8_t *encoded = malloc(varintAdaptiveMaxSize(count));
+    if (!encoded) {
+        fprintf(stderr, "Failed to allocate memory for encoding\n");
+        return;
+    }
     varintAdaptiveMeta meta;
 
     printf("\nTesting different encodings on same data:\n");
@@ -427,6 +494,10 @@ void example_large_dataset() {
     /* Generate large sorted dataset with realistic characteristics */
     size_t count = 1000;
     uint64_t *largeData = malloc(count * sizeof(uint64_t));
+    if (!largeData) {
+        fprintf(stderr, "Failed to allocate memory for large dataset\n");
+        return;
+    }
 
     uint64_t base = 1700000000; // Unix timestamp base
     for (size_t i = 0; i < count; i++) {
@@ -440,6 +511,11 @@ void example_large_dataset() {
 
     /* Encode */
     uint8_t *encoded = malloc(varintAdaptiveMaxSize(count));
+    if (!encoded) {
+        fprintf(stderr, "Failed to allocate memory for encoding\n");
+        free(largeData);
+        return;
+    }
     varintAdaptiveMeta meta;
     size_t encodedSize = varintAdaptiveEncode(encoded, largeData, count, &meta);
 
@@ -447,6 +523,12 @@ void example_large_dataset() {
 
     /* Decode and verify */
     uint64_t *decoded = malloc(count * sizeof(uint64_t));
+    if (!decoded) {
+        fprintf(stderr, "Failed to allocate memory for decoding\n");
+        free(largeData);
+        free(encoded);
+        return;
+    }
     size_t decodedCount = varintAdaptiveDecode(encoded, decoded, count, NULL);
 
     assert(decodedCount == count);
@@ -496,6 +578,10 @@ void example_mixed_patterns() {
     }
 
     uint8_t *encoded = malloc(varintAdaptiveMaxSize(20));
+    if (!encoded) {
+        fprintf(stderr, "Failed to allocate memory for encoding\n");
+        return;
+    }
     varintAdaptiveMeta meta;
 
     const char *names[] = {"Sequential", "Constant", "Powers-of-2",

@@ -20,7 +20,7 @@
 void example_basic() {
     printf("\n=== Example 1: Basic Encode/Decode ===\n");
 
-    uint64_t values[] = {25, 50000, 94102};
+    const uint64_t values[] = {25, 50000, 94102};
     uint8_t fieldCount = 3;
     uint8_t buffer[64];
 
@@ -66,8 +66,8 @@ typedef struct {
 
 void encodePersonRecord(uint8_t *dst, const PersonRecord *record,
                         size_t *size) {
-    uint64_t values[4] = {record->age, record->salary, record->zipcode,
-                          record->timestamp};
+    const uint64_t values[4] = {record->age, record->salary, record->zipcode,
+                                record->timestamp};
     *size = varintGroupEncode(dst, values, 4);
 }
 
@@ -192,8 +192,8 @@ typedef struct {
 
 void encodePacketHeader(uint8_t *dst, const PacketHeader *header,
                         size_t *size) {
-    uint64_t values[5] = {header->version, header->msgType, header->msgId,
-                          header->timestamp, header->payloadLen};
+    const uint64_t values[5] = {header->version, header->msgType, header->msgId,
+                                header->timestamp, header->payloadLen};
     *size = varintGroupEncode(dst, values, 5);
 }
 
@@ -261,7 +261,7 @@ void example_field_extraction() {
     printf("\n=== Example 5: Fast Field Extraction ===\n");
 
     // Encode a large record
-    uint64_t values[] = {10, 20, 30, 40, 50, 60, 70, 80};
+    const uint64_t values[] = {10, 20, 30, 40, 50, 60, 70, 80};
     uint8_t fieldCount = 8;
     uint8_t buffer[128];
 
@@ -398,7 +398,7 @@ void example_boundaries() {
     printf("Testing width encoding at boundaries:\n\n");
 
     for (size_t i = 0; i < 8; i++) {
-        uint64_t values[] = {boundaries[i].value};
+        const uint64_t values[] = {boundaries[i].value};
         uint8_t buffer[32];
 
         size_t size = varintGroupEncode(buffer, values, 1);

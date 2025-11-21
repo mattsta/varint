@@ -317,6 +317,11 @@ size_t varintAdaptiveEncodeWith(uint8_t *dst, const uint64_t *values,
                                 size_t count,
                                 varintAdaptiveEncodingType encodingType,
                                 varintAdaptiveMeta *meta) {
+    /* Validate parameters */
+    if (!dst || !values) {
+        return 0;
+    }
+
     /* Write encoding type header */
     dst[0] = (uint8_t)encodingType;
     size_t offset = 1;
@@ -432,6 +437,11 @@ size_t varintAdaptiveEncode(uint8_t *dst, const uint64_t *values, size_t count,
 
 size_t varintAdaptiveDecode(const uint8_t *src, uint64_t *values,
                             size_t maxCount, varintAdaptiveMeta *meta) {
+    /* Validate parameters */
+    if (!src || !values) {
+        return 0;
+    }
+
     /* Read encoding type from header */
     varintAdaptiveEncodingType encodingType =
         (varintAdaptiveEncodingType)src[0];

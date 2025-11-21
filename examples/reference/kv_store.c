@@ -417,7 +417,7 @@ void demonstrateKVStore(void) {
     // 3. Retrieve values
     printf("\n3. Retrieving values...\n");
 
-    uint64_t testKeys[] = {50, 100, 200, 999};
+    const uint64_t testKeys[] = {50, 100, 200, 999};
     for (size_t i = 0; i < 4; i++) {
         void *value;
         size_t valueLen;

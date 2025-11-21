@@ -526,10 +526,13 @@ void demonstrateGameReplay(void) {
     // 8. Input compression
     printf("\n8. Input encoding (16-bit bitfield)...\n");
 
-    uint16_t sampleInputs = INPUT_FORWARD | INPUT_FIRE | INPUT_SPRINT;
+    const uint16_t sampleInputs = INPUT_FORWARD | INPUT_FIRE | INPUT_SPRINT;
     printf("   Input flags: 0x%04X\n", sampleInputs);
+    // cppcheck-suppress knownConditionTrueFalse
     printf("   - Forward: %s\n", (sampleInputs & INPUT_FORWARD) ? "ON" : "OFF");
+    // cppcheck-suppress knownConditionTrueFalse
     printf("   - Fire: %s\n", (sampleInputs & INPUT_FIRE) ? "ON" : "OFF");
+    // cppcheck-suppress knownConditionTrueFalse
     printf("   - Sprint: %s\n", (sampleInputs & INPUT_SPRINT) ? "ON" : "OFF");
     printf("   Storage: 2 bytes for all 16 possible inputs\n");
     printf("   vs separate booleans: 16 bytes\n");

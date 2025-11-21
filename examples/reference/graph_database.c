@@ -483,7 +483,7 @@ void demonstrateGraphDB(void) {
 
     printf("   Added %zu edges:\n", graph.edgeCount);
     for (size_t i = 0; i < graph.edgeCount; i++) {
-        Edge *e = &graph.edges[i];
+        const Edge *e = &graph.edges[i];
         printf("   - %s -> %s (weight: %u)\n", graph.nodes[e->from].name,
                graph.nodes[e->to].name, e->weight);
     }

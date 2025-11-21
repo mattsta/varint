@@ -118,7 +118,7 @@ DoubleHash computeDoubleHash(const void *key, size_t len) {
     return result;
 }
 
-uint64_t getNthHash(DoubleHash *dh, uint32_t n, uint64_t m) {
+uint64_t getNthHash(const DoubleHash *dh, uint32_t n, uint64_t m) {
     // h_n(x) = (h1 + n * h2) mod m
     return (dh->h1 + (uint64_t)n * dh->h2) % m;
 }
@@ -187,6 +187,10 @@ void bloomFilterInit(BloomFilter *bf, uint32_t expectedElements,
     uint32_t numSlots = (bf->m + 31) / 32; // Round up to next slot
     bf->bitsBytes = numSlots * sizeof(uint32_t);
     bf->bits = calloc(bf->bitsBytes, 1);
+    if (bf->bits == NULL) {
+        bf->bitsBytes = 0;
+        return;
+    }
 }
 
 void bloomFilterFree(BloomFilter *bf) {
@@ -243,6 +247,10 @@ double bloomFilterFillRatio(const BloomFilter *bf) {
 // ============================================================================
 
 size_t bloomFilterSerialize(const BloomFilter *bf, uint8_t *buffer) {
+    if (buffer == NULL) {
+        return 0;
+    }
+
     size_t offset = 0;
 
     // Metadata (all varint-encoded for space efficiency)
@@ -283,6 +291,9 @@ size_t bloomFilterDeserialize(BloomFilter *bf, const uint8_t *buffer) {
 
     // Allocate and read bit array
     bf->bits = malloc(bf->bitsBytes);
+    if (bf->bits == NULL) {
+        return 0;
+    }
     memcpy(bf->bits, buffer + offset, bf->bitsBytes);
     offset += bf->bitsBytes;
 
@@ -322,6 +333,9 @@ void sstableInit(SSTable *sst, uint32_t level, uint64_t fileId,
 
     // Initialize Bloom filter with 1% FPR
     sst->filter = malloc(sizeof(BloomFilter));
+    if (sst->filter == NULL) {
+        return;
+    }
     bloomFilterInit(sst->filter, expectedSize, 0.01);
 }
 
@@ -333,8 +347,11 @@ void sstableFree(SSTable *sst) {
     }
 }
 
-void sstableBuild(SSTable *sst, SSTableEntry *entries, size_t count) {
+void sstableBuild(SSTable *sst, const SSTableEntry *entries, size_t count) {
     sst->entries = malloc(count * sizeof(SSTableEntry));
+    if (sst->entries == NULL) {
+        return;
+    }
     memcpy(sst->entries, entries, count * sizeof(SSTableEntry));
     sst->entryCount = count;
 
@@ -439,7 +456,7 @@ void demonstrateFalsePositiveRates() {
 
     printf("Testing different FPR targets with 10,000 elements...\n\n");
 
-    double targetFPRs[] = {0.10, 0.05, 0.01, 0.001};
+    const double targetFPRs[] = {0.10, 0.05, 0.01, 0.001};
     const char *fprNames[] = {"10%", "5%", "1%", "0.1%"};
 
     for (size_t fprIdx = 0; fprIdx < 4; fprIdx++) {
@@ -486,9 +503,9 @@ void demonstrateFalsePositiveRates() {
 void demonstrateOptimalK() {
     printf("\n=== Optimal Hash Functions (k) Analysis ===\n\n");
 
-    uint32_t n = 10000;
-    double p = 0.01;
-    uint32_t m = calculateOptimalM(n, p);
+    const uint32_t n = 10000;
+    const double p = 0.01;
+    const uint32_t m = calculateOptimalM(n, p);
 
     printf("For n=%u elements, p=1%% FPR:\n", n);
     printf("Optimal m (bits): %u\n\n", m);
@@ -510,6 +527,9 @@ void demonstrateOptimalK() {
         uint32_t numSlots = (m + 31) / 32;
         bf.bitsBytes = numSlots * sizeof(uint32_t);
         bf.bits = calloc(bf.bitsBytes, 1);
+        if (bf.bits == NULL) {
+            continue;
+        }
 
         // Insert elements
         char key[32];
@@ -536,7 +556,7 @@ void demonstrateOptimalK() {
         bloomFilterFree(&bf);
     }
 
-    uint8_t optimalK = calculateOptimalK(m, n);
+    const uint8_t optimalK = calculateOptimalK(m, n);
     printf("\nOptimal k: %u (minimizes FPR for given m/n)\n", optimalK);
     printf("✓ Optimal k analysis complete\n");
 }
@@ -561,6 +581,10 @@ void demonstrateSerialization() {
     // Serialize
     printf("\n2. Serializing filter...\n");
     uint8_t *buffer = malloc(bf.bitsBytes + 100);
+    if (buffer == NULL) {
+        bloomFilterFree(&bf);
+        return;
+    }
     size_t serializedSize = bloomFilterSerialize(&bf, buffer);
 
     printf("   Serialized size: %zu bytes\n", serializedSize);
@@ -568,7 +592,8 @@ void demonstrateSerialization() {
     printf("   Metadata overhead: %zu bytes\n", serializedSize - bf.bitsBytes);
 
     // Calculate what naive encoding would be
-    size_t naiveSize = 4 + 4 + 1 + 4 + 4 + bf.bitsBytes; // Fixed-width metadata
+    const size_t naiveSize =
+        4 + 4 + 1 + 4 + 4 + bf.bitsBytes; // Fixed-width metadata
     printf("   Naive encoding: %zu bytes\n", naiveSize);
     printf("   Varint savings: %zu bytes (%.1f%%)\n",
            naiveSize - serializedSize,
@@ -613,6 +638,9 @@ void demonstrateLSMTree() {
     // SSTable 0: Level 0, 1000 entries
     sstableInit(&sst[0], 0, 1001, 1000);
     SSTableEntry *entries0 = malloc(1000 * sizeof(SSTableEntry));
+    if (entries0 == NULL) {
+        return;
+    }
     for (size_t i = 0; i < 1000; i++) {
         snprintf(entries0[i].key, sizeof(entries0[i].key), "user_%04zu", i);
         entries0[i].value = i * 100;
@@ -623,6 +651,10 @@ void demonstrateLSMTree() {
     // SSTable 1: Level 1, 5000 entries
     sstableInit(&sst[1], 1, 2001, 5000);
     SSTableEntry *entries1 = malloc(5000 * sizeof(SSTableEntry));
+    if (entries1 == NULL) {
+        sstableFree(&sst[0]);
+        return;
+    }
     for (size_t i = 0; i < 5000; i++) {
         snprintf(entries1[i].key, sizeof(entries1[i].key), "user_%04zu",
                  i + 1000);
@@ -634,6 +666,11 @@ void demonstrateLSMTree() {
     // SSTable 2: Level 2, 10000 entries
     sstableInit(&sst[2], 2, 3001, 10000);
     SSTableEntry *entries2 = malloc(10000 * sizeof(SSTableEntry));
+    if (entries2 == NULL) {
+        sstableFree(&sst[0]);
+        sstableFree(&sst[1]);
+        return;
+    }
     for (size_t i = 0; i < 10000; i++) {
         snprintf(entries2[i].key, sizeof(entries2[i].key), "user_%04zu",
                  i + 6000);
@@ -687,7 +724,7 @@ void demonstrateLSMTree() {
 
                 // Actually check SSTable
                 bool actuallyFound;
-                SSTableEntry *entry =
+                const SSTableEntry *entry =
                     sstableGet(&sst[i], queryKeys[q], &actuallyFound);
 
                 if (actuallyFound) {
@@ -778,8 +815,9 @@ void demonstratePerformance() {
 
     // Compare to other data structures
     printf("\n4. Space comparison (100K elements)...\n");
-    size_t hashTableSize = 100000 * (32 + 8); // 32-byte key + 8-byte pointer
-    size_t bitmapSize = 100000 / 8;           // 1 bit per element
+    const size_t hashTableSize =
+        100000 * (32 + 8);                // 32-byte key + 8-byte pointer
+    const size_t bitmapSize = 100000 / 8; // 1 bit per element
 
     printf("   Bloom filter: %zu bytes\n", bf.bitsBytes);
     printf("   Hash table: %zu bytes (%.1fx larger)\n", hashTableSize,

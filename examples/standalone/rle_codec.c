@@ -279,7 +279,7 @@ size_t rleBitmapEncode(const uint8_t *bitmap, size_t numBits, uint8_t *output,
     return outPos;
 }
 
-void printCompressionStats(const char *name, RLEStats *stats) {
+void printCompressionStats(const char *name, const RLEStats *stats) {
     printf("\n%s:\n", name);
     printf("  Original: %zu bytes\n", stats->originalSize);
     printf("  Compressed: %zu bytes\n", stats->compressedSize);
@@ -336,6 +336,12 @@ void example_sparse_array() {
 
     uint8_t *compressed = malloc(2000);
     uint8_t *decompressed = malloc(1000);
+    if (!compressed || !decompressed) {
+        free(compressed);
+        free(decompressed);
+        printf("Memory allocation failed\n");
+        return;
+    }
     RLEStats stats;
 
     size_t compSize = rleEncode(data, 1000, compressed, &stats);
@@ -371,6 +377,10 @@ void example_bitmap_scanlines() {
     memset(bitmap + 48, 0x00, 16);
 
     uint8_t *compressed = malloc(256);
+    if (!compressed) {
+        printf("Memory allocation failed\n");
+        return;
+    }
     RLEStats stats;
 
     rleBitmapEncode(bitmap, 64 * 8, compressed, &stats);
@@ -389,6 +399,12 @@ void example_text_repetition() {
     size_t textLen = strlen(text);
     uint8_t *compressed = malloc(textLen * 2);
     uint8_t *decompressed = malloc(textLen);
+    if (!compressed || !decompressed) {
+        free(compressed);
+        free(decompressed);
+        printf("Memory allocation failed\n");
+        return;
+    }
     RLEStats stats;
 
     size_t compSize = rleEncode((uint8_t *)text, textLen, compressed, &stats);
@@ -414,6 +430,12 @@ void example_random_data() {
 
     uint8_t *compressed = malloc(300);
     uint8_t *decompressed = malloc(100);
+    if (!compressed || !decompressed) {
+        free(compressed);
+        free(decompressed);
+        printf("Memory allocation failed\n");
+        return;
+    }
     RLEStats stats;
 
     size_t compSize = rleEncode(data, 100, compressed, &stats);
@@ -449,7 +471,13 @@ void example_varint_vs_fixed() {
     memset(data + pos, 'X', 600);
     pos += 600;
 
+    assert(pos == 1000); // Verify we filled the array correctly
+
     uint8_t *compressed = malloc(2000);
+    if (!compressed) {
+        printf("Memory allocation failed\n");
+        return;
+    }
     RLEStats stats;
 
     size_t varintCompSize = rleEncode(data, 1000, compressed, &stats);
@@ -477,6 +505,10 @@ void example_image_like_data() {
 
     // Simulate 256×4 8-bit grayscale image with simple patterns
     uint8_t *image = malloc(1024);
+    if (!image) {
+        printf("Memory allocation failed\n");
+        return;
+    }
 
     // Scan line 0: gradient
     for (int i = 0; i < 256; i++) {
@@ -496,6 +528,13 @@ void example_image_like_data() {
 
     uint8_t *compressed = malloc(2048);
     uint8_t *decompressed = malloc(1024);
+    if (!compressed || !decompressed) {
+        free(image);
+        free(compressed);
+        free(decompressed);
+        printf("Memory allocation failed\n");
+        return;
+    }
     RLEStats stats;
 
     size_t compSize = rleEncode(image, 1024, compressed, &stats);
@@ -517,10 +556,21 @@ void example_extreme_compression() {
     // 10KB of same byte
     size_t size = 10240;
     uint8_t *data = malloc(size);
+    if (!data) {
+        printf("Memory allocation failed\n");
+        return;
+    }
     memset(data, 'X', size);
 
     uint8_t *compressed = malloc(100);
     uint8_t *decompressed = malloc(size);
+    if (!compressed || !decompressed) {
+        free(data);
+        free(compressed);
+        free(decompressed);
+        printf("Memory allocation failed\n");
+        return;
+    }
     RLEStats stats;
 
     size_t compSize = rleEncode(data, size, compressed, &stats);

@@ -376,7 +376,7 @@ void demonstrateSensorNetwork(void) {
 
     // Simulated temperature readings every 60 seconds
     uint64_t baseTime = 1609459200; // 2021-01-01
-    uint64_t tempReadings[] = {20, 21, 21, 22, 22, 23, 22, 21, 20, 20};
+    const uint64_t tempReadings[] = {20, 21, 21, 22, 22, 23, 22, 21, 20, 20};
 
     for (size_t i = 0; i < 10; i++) {
         deltaSeriesAppend(&tempSeries, baseTime + i * 60, tempReadings[i]);

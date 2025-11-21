@@ -148,7 +148,7 @@ void tableGet(const Table *t, size_t idx, Row *row) {
     assert(idx < t->rowCount);
 
     // Get primary key
-    uint8_t *keyPtr = t->keys + t->keyOffsets[idx];
+    const uint8_t *keyPtr = t->keys + t->keyOffsets[idx];
     varintTaggedGet64(keyPtr, &row->userId);
 
     // Get columns
@@ -171,8 +171,8 @@ int compareKeys(const void *a, const void *b, const Table *t) {
     size_t idxA = *(size_t *)a;
     size_t idxB = *(size_t *)b;
 
-    uint8_t *keyA = t->keys + t->keyOffsets[idxA];
-    uint8_t *keyB = t->keys + t->keyOffsets[idxB];
+    const uint8_t *keyA = t->keys + t->keyOffsets[idxA];
+    const uint8_t *keyB = t->keys + t->keyOffsets[idxB];
 
     varintWidth lenA = varintTaggedGetLen(keyA);
     varintWidth lenB = varintTaggedGetLen(keyB);
@@ -267,6 +267,11 @@ void demonstrateDatabase(void) {
     printf("\n4. Sorting by primary key (varintTagged)...\n");
 
     size_t *indices = malloc(table.rowCount * sizeof(size_t));
+    if (!indices) {
+        fprintf(stderr, "Memory allocation failed\n");
+        tableFree(&table);
+        return;
+    }
     for (size_t i = 0; i < table.rowCount; i++) {
         indices[i] = i;
     }
