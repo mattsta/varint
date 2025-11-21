@@ -7,6 +7,7 @@
 #define _POSIX_C_SOURCE 200809L
 
 #include <arpa/inet.h>
+#include <errno.h>
 #include <inttypes.h>
 #include <netinet/in.h>
 #include <stdbool.h>
@@ -15,6 +16,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/socket.h>
+#include <time.h>
 #include <unistd.h>
 
 #include "../../src/varint.h"
@@ -33,7 +35,15 @@ typedef enum {
     CMD_SAVE = 0x08,
     CMD_PING = 0x09,
     CMD_AUTH = 0x0A,
-    CMD_SHUTDOWN = 0x0B
+    CMD_SHUTDOWN = 0x0B,
+    // Enhanced pub/sub commands
+    CMD_PUBLISH = 0x10,
+    CMD_SUBSCRIBE_LIVE = 0x11,
+    CMD_GET_SUBSCRIPTIONS = 0x12,
+    CMD_SUBSCRIBE_BATCH = 0x13,
+    CMD_SET_QOS = 0x14,
+    CMD_ACK = 0x15,
+    CMD_GET_BACKLOG = 0x16
 } CommandType;
 
 typedef enum {
@@ -43,6 +53,12 @@ typedef enum {
     STATUS_RATE_LIMITED = 0x03,
     STATUS_INVALID_CMD = 0x04
 } StatusCode;
+
+typedef enum {
+    MSG_NOTIFICATION = 0x80,
+    MSG_SUBSCRIPTION_CONFIRM = 0x81,
+    MSG_HEARTBEAT = 0x82
+} MessageType;
 
 typedef struct {
     int sockfd;
@@ -760,41 +776,355 @@ bool cmdShutdown(TrieClient *client) {
     }
 }
 
+bool cmdPublish(TrieClient *client, const char *pattern, const char *message) {
+    printf("Sending PUBLISH pattern='%s' message='%s'...\n", pattern, message);
+
+    uint8_t *payload = (uint8_t *)malloc(4096);
+    if (!payload) {
+        return false;
+    }
+
+    size_t offset = 0;
+    size_t patternLen = strlen(pattern);
+    offset += varintTaggedPut64(payload + offset, patternLen);
+    memcpy(payload + offset, pattern, patternLen);
+    offset += patternLen;
+
+    size_t messageLen = strlen(message);
+    offset += varintTaggedPut64(payload + offset, messageLen);
+    memcpy(payload + offset, message, messageLen);
+    offset += messageLen;
+
+    bool result = sendCommand(client, CMD_PUBLISH, payload, offset);
+    free(payload);
+
+    if (!result) {
+        fprintf(stderr, "Failed to send command\n");
+        return false;
+    }
+
+    StatusCode status;
+    uint8_t *data = (uint8_t *)malloc(MAX_RESPONSE_SIZE);
+    if (!data) {
+        return false;
+    }
+    size_t dataLen;
+
+    if (!receiveResponse(client, &status, data, &dataLen, MAX_RESPONSE_SIZE)) {
+        fprintf(stderr, "Failed to receive response\n");
+        free(data);
+        return false;
+    }
+
+    free(data);
+
+    if (status == STATUS_OK) {
+        printf("PUBLISH successful\n");
+        return true;
+    } else {
+        printf("Error: status = 0x%02X\n", status);
+        return false;
+    }
+}
+
+bool cmdSubscribeLive(TrieClient *client, const char *pattern, uint8_t qos,
+                      uint32_t clientId, const char *clientName) {
+    printf("Sending SUBSCRIBE_LIVE pattern='%s' qos=%d clientId=%u "
+           "clientName='%s'...\n",
+           pattern, qos, clientId, clientName);
+
+    uint8_t *payload = (uint8_t *)malloc(4096);
+    if (!payload) {
+        return false;
+    }
+
+    size_t offset = 0;
+    size_t patternLen = strlen(pattern);
+    offset += varintTaggedPut64(payload + offset, patternLen);
+    memcpy(payload + offset, pattern, patternLen);
+    offset += patternLen;
+
+    payload[offset++] = qos;
+
+    if (clientId > 0) {
+        offset += varintTaggedPut64(payload + offset, clientId);
+    }
+
+    if (clientName && strlen(clientName) > 0) {
+        size_t nameLen = strlen(clientName);
+        offset += varintTaggedPut64(payload + offset, nameLen);
+        memcpy(payload + offset, clientName, nameLen);
+        offset += nameLen;
+    }
+
+    bool result = sendCommand(client, CMD_SUBSCRIBE_LIVE, payload, offset);
+    free(payload);
+
+    if (!result) {
+        fprintf(stderr, "Failed to send command\n");
+        return false;
+    }
+
+    StatusCode status;
+    uint8_t *data = (uint8_t *)malloc(MAX_RESPONSE_SIZE);
+    if (!data) {
+        return false;
+    }
+    size_t dataLen;
+
+    if (!receiveResponse(client, &status, data, &dataLen, MAX_RESPONSE_SIZE)) {
+        fprintf(stderr, "Failed to receive response\n");
+        free(data);
+        return false;
+    }
+
+    if (status == STATUS_OK) {
+        if (dataLen > 0) {
+            uint64_t assignedClientId;
+            varintTaggedGet64(data, &assignedClientId);
+            printf("SUBSCRIBE_LIVE successful - Assigned Client ID: %" PRIu64
+                   "\n",
+                   assignedClientId);
+        } else {
+            printf("SUBSCRIBE_LIVE successful\n");
+        }
+        free(data);
+        return true;
+    } else {
+        printf("Error: status = 0x%02X\n", status);
+        free(data);
+        return false;
+    }
+}
+
+bool cmdGetSubscriptions(TrieClient *client) {
+    printf("Sending GET_SUBSCRIPTIONS...\n");
+
+    if (!sendCommand(client, CMD_GET_SUBSCRIPTIONS, NULL, 0)) {
+        fprintf(stderr, "Failed to send command\n");
+        return false;
+    }
+
+    StatusCode status;
+    uint8_t *data = (uint8_t *)malloc(MAX_RESPONSE_SIZE);
+    if (!data) {
+        return false;
+    }
+    size_t dataLen;
+
+    if (!receiveResponse(client, &status, data, &dataLen, MAX_RESPONSE_SIZE)) {
+        fprintf(stderr, "Failed to receive response\n");
+        free(data);
+        return false;
+    }
+
+    if (status != STATUS_OK) {
+        printf("Error: status = 0x%02X\n", status);
+        free(data);
+        return false;
+    }
+
+    size_t offset = 0;
+    uint64_t count;
+    varintTaggedGet64(data + offset, &count);
+    offset += varintTaggedGetLen(data + offset);
+
+    printf("\nActive Subscriptions (%" PRIu64 " total):\n", count);
+    for (uint64_t i = 0; i < count; i++) {
+        uint64_t patternLen;
+        varintTaggedGet64(data + offset, &patternLen);
+        offset += varintTaggedGetLen(data + offset);
+
+        char pattern[256];
+        memcpy(pattern, data + offset, patternLen);
+        pattern[patternLen] = '\0';
+        offset += patternLen;
+
+        uint8_t qos = data[offset++];
+
+        printf("  %" PRIu64 ". Pattern='%s' QoS=%d\n", i + 1, pattern, qos);
+    }
+
+    free(data);
+    return true;
+}
+
+bool listenForNotifications(TrieClient *client, int timeout_seconds) {
+    printf("Listening for notifications (timeout=%d seconds)...\n",
+           timeout_seconds);
+    printf("Press Ctrl+C to stop\n\n");
+
+    time_t startTime = time(NULL);
+    bool receivedAny = false;
+
+    while (true) {
+        // Check timeout
+        if (timeout_seconds > 0 && time(NULL) - startTime > timeout_seconds) {
+            printf("\nTimeout reached\n");
+            break;
+        }
+
+        // Try to receive message (non-blocking)
+        uint8_t lengthBuf[9];
+        ssize_t n = read(client->sockfd, lengthBuf, 1);
+
+        if (n < 0) {
+            if (errno == EAGAIN || errno == EWOULDBLOCK) {
+                usleep(100000); // Sleep 100ms
+                continue;
+            }
+            perror("read");
+            break;
+        } else if (n == 0) {
+            printf("Connection closed by server\n");
+            break;
+        }
+
+        // Read rest of varint length
+        size_t bytesRead = 1;
+        uint64_t messageLen;
+        while (varintTaggedGet64(lengthBuf, &messageLen) == 0 &&
+               bytesRead < sizeof(lengthBuf)) {
+            if (read(client->sockfd, lengthBuf + bytesRead, 1) != 1) {
+                return receivedAny;
+            }
+            bytesRead++;
+        }
+
+        if (messageLen == 0 || messageLen > MAX_RESPONSE_SIZE) {
+            fprintf(stderr, "Invalid message length: %" PRIu64 "\n",
+                    messageLen);
+            break;
+        }
+
+        // Read message
+        uint8_t *msgBuf = (uint8_t *)malloc(messageLen);
+        if (!msgBuf) {
+            break;
+        }
+
+        size_t totalRead = 0;
+        while (totalRead < messageLen) {
+            n = read(client->sockfd, msgBuf + totalRead,
+                     messageLen - totalRead);
+            if (n <= 0) {
+                free(msgBuf);
+                return receivedAny;
+            }
+            totalRead += n;
+        }
+
+        // Parse message type
+        uint8_t msgType = msgBuf[0];
+        size_t offset = 1;
+
+        if (msgType == MSG_NOTIFICATION) {
+            receivedAny = true;
+
+            // Parse notification
+            uint64_t seqNum;
+            varintTaggedGet64(msgBuf + offset, &seqNum);
+            offset += varintTaggedGetLen(msgBuf + offset);
+
+            uint64_t patternLen;
+            varintTaggedGet64(msgBuf + offset, &patternLen);
+            offset += varintTaggedGetLen(msgBuf + offset);
+
+            char pattern[256];
+            memcpy(pattern, msgBuf + offset, patternLen);
+            pattern[patternLen] = '\0';
+            offset += patternLen;
+
+            uint64_t publisherId;
+            varintTaggedGet64(msgBuf + offset, &publisherId);
+            offset += varintTaggedGetLen(msgBuf + offset);
+
+            uint64_t publisherNameLen;
+            varintTaggedGet64(msgBuf + offset, &publisherNameLen);
+            offset += varintTaggedGetLen(msgBuf + offset);
+
+            char publisherName[256];
+            memcpy(publisherName, msgBuf + offset, publisherNameLen);
+            publisherName[publisherNameLen] = '\0';
+            offset += publisherNameLen;
+
+            uint64_t payloadLen;
+            varintTaggedGet64(msgBuf + offset, &payloadLen);
+            offset += varintTaggedGetLen(msgBuf + offset);
+
+            char payload[1024];
+            if (payloadLen < sizeof(payload)) {
+                memcpy(payload, msgBuf + offset, payloadLen);
+                payload[payloadLen] = '\0';
+            } else {
+                strcpy(payload, "[payload too large]");
+            }
+
+            printf("[NOTIFICATION] seq=%" PRIu64 " pattern='%s' from='%s' "
+                   "(id=%" PRIu64 "): %s\n",
+                   seqNum, pattern, publisherName, publisherId, payload);
+
+            // Send ACK if QoS=1
+            // For simplicity, always ACK
+            uint8_t ackPayload[16];
+            size_t ackLen = varintTaggedPut64(ackPayload, seqNum);
+            sendCommand(client, CMD_ACK, ackPayload, ackLen);
+        } else if (msgType == MSG_HEARTBEAT) {
+            printf("[HEARTBEAT]\n");
+        } else {
+            printf("[UNKNOWN MESSAGE TYPE: 0x%02X]\n", msgType);
+        }
+
+        free(msgBuf);
+    }
+
+    return receivedAny;
+}
+
 int main(int argc, char *argv[]) {
     if (argc < 2) {
         printf("Usage: %s <command> [args] [host] [port]\n", argv[0]);
-        printf("Commands:\n");
-        printf(
-            "  ping                                   - Send PING command\n");
-        printf("  stats                                  - Get server "
+        printf("\nLegacy Commands:\n");
+        printf("  ping                                        - Send PING "
+               "command\n");
+        printf("  stats                                       - Get server "
                "statistics\n");
-        printf("  add <pattern> <id> <name>              - Add pattern with "
-               "subscriber\n");
-        printf("  remove <pattern>                       - Remove pattern\n");
-        printf("  subscribe <pattern> <id> <name>        - Subscribe to "
-               "existing pattern\n");
-        printf("  unsubscribe <pattern> <id>             - Unsubscribe from "
-               "pattern\n");
-        printf("  match <input>                          - Match input against "
+        printf("  add <pattern> <id> <name>                   - Add pattern "
+               "with subscriber\n");
+        printf(
+            "  remove <pattern>                            - Remove pattern\n");
+        printf("  subscribe <pattern> <id> <name>             - Subscribe to "
+               "pattern (legacy)\n");
+        printf("  unsubscribe <pattern> <id>                  - Unsubscribe "
+               "from pattern\n");
+        printf("  match <input>                               - Match input "
+               "against patterns\n");
+        printf("  list                                        - List all "
                "patterns\n");
-        printf(
-            "  list                                   - List all patterns\n");
-        printf(
-            "  save                                   - Trigger manual save\n");
-        printf("  auth <token>                           - Authenticate with "
-               "token\n");
-        printf("  shutdown                               - Gracefully shutdown "
-               "server\n");
+        printf("  save                                        - Trigger manual "
+               "save\n");
+        printf("  auth <token>                                - Authenticate "
+               "with token\n");
+        printf("  shutdown                                    - Gracefully "
+               "shutdown server\n");
+        printf("\nNew Pub/Sub Commands:\n");
+        printf("  publish <pattern> <message>                 - Publish "
+               "message to pattern\n");
+        printf("  sub-live <pattern> [qos] [id] [name]       - Subscribe with "
+               "live notifications\n");
+        printf("  listen [timeout]                            - Listen for "
+               "notifications\n");
+        printf("  get-subs                                    - Get current "
+               "subscriptions\n");
         printf("\nDefault host: 127.0.0.1\n");
         printf("Default port: 9999\n");
         printf("\nExamples:\n");
-        printf("  %s add \"sensors.*.temperature\" 1 \"temp-monitor\"\n",
+        printf("  %s sub-live \"sensors.*.temperature\" 1 0 \"temp-monitor\"\n",
                argv[0]);
-        printf("  %s subscribe \"sensors.*.temperature\" 2 \"logger\"\n",
+        printf("  %s listen 60\n", argv[0]);
+        printf("  %s publish \"sensors.room1.temperature\" \"25.5C\"\n",
                argv[0]);
-        printf("  %s match \"sensors.room1.temperature\"\n", argv[0]);
-        printf("  %s list\n", argv[0]);
-        printf("  %s save\n", argv[0]);
+        printf("  %s get-subs\n", argv[0]);
         return 1;
     }
 
@@ -874,6 +1204,37 @@ int main(int argc, char *argv[]) {
         success = cmdAuth(&client, argv[2]);
     } else if (strcmp(command, "shutdown") == 0) {
         success = cmdShutdown(&client);
+    } else if (strcmp(command, "publish") == 0) {
+        if (argc < 4) {
+            fprintf(stderr,
+                    "Usage: %s publish <pattern> <message> [host] [port]\n",
+                    argv[0]);
+            clientClose(&client);
+            return 1;
+        }
+        success = cmdPublish(&client, argv[2], argv[3]);
+    } else if (strcmp(command, "sub-live") == 0) {
+        if (argc < 3) {
+            fprintf(stderr,
+                    "Usage: %s sub-live <pattern> [qos] [id] [name] [host] "
+                    "[port]\n",
+                    argv[0]);
+            clientClose(&client);
+            return 1;
+        }
+        uint8_t qos = argc > 3 ? atoi(argv[3]) : 0;
+        uint32_t clientId = argc > 4 ? atoi(argv[4]) : 0;
+        const char *clientName = argc > 5 ? argv[5] : "client";
+        success = cmdSubscribeLive(&client, argv[2], qos, clientId, clientName);
+        if (success) {
+            // Stay connected and listen for notifications
+            success = listenForNotifications(&client, 0); // No timeout
+        }
+    } else if (strcmp(command, "listen") == 0) {
+        int timeout = argc > 2 ? atoi(argv[2]) : 0;
+        success = listenForNotifications(&client, timeout);
+    } else if (strcmp(command, "get-subs") == 0) {
+        success = cmdGetSubscriptions(&client);
     } else {
         fprintf(stderr, "Unknown command: %s\n", command);
     }
