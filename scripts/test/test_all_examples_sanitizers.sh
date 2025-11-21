@@ -8,6 +8,27 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 BUILD_DIR="$REPO_ROOT/build_examples_sanitizers"
 
+# Platform-specific timeout command
+if command -v timeout >/dev/null 2>&1; then
+    TIMEOUT_CMD="timeout"
+elif command -v gtimeout >/dev/null 2>&1; then
+    TIMEOUT_CMD="gtimeout"
+else
+    # No timeout available (fallback for macOS without coreutils)
+    TIMEOUT_CMD=""
+fi
+
+# Helper function for running commands with timeout
+run_with_timeout() {
+    local duration=$1
+    shift
+    if [ -n "$TIMEOUT_CMD" ]; then
+        $TIMEOUT_CMD $duration "$@"
+    else
+        "$@"
+    fi
+}
+
 GREEN='\033[0;32m'
 BLUE='\033[0;34m'
 YELLOW='\033[0;33m'
@@ -75,7 +96,7 @@ run_example() {
 
     # Run with timeout and capture output
     local output_file="/tmp/example_output_$name.txt"
-    if timeout 5s "$path" > "$output_file" 2>&1; then
+    if run_with_timeout 5 "$path" > "$output_file" 2>&1; then
         # Check for sanitizer errors in output
         if grep -q "ERROR: AddressSanitizer\|ERROR: UndefinedBehaviorSanitizer" "$output_file" 2>/dev/null; then
             echo -e "  ${RED}✗${NC} $name (sanitizer error)"

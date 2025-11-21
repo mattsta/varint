@@ -690,12 +690,15 @@ void testSerialization(void) {
     MatchResult originalResult;
     trieMatch(&originalTrie, "stock.nasdaq.aapl", &originalResult);
     size_t originalMatchCount1 = originalResult.count;
+    (void)originalMatchCount1;
 
     trieMatch(&originalTrie, "stock.nyse.goog", &originalResult);
     size_t originalMatchCount2 = originalResult.count;
+    (void)originalMatchCount2;
 
     trieMatch(&originalTrie, "stock.anything.here", &originalResult);
     size_t originalMatchCount3 = originalResult.count;
+    (void)originalMatchCount3;
 
     // Serialize
     uint8_t buffer[4096];

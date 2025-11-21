@@ -52,6 +52,12 @@ echo ""
 echo "Detailed results saved to: $RESULTS_DIR/"
 echo ""
 
+# Create summary.txt file for CI verification
+cat > "$RESULTS_DIR/summary.txt" << EOF
+GCC:   $GCC_STATUS
+Clang: $CLANG_STATUS
+EOF
+
 # Exit with error if either compiler failed
 if [ "$GCC_STATUS" = "FAIL" ] || [ "$CLANG_STATUS" = "FAIL" ]; then
     echo "❌ COMPILER CHECK FAILED"

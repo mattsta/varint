@@ -8,6 +8,16 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 cd "$REPO_ROOT"
 
+# Platform-specific timeout command
+if command -v timeout >/dev/null 2>&1; then
+    TIMEOUT_CMD="timeout 5"
+elif command -v gtimeout >/dev/null 2>&1; then
+    TIMEOUT_CMD="gtimeout 5"
+else
+    # No timeout available (fallback for macOS without coreutils)
+    TIMEOUT_CMD=""
+fi
+
 # Platform-specific sanitizer options
 if [[ "$OSTYPE" == "darwin"* ]]; then
     # macOS: Disable leak detection (not supported)
@@ -43,7 +53,7 @@ run_test() {
     fi
 
     # Run
-    if timeout 5 /tmp/${test_name}_test > /tmp/${test_name}_output.txt 2>&1; then
+    if ${TIMEOUT_CMD} /tmp/${test_name}_test > /tmp/${test_name}_output.txt 2>&1; then
         local exit_code=$?
         if [ $exit_code -eq 0 ]; then
             echo -e "${GREEN}✓ ALL TESTS PASSED${NC}"

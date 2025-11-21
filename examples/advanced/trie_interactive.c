@@ -1271,6 +1271,7 @@ static void testBasicOperations(void) {
     // Test add
     bool result = trieInsert(&trie, "stock.nasdaq.aapl", 1, "Sub1");
     assert(result);
+    (void)result;
     assert(trie.patternCount == 1);
     assert(trie.subscriberCount == 1);
     printf("  ✓ Add pattern\n");
@@ -1314,6 +1315,7 @@ static void testInputValidation(void) {
     // Test invalid patterns
     bool result = trieInsert(&trie, "", 1, "Sub1");
     assert(!result);
+    (void)result;
     printf("  ✓ Reject empty pattern\n");
 
     result = trieInsert(&trie, "valid.pattern", 0, "Sub1");
@@ -1379,6 +1381,7 @@ static void testMultipleSubscribers(void) {
     // Add multiple subscribers to same pattern
     bool result = trieInsert(&trie, "alert.#", 1, "Email");
     assert(result);
+    (void)result;
     result = trieInsert(&trie, "alert.#", 2, "SMS");
     assert(result);
     result = trieInsert(&trie, "alert.#", 3, "Slack");
@@ -1435,6 +1438,7 @@ static void testEdgeCases(void) {
     // Remove non-existent pattern
     bool result = trieRemovePattern(&trie, "nonexistent");
     assert(!result);
+    (void)result;
     printf("  ✓ Remove non-existent pattern fails gracefully\n");
 
     // Remove non-existent subscriber
@@ -1481,6 +1485,7 @@ static void testPersistence(void) {
     const char *filename = "/tmp/trie_test.dat";
     bool result = trieSave(&trie1, filename);
     assert(result);
+    (void)result;
     printf("  ✓ Saved trie to disk\n");
 
     // Load into new trie
@@ -1492,6 +1497,8 @@ static void testPersistence(void) {
     // Verify metadata
     assert(trie2.patternCount == originalPatterns);
     assert(trie2.subscriberCount == originalSubscribers);
+    (void)originalPatterns;
+    (void)originalSubscribers;
     printf("  ✓ Metadata matches (patterns: %zu, subscribers: %zu)\n",
            trie2.patternCount, trie2.subscriberCount);
 
@@ -1544,6 +1551,7 @@ static void testBinaryRoundtrip(void) {
     // Save original trie
     bool result = trieSave(&trie1, file1);
     assert(result);
+    (void)result;
     printf("  ✓ Saved original trie\n");
 
     // Load into second trie
@@ -1566,6 +1574,7 @@ static void testBinaryRoundtrip(void) {
     long size1 = ftell(f1);
     long size2 = ftell(f2);
     assert(size1 == size2);
+    (void)size2;
     printf("  ✓ File sizes match (%ld bytes)\n", size1);
 
     fseek(f1, 0, SEEK_SET);
@@ -1577,6 +1586,7 @@ static void testBinaryRoundtrip(void) {
         size_t n1 = fread(buf1, 1, sizeof(buf1), f1);
         size_t n2 = fread(buf2, 1, sizeof(buf2), f2);
         assert(n1 == n2);
+        (void)n2;
         assert(memcmp(buf1, buf2, n1) == 0);
         bytesCompared += n1;
     }

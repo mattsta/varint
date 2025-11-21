@@ -8,10 +8,40 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 cd "$REPO_ROOT"
 
+# Platform-specific timeout command
+if command -v timeout >/dev/null 2>&1; then
+    TIMEOUT_CMD="timeout"
+elif command -v gtimeout >/dev/null 2>&1; then
+    TIMEOUT_CMD="gtimeout"
+else
+    # No timeout available (fallback for macOS without coreutils)
+    TIMEOUT_CMD=""
+fi
+
+# Helper function for running commands with timeout
+run_with_timeout() {
+    local duration=$1
+    shift
+    if [ -n "$TIMEOUT_CMD" ]; then
+        $TIMEOUT_CMD $duration "$@"
+    else
+        "$@"
+    fi
+}
+
 # Platform-specific sanitizer options
 if [[ "$OSTYPE" == "darwin"* ]]; then
     # macOS: Disable leak detection (not supported)
     export ASAN_OPTIONS=detect_leaks=0
+fi
+
+# Architecture-specific flags (x86 SIMD extensions)
+ARCH=$(uname -m)
+if [[ "$ARCH" == "x86_64" || "$ARCH" == "amd64" ]]; then
+    ARCH_FLAGS="-mf16c -mavx2"
+else
+    # ARM, ARM64, or other architectures - no x86 SIMD flags
+    ARCH_FLAGS=""
 fi
 
 CFLAGS="-I$REPO_ROOT/src -fsanitize=address,undefined -fno-omit-frame-pointer -g -O1"
@@ -47,7 +77,7 @@ test_example() {
     fi
 
     # Run
-    if timeout 5 /tmp/${name}_test > /tmp/${name}_output.txt 2>&1; then
+    if run_with_timeout 5 /tmp/${name}_test > /tmp/${name}_output.txt 2>&1; then
         echo -e "${GREEN}✓ PASSED${NC}"
         PASSED=$((PASSED + 1))
         return 0
@@ -80,7 +110,7 @@ test_example "examples/standalone/example_split.c" "src/varintExternal.c" ""
 test_example "examples/standalone/example_chained.c" "src/varintChained.c" ""
 test_example "examples/standalone/example_packed.c" "" ""
 test_example "examples/standalone/example_bitstream.c" "" ""
-test_example "examples/standalone/example_dimension.c" "src/varintDimension.c src/varintExternal.c" "-mf16c -mavx2"
+test_example "examples/standalone/example_dimension.c" "src/varintDimension.c src/varintExternal.c" "$ARCH_FLAGS"
 test_example "examples/standalone/rle_codec.c" "src/varintExternal.c" ""
 test_example "examples/standalone/example_delta.c" "src/varintDelta.c src/varintExternal.c" ""
 test_example "examples/standalone/example_for.c" "src/varintFOR.c src/varintExternal.c src/varintTagged.c" ""
@@ -98,12 +128,12 @@ echo "=========================================="
 test_example "examples/integration/game_engine.c" "" ""
 test_example "examples/integration/network_protocol.c" "src/varintChained.c src/varintExternal.c" ""
 test_example "examples/integration/sensor_network.c" "src/varintExternal.c" ""
-test_example "examples/integration/column_store.c" "src/varintDimension.c src/varintExternal.c" "-mf16c -mavx2"
-test_example "examples/integration/ml_features.c" "src/varintDimension.c src/varintExternal.c" "-mf16c -mavx2"
+test_example "examples/integration/column_store.c" "src/varintDimension.c src/varintExternal.c" "$ARCH_FLAGS"
+test_example "examples/integration/ml_features.c" "src/varintDimension.c src/varintExternal.c" "$ARCH_FLAGS"
 test_example "examples/integration/database_system.c" "src/varintTagged.c src/varintExternal.c" ""
 test_example "examples/integration/vector_clock.c" "src/varintTagged.c" ""
 test_example "examples/integration/delta_compression.c" "src/varintExternal.c" "-lm"
-test_example "examples/integration/sparse_matrix_csr.c" "src/varintDimension.c src/varintExternal.c" "-lm -mf16c -mavx2"
+test_example "examples/integration/sparse_matrix_csr.c" "src/varintDimension.c src/varintExternal.c" "-lm $ARCH_FLAGS"
 
 # ADVANCED EXAMPLES
 echo ""
@@ -148,7 +178,7 @@ if [ -n "$TRIE_SERVER_PID" ]; then
     # Compile client
     if gcc $CFLAGS examples/advanced/trie_client.c src/varintTagged.c -o /tmp/trie_client_test 2>&1; then
         # Test with ping command
-        if timeout 2 /tmp/trie_client_test ping 127.0.0.1 9999 > /tmp/trie_client_output.txt 2>&1; then
+        if run_with_timeout 2 /tmp/trie_client_test ping 127.0.0.1 9999 > /tmp/trie_client_output.txt 2>&1; then
             echo -e "${GREEN}✓ PASSED${NC}"
             PASSED=$((PASSED + 1))
         else
@@ -179,14 +209,14 @@ test_example "examples/advanced/geospatial_routing.c" "src/varintExternal.c src/
 test_example "examples/advanced/log_aggregation.c" "src/varintChained.c src/varintExternal.c" ""
 test_example "examples/advanced/bloom_filter.c" "src/varintChained.c src/varintExternal.c" "-lm"
 test_example "examples/advanced/autocomplete_trie.c" "src/varintExternal.c src/varintTagged.c" ""
-test_example "examples/advanced/pointcloud_octree.c" "src/varintExternal.c src/varintDimension.c" "-lm -mf16c -mavx2"
+test_example "examples/advanced/pointcloud_octree.c" "src/varintExternal.c src/varintDimension.c" "-lm $ARCH_FLAGS"
 
 # Trie pattern matcher and interactive need stdin
 echo ""
 echo "Testing: trie_pattern_matcher (core functionality tests)"
 if gcc $CFLAGS examples/advanced/trie_pattern_matcher.c src/varintChained.c src/varintExternal.c src/varintTagged.c -o /tmp/trie_pattern_matcher_test 2>&1; then
     # Core tests only (heavy benchmarks skipped with sanitizers)
-    timeout 10 /tmp/trie_pattern_matcher_test > /tmp/trie_pattern_matcher_output.txt 2>&1 && {
+    run_with_timeout 10 /tmp/trie_pattern_matcher_test > /tmp/trie_pattern_matcher_output.txt 2>&1 && {
         echo -e "${GREEN}✓ PASSED${NC}"
         PASSED=$((PASSED + 1))
     } || {
@@ -204,7 +234,7 @@ fi
 echo ""
 echo "Testing: trie_interactive (with test input)"
 if gcc $CFLAGS examples/advanced/trie_interactive.c src/varintTagged.c -o /tmp/trie_interactive_test 2>&1; then
-    echo -e "insert test\ninsert hello\nsearch test\nquit" | timeout 2 /tmp/trie_interactive_test > /tmp/trie_interactive_output.txt 2>&1 && {
+    echo -e "insert test\ninsert hello\nsearch test\nquit" | run_with_timeout 2 /tmp/trie_interactive_test > /tmp/trie_interactive_output.txt 2>&1 && {
         echo -e "${GREEN}✓ PASSED${NC}"
         PASSED=$((PASSED + 1))
     } || {
@@ -226,7 +256,7 @@ echo "REFERENCE EXAMPLES"
 echo "=========================================="
 
 test_example "examples/reference/kv_store.c" "src/varintTagged.c" ""
-test_example "examples/reference/graph_database.c" "src/varintDimension.c src/varintExternal.c" "-mf16c -mavx2"
+test_example "examples/reference/graph_database.c" "src/varintDimension.c src/varintExternal.c" "$ARCH_FLAGS"
 test_example "examples/reference/timeseries_db.c" "src/varintExternal.c src/varintChained.c" ""
 
 # SUMMARY

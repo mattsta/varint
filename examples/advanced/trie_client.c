@@ -970,7 +970,8 @@ bool listenForNotifications(TrieClient *client, int timeout_seconds) {
 
         if (n < 0) {
             if (errno == EAGAIN || errno == EWOULDBLOCK) {
-                usleep(100000); // Sleep 100ms
+                struct timespec ts = {0, 100000000}; // 100ms
+                nanosleep(&ts, NULL);
                 continue;
             }
             perror("read");
