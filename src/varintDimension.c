@@ -8,16 +8,26 @@ bool varintDimensionPack(const size_t row, const size_t col, uint64_t *result,
                          varintDimensionPacked *dimension) {
     varintDimensionPacked foundDimension = VARINT_DIMENSION_PACKED_1;
 
-    if (row >= 15 && col >= 15) {
-        size_t rrow = row;
-        size_t ccol = col;
-        while ((rrow >>= 8) != 0 || (ccol >>= 8) != 0) {
-            foundDimension++;
-        }
-    }
+    /* Find minimum dimension that can hold the larger of row or col.
+     * Each dimension level adds 4 bits:
+     *   PACKED_1 =  4 bits = 0-15
+     *   PACKED_2 =  8 bits = 0-255
+     *   PACKED_3 = 12 bits = 0-4095
+     *   PACKED_4 = 16 bits = 0-65535
+     *   PACKED_5 = 20 bits = 0-1048575
+     *   PACKED_6 = 24 bits = 0-16777215
+     *   PACKED_7 = 28 bits = 0-268435455
+     *   PACKED_8 = 32 bits = 0-4294967295
+     */
+    size_t maxCoord = (row > col) ? row : col;
 
-    if (foundDimension > VARINT_DIMENSION_PACKED_8) {
-        return false;
+    /* Check which level we need by shifting right by 4 bits per level */
+    while (maxCoord >=
+           (1ULL << VARINT_DIMENSION_PACKED_TO_BITS(foundDimension))) {
+        foundDimension++;
+        if (foundDimension > VARINT_DIMENSION_PACKED_8) {
+            return false;
+        }
     }
 
     *result = row;
@@ -181,6 +191,19 @@ void varintDimensionPairEntrySetFloat(void *_dst, const size_t row,
     memcpy(dst + entryOffset, &entryValue, sizeof(float));
 }
 
+float varintDimensionPairEntryGetFloat(const void *_src, const size_t row,
+                                       const size_t col,
+                                       const varintDimensionPair dimension) {
+    const uint8_t *src = (const uint8_t *)_src;
+
+    const size_t entryOffset =
+        getEntryByteOffset(src, row, col, sizeof(float), dimension);
+
+    float result;
+    memcpy(&result, src + entryOffset, sizeof(float));
+    return result;
+}
+
 /* ====================================================================
  * Half-Precision (FP16) Float Operations
  * ==================================================================== */
@@ -282,6 +305,19 @@ void varintDimensionPairEntrySetDouble(void *_dst, const size_t row,
         getEntryByteOffset(dst, row, col, sizeof(double), dimension);
 
     memcpy(dst + entryOffset, &entryValue, sizeof(double));
+}
+
+double varintDimensionPairEntryGetDouble(const void *_src, const size_t row,
+                                         const size_t col,
+                                         const varintDimensionPair dimension) {
+    const uint8_t *src = (const uint8_t *)_src;
+
+    const size_t entryOffset =
+        getEntryByteOffset(src, row, col, sizeof(double), dimension);
+
+    double result;
+    memcpy(&result, src + entryOffset, sizeof(double));
+    return result;
 }
 
 void varintDimensionPairEntrySetBit(void *_dst, const size_t row,
@@ -622,13 +658,198 @@ int varintDimensionTest(int argc, char *argv[]) {
         free(totalMatrix);
     }
 
+    TEST("DEPAIR macro: correctly unpacks dimension pair widths") {
+        /* Test the DEPAIR macro fix - it should use the passed dimension */
+        const varintDimensionPair dim1 = varintDimensionPairDimension(100, 200);
+        const varintDimensionPair dim2 = varintDimensionPairDimension(1000, 50);
+
+        varintWidth rowWidth1, colWidth1;
+        VARINT_DIMENSION_PAIR_DEPAIR(rowWidth1, colWidth1, dim1);
+        if (rowWidth1 != 1 || colWidth1 != 1) {
+            ERR("DEPAIR(100,200): expected (1,1), got (%d,%d)", rowWidth1,
+                colWidth1);
+        }
+
+        varintWidth rowWidth2, colWidth2;
+        VARINT_DIMENSION_PAIR_DEPAIR(rowWidth2, colWidth2, dim2);
+        if (rowWidth2 != 2 || colWidth2 != 1) {
+            ERR("DEPAIR(1000,50): expected (2,1), got (%d,%d)", rowWidth2,
+                colWidth2);
+        }
+    }
+
+    TEST("Pack and Unpack coordinate pairs") {
+        /* Test various coordinate values */
+        struct {
+            size_t row;
+            size_t col;
+        } testCases[] = {
+            {0, 0},       {1, 1},       {15, 15},     {100, 200},
+            {255, 255},   {1000, 500},  {4095, 4095}, {65535, 65535},
+            {100000, 50}, {50, 100000},
+        };
+
+        for (size_t i = 0; i < sizeof(testCases) / sizeof(testCases[0]); i++) {
+            size_t row = testCases[i].row;
+            size_t col = testCases[i].col;
+            uint64_t packed;
+            varintDimensionPacked dim;
+
+            if (!varintDimensionPack(row, col, &packed, &dim)) {
+                ERR("Pack failed for (%zu, %zu)", row, col);
+                continue;
+            }
+
+            size_t unpackedRow, unpackedCol;
+            varintDimensionUnpack(&unpackedRow, &unpackedCol, packed, dim);
+
+            if (unpackedRow != row || unpackedCol != col) {
+                ERR("Pack/Unpack mismatch: (%zu,%zu) -> packed -> (%zu,%zu)",
+                    row, col, unpackedRow, unpackedCol);
+            }
+        }
+    }
+
+    TEST("Various dimension sizes (edge cases)") {
+        /* Test boundary conditions for dimension storage */
+        struct {
+            size_t rows;
+            size_t cols;
+            varintWidth expectedRowWidth;
+            varintWidth expectedColWidth;
+        } testCases[] = {
+            {1, 1, 1, 1},         /* Minimum */
+            {255, 255, 1, 1},     /* 1-byte boundary */
+            {256, 256, 2, 2},     /* Just over 1-byte */
+            {65535, 65535, 2, 2}, /* 2-byte boundary */
+            {65536, 65536, 3, 3}, /* Just over 2-byte */
+            {1, 65536, 1, 3},     /* Asymmetric */
+            {65536, 1, 3, 1},     /* Asymmetric reversed */
+        };
+
+        for (size_t i = 0; i < sizeof(testCases) / sizeof(testCases[0]); i++) {
+            size_t rows = testCases[i].rows;
+            size_t cols = testCases[i].cols;
+            varintWidth expectedRow = testCases[i].expectedRowWidth;
+            varintWidth expectedCol = testCases[i].expectedColWidth;
+
+            const varintDimensionPair dim =
+                varintDimensionPairDimension(rows, cols);
+            varintWidth actualRow = VARINT_DIMENSION_PAIR_WIDTH_ROW_COUNT(dim);
+            varintWidth actualCol = VARINT_DIMENSION_PAIR_WIDTH_COL_COUNT(dim);
+
+            if (actualRow != expectedRow || actualCol != expectedCol) {
+                ERR("Dimension(%zu,%zu): expected widths (%d,%d), got (%d,%d)",
+                    rows, cols, expectedRow, expectedCol, actualRow, actualCol);
+            }
+        }
+    }
+
     TEST("float matrix: set and get every entry position") {
+        const varintDimensionPair widthSizes =
+            varintDimensionPairDimension(64, 64);
+        if (VARINT_DIMENSION_PAIR_BYTE_LENGTH(widthSizes) != 2) {
+            ERRR("Didn't get correct length storage byte width!");
+        }
+
+        uint8_t *totalMatrix = calloc(1, 2 + ((64 * 64) * sizeof(float)));
+        if (!totalMatrix) {
+            ERRR("Failed to allocate memory for totalMatrix!");
+        }
+        const varintDimensionPair mat =
+            varintDimensionPairEncode(totalMatrix, 64, 64);
+
+        for (int row = 0; row < 64; row++) {
+            for (int col = 0; col < 64; col++) {
+                float val = (float)(row * 100 + col) / 10.0f + 0.123f;
+                varintDimensionPairEntrySetFloat(totalMatrix, row, col, val,
+                                                 mat);
+                float result = varintDimensionPairEntryGetFloat(totalMatrix,
+                                                                row, col, mat);
+                if (result != val) {
+                    ERR("Float: Didn't get %f at (%d, %d); got: %f!", val, row,
+                        col, result);
+                }
+            }
+        }
+
+        free(totalMatrix);
     }
 
     TEST("double matrix: set and get every entry position") {
+        const varintDimensionPair widthSizes =
+            varintDimensionPairDimension(64, 64);
+        if (VARINT_DIMENSION_PAIR_BYTE_LENGTH(widthSizes) != 2) {
+            ERRR("Didn't get correct length storage byte width!");
+        }
+
+        uint8_t *totalMatrix = calloc(1, 2 + ((64 * 64) * sizeof(double)));
+        if (!totalMatrix) {
+            ERRR("Failed to allocate memory for totalMatrix!");
+        }
+        const varintDimensionPair mat =
+            varintDimensionPairEncode(totalMatrix, 64, 64);
+
+        for (int row = 0; row < 64; row++) {
+            for (int col = 0; col < 64; col++) {
+                double val =
+                    (double)(row * 100 + col) / 10.0 + 3.14159265358979323846;
+                varintDimensionPairEntrySetDouble(totalMatrix, row, col, val,
+                                                  mat);
+                double result = varintDimensionPairEntryGetDouble(
+                    totalMatrix, row, col, mat);
+                if (result != val) {
+                    ERR("Double: Didn't get %f at (%d, %d); got: %f!", val, row,
+                        col, result);
+                }
+            }
+        }
+
+        free(totalMatrix);
     }
 
     TEST("half float matrix: set and get every entry position") {
+#if defined(__F16C__) ||                                                       \
+    (defined(__ARM_NEON) && defined(__ARM_FP16_FORMAT_IEEE))
+        const varintDimensionPair widthSizes =
+            varintDimensionPairDimension(32, 32);
+        if (VARINT_DIMENSION_PAIR_BYTE_LENGTH(widthSizes) != 2) {
+            ERRR("Didn't get correct length storage byte width!");
+        }
+
+        uint8_t *totalMatrix = calloc(1, 2 + ((32 * 32) * sizeof(uint16_t)));
+        if (!totalMatrix) {
+            ERRR("Failed to allocate memory for totalMatrix!");
+        }
+        const varintDimensionPair mat =
+            varintDimensionPairEncode(totalMatrix, 32, 32);
+
+        for (int row = 0; row < 32; row++) {
+            for (int col = 0; col < 32; col++) {
+                /* Use values that can be represented in half precision */
+                float val = (float)(row + col) * 0.5f;
+                varintDimensionPairEntrySetFloatHalf(totalMatrix, row, col, val,
+                                                     mat);
+                float result = varintDimensionPairEntryGetFloatHalf(
+                    totalMatrix, row, col, mat);
+                /* Half precision has limited accuracy, so allow some tolerance
+                 */
+                float diff = result - val;
+                if (diff < 0) {
+                    diff = -diff;
+                }
+                if (diff > 0.01f) {
+                    ERR("Half: Didn't get ~%f at (%d, %d); got: %f!", val, row,
+                        col, result);
+                }
+            }
+        }
+
+        free(totalMatrix);
+#else
+        /* Skip test if FP16 hardware not available */
+        (void)0;
+#endif
     }
 
     TEST_FINAL_RESULT;

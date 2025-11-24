@@ -256,10 +256,16 @@ void varintDimensionPairEntrySetUnsigned(void *_dst, const size_t row,
 void varintDimensionPairEntrySetFloat(void *_dst, const size_t row,
                                       const size_t col, const float entryValue,
                                       const varintDimensionPair dimension);
+float varintDimensionPairEntryGetFloat(const void *_src, const size_t row,
+                                       const size_t col,
+                                       const varintDimensionPair dimension);
 void varintDimensionPairEntrySetDouble(void *_dst, const size_t row,
                                        const size_t col,
                                        const double entryValue,
                                        const varintDimensionPair dimension);
+double varintDimensionPairEntryGetDouble(const void *_src, const size_t row,
+                                         const size_t col,
+                                         const varintDimensionPair dimension);
 
 /* Half-precision (FP16) float operations using hardware intrinsics.
  * Available on x86/x64 with F16C or ARM with FP16 NEON. */
