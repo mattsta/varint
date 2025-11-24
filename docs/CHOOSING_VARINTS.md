@@ -18,6 +18,17 @@ START: What are you storing?
 │  ├─ Arbitrary bit width (12, 14, 20, etc.)? → varintPacked
 │  └─ Need sorted set with binary search? → varintPacked with sorted operations
 │
+├─ Arrays with consecutive repeated values?
+│  └─ Long runs of identical values? → varintRLE
+│
+├─ Arrays of small positive integers (1-1000)?
+│  ├─ Values mostly < 30? → varintElias (Gamma)
+│  └─ Values 30-1000? → varintElias (Delta)
+│
+├─ Large sorted/clustered integer arrays?
+│  ├─ Need SIMD-speed encode/decode? → varintBP128
+│  └─ Sorted data (timestamps, IDs)? → varintBP128 (delta mode)
+│
 ├─ Matrix/2D data?
 │  ├─ Dimensions are bounded and small? → varintDimension
 │  └─ Sparse matrix? → varintDimension (sparse mode)
@@ -45,6 +56,14 @@ START: What are you storing?
 | **varintPacked**    | Fixed-width arrays (arbitrary bit widths) | Excellent        | Fast        |
 | **varintDimension** | Matrices with bounded dimensions          | Good             | Fast        |
 | **varintBitstream** | Bit-level stream operations               | Perfect          | Moderate    |
+
+### Batch/Array Encodings (for Large Data Sets)
+
+| Type            | Use Case                         | Compression | Throughput | Best For                     |
+| --------------- | -------------------------------- | ----------- | ---------- | ---------------------------- |
+| **varintRLE**   | Consecutive repeated values      | 8-100x      | Moderate   | Audio silence, sparse data   |
+| **varintElias** | Small positive integers (1-1000) | 50-80%      | Moderate   | Huffman lengths, tree depths |
+| **varintBP128** | Sorted/clustered large arrays    | 2-8x        | 800+ MB/s  | Search indexes, time series  |
 
 ## Use Case Scenarios
 
@@ -478,6 +497,147 @@ Patterns    Naive (μs)    Trie (μs)    Speedup    Memory Savings
 
 ---
 
+### Scenario 10: Audio/Video Silence Detection
+
+**Requirements**:
+
+- Audio samples with many consecutive zeros (silence)
+- 16-bit samples
+- Need 8-100x compression for silence regions
+- Fast playback decode
+
+**Recommendation**: **varintRLE**
+
+**Why**:
+
+- Consecutive zeros compress to single (length, 0) pair
+- 10,000 zeros → 2-4 bytes
+- Random access via `varintRLEGetAt()`
+- Seamless mixed compression (silence + audio)
+
+**Example**:
+
+```c
+#include "varintRLE.h"
+
+// Audio buffer with silence gaps
+uint64_t samples[48000];  // 1 second at 48kHz
+// Fill with audio data including silence regions...
+
+// Analyze compression potential
+varintRLEMeta meta;
+varintRLEAnalyze(samples, 48000, &meta);
+printf("Runs: %zu, would compress: %s\n",
+       meta.runCount, varintRLEIsBeneficial(samples, 48000) ? "yes" : "no");
+
+// Encode
+uint8_t *encoded = malloc(varintRLEMaxSize(48000));
+size_t encodedSize = varintRLEEncode(encoded, samples, 48000, &meta);
+// 90% silence → ~10x compression
+```
+
+**Alternatives**:
+
+- **varintBP128**: Better if samples are clustered but not repeated
+- Simple zero-run encoding: If values are always 0 or non-zero
+
+---
+
+### Scenario 11: Huffman Codebook Storage
+
+**Requirements**:
+
+- Store Huffman code lengths (1-15 bits typically)
+- 256 symbols (one per byte value)
+- Minimum storage overhead
+- Self-delimiting (no length prefix needed)
+
+**Recommendation**: **varintElias** (Gamma)
+
+**Why**:
+
+- Code lengths 1-15 fit in 1-7 bits with Gamma
+- Self-delimiting: no delimiters needed between values
+- Optimal for geometric distribution (short codes more common)
+
+**Example**:
+
+```c
+#include "varintElias.h"
+
+// Huffman code lengths for 256 symbols
+uint64_t codeLengths[256];
+// ... populate from Huffman tree building
+
+// Encode with Gamma (optimal for small integers)
+uint8_t *encoded = malloc(varintEliasGammaMaxBytes(256));
+varintEliasMeta meta;
+varintEliasGammaEncodeArray(encoded, codeLengths, 256, &meta);
+
+printf("Encoded %zu symbols in %zu bits (%.1f bits/symbol)\n",
+       256, meta.totalBits, (double)meta.totalBits / 256);
+// Typical: ~600 bits = 75 bytes vs 256 bytes raw
+```
+
+**Alternatives**:
+
+- **varintElias** (Delta): If code lengths are larger (>30)
+- **varintRLE**: If many symbols share same code length
+
+---
+
+### Scenario 12: Search Engine Posting Lists
+
+**Requirements**:
+
+- Sorted document IDs (millions per term)
+- SIMD-speed decode for query performance
+- High compression for index storage
+- Delta encoding friendly (sorted)
+
+**Recommendation**: **varintBP128** (delta mode)
+
+**Why**:
+
+- 128-value blocks perfect for SIMD (AVX2/NEON)
+- Delta encoding exploits sorted property
+- 1.2+ GB/s decode throughput
+- 2-8x compression for typical posting lists
+
+**Example**:
+
+```c
+#include "varintBP128.h"
+
+// Sorted document IDs for term "hello"
+uint32_t docIds[1000000];
+// ... populate from indexing
+
+// Verify sorted (required for delta)
+assert(varintBP128IsSorted32(docIds, 1000000));
+
+// Delta encode
+uint8_t *encoded = malloc(varintBP128MaxBytes(1000000));
+varintBP128Meta meta;
+size_t encodedSize = varintBP128DeltaEncode32(
+    encoded, docIds, 1000000, &meta);
+
+printf("Posting list: %zu docs, %zu bytes (%.1f bits/doc)\n",
+       1000000, encodedSize, 8.0 * encodedSize / 1000000);
+// Typical: 1M IDs → ~500KB (8x compression)
+
+// Fast decode for query intersection
+uint32_t *decoded = malloc(1000000 * sizeof(uint32_t));
+varintBP128DeltaDecode32(encoded, decoded, 1000000);
+```
+
+**Alternatives**:
+
+- **varintFOR**: For clustered but unsorted data
+- **varintPFOR**: If there are outlier document IDs
+
+---
+
 ## Performance Considerations
 
 ### Speed Ranking (Fastest to Slowest)
@@ -601,6 +761,9 @@ varintTaggedPut64(buffer, value);
 - **varintPacked**: Arrays of same-bit-width values (non-native widths)
 - **varintDimension**: Matrices with bounded dimensions
 - **varintBitstream**: Bit-level protocols, variable-width streams
+- **varintRLE**: Consecutive repeated values, audio silence, sparse data
+- **varintElias**: Small positive integers, Huffman lengths, tree depths
+- **varintBP128**: Large sorted arrays, search indexes, SIMD-speed processing
 
 **When in doubt**:
 
@@ -608,6 +771,9 @@ varintTaggedPut64(buffer, value);
 2. Have schema? → **varintExternal**
 3. Fixed bit width? → **varintPacked**
 4. Legacy format? → **varintChained**
+5. Repeated consecutive values? → **varintRLE**
+6. Small positive integers (1-1000)? → **varintElias**
+7. Large sorted/clustered arrays? → **varintBP128**
 
 ## Further Reading
 
@@ -620,3 +786,6 @@ varintTaggedPut64(buffer, value);
   - [varintPacked](modules/varintPacked.md)
   - [varintDimension](modules/varintDimension.md)
   - [varintBitstream](modules/varintBitstream.md)
+  - [varintRLE](modules/varintRLE.md)
+  - [varintElias](modules/varintElias.md)
+  - [varintBP128](modules/varintBP128.md)

@@ -35,13 +35,16 @@ Enhanced versions of core encodings optimized for specific scenarios:
 4. **varintSplitReversed** - Reverse-traversable split varints
 5. **varintExternalBigEndian** - Big-endian external encoding
 
-### Layer 3: Advanced Features (3 Systems)
+### Layer 3: Advanced Features (6 Systems)
 
 High-level abstractions built on varint primitives:
 
 1. **[varintPacked](modules/varintPacked.md)** - Fixed-width bit-packed arrays with arbitrary bit widths
 2. **[varintDimension](modules/varintDimension.md)** - Bit-packed matrix storage with variable dimensions
 3. **[varintBitstream](modules/varintBitstream.md)** - Bit-level read/write operations
+4. **[varintRLE](modules/varintRLE.md)** - Run-length encoding for consecutive repeated values
+5. **[varintElias](modules/varintElias.md)** - Elias Gamma/Delta universal codes for small integers
+6. **[varintBP128](modules/varintBP128.md)** - SIMD-accelerated block-packed encoding for large arrays
 
 ## Quick Comparison Matrix
 
@@ -180,6 +183,35 @@ Use **varintBitstream** + **varintExternal** for:
 - 2391x faster than naive linear matching at 100K patterns
 - O(m) constant-time matching regardless of pattern count
 
+### Run-Length Compression
+
+Use **varintRLE** for:
+
+- Audio/video data with silence regions (8-100x compression)
+- Sparse data with repeated zero values
+- Game state with many identical tiles/cells
+- Log aggregation with repeated status codes
+
+### Succinct Data Structures
+
+Use **varintElias** for:
+
+- Huffman codebook storage (code lengths 1-15)
+- Tree depth encoding (B-trees, tries)
+- Small gap encoding in sorted lists
+- Rank/select data structure auxiliary arrays
+
+### Search Engine Indexes
+
+Use **varintBP128** for:
+
+- Posting lists with sorted document IDs
+- Time series with monotonic timestamps
+- Graph adjacency lists (sorted neighbors)
+- Column store databases with clustered values
+
+**Example**: 1M document IDs with delta BP128 achieves 8x compression with 1.2+ GB/s decode throughput.
+
 ## Module Dependencies
 
 ```
@@ -198,8 +230,14 @@ varint.h (common types)
     │
     ├── varintBitstream.h
     ├── varintPacked.h (template)
-    └── varintDimension.h/.c
-        └── varintPacked.h (uses internally)
+    ├── varintDimension.h/.c
+    │   └── varintPacked.h (uses internally)
+    │
+    ├── varintRLE.c/.h
+    │   └── varintTagged.h (uses for length/value encoding)
+    ├── varintElias.c/.h (bit-level Gamma/Delta codes)
+    └── varintBP128.c/.h
+        └── varintTagged.h (uses for delta first value)
 ```
 
 ## API Patterns

@@ -27,3 +27,6 @@ test_for
 tools/struct_audit
 tools/struct_size_check
 tools/struct_audit_dwarf
+
+# cmake / ctest output?
+Testing/

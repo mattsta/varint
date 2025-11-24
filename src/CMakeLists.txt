@@ -107,7 +107,19 @@ if(BuildTestBinary)
 
     # varintBitmapTest - tests bitmap encoding
     add_executable(varintBitmapTest varintBitmapTest.c varintBitmap.c varintExternal.c)
+
+    # varintRLETest - tests run-length encoding
+    add_executable(varintRLETest varintRLETest.c varintRLE.c varintExternal.c varintTagged.c)
+    target_compile_definitions(varintRLETest PRIVATE VARINT_RLE_TEST)
+
+    # varintEliasTest - tests Elias Gamma/Delta universal codes
+    add_executable(varintEliasTest varintEliasTest.c varintElias.c)
+    target_compile_definitions(varintEliasTest PRIVATE VARINT_ELIAS_TEST)
     target_compile_definitions(varintBitmapTest PRIVATE VARINT_BITMAP_TEST_STANDALONE)
+
+    # varintBP128Test - tests SIMD block-packed encoding
+    add_executable(varintBP128Test varintBP128Test.c varintBP128.c varintTagged.c)
+    target_compile_definitions(varintBP128Test PRIVATE VARINT_BP128_TEST)
 
     # Link math library on non-Apple systems
     if(NOT APPLE)
@@ -132,6 +144,9 @@ if(BuildTestBinary)
     add_test(NAME varint-adaptive COMMAND varintAdaptiveTest)
     add_test(NAME varint-float COMMAND varintFloatTest)
     add_test(NAME varint-bitmap COMMAND varintBitmapTest)
+    add_test(NAME varint-rle COMMAND varintRLETest)
+    add_test(NAME varint-elias COMMAND varintEliasTest)
+    add_test(NAME varint-bp128 COMMAND varintBP128Test)
 
     # Generate debug symbols on macOS
     if(APPLE)
@@ -146,6 +161,9 @@ if(BuildTestBinary)
         add_custom_command(TARGET varintAdaptiveTest POST_BUILD COMMAND dsymutil varintAdaptiveTest)
         add_custom_command(TARGET varintFloatTest POST_BUILD COMMAND dsymutil varintFloatTest)
         add_custom_command(TARGET varintBitmapTest POST_BUILD COMMAND dsymutil varintBitmapTest)
+        add_custom_command(TARGET varintRLETest POST_BUILD COMMAND dsymutil varintRLETest)
+        add_custom_command(TARGET varintEliasTest POST_BUILD COMMAND dsymutil varintEliasTest)
+        add_custom_command(TARGET varintBP128Test POST_BUILD COMMAND dsymutil varintBP128Test)
     endif()
 endif()
 

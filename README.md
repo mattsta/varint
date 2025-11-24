@@ -84,11 +84,11 @@ positions for the highest numbers capable of being stored:
 
 Varints are defined by how they track their size. Since varints have variable lengths, a varint must know how many bytes it contains.
 
-We have **fifteen types of varints** organized into three categories:
+We have **eighteen types of varints** organized into three categories:
 
 **Basic Encodings** (4 types): tagged, external, split, and chained. The chained type is the slowest and is not recommended for use in new systems.
 
-**Advanced Encodings** (8 types): delta, FOR (Frame-of-Reference), group, PFOR (Patched FOR), dictionary, bitmap, adaptive, and float. These provide 2-100x compression for specialized use cases like sorted data, clustered values, repetitive data, and floating point arrays.
+**Advanced Encodings** (11 types): delta, FOR (Frame-of-Reference), group, PFOR (Patched FOR), dictionary, bitmap, adaptive, float, RLE (Run-Length Encoding), Elias (Gamma/Delta universal codes), and BP128 (SIMD block-packed). These provide 2-100x compression for specialized use cases like sorted data, clustered values, repetitive data, floating point arrays, repeated values, small integers, and large sorted arrays.
 
 **Specialized Encodings** (3 types): packed (fixed-width bit arrays), dimension (matrix encoding), and bitstream (bit-level operations).
 
@@ -158,6 +158,18 @@ Intelligent encoding selector that automatically analyzes data characteristics a
 ### Floating Point Compression (varintFloat)
 
 Variable-precision floating point compression with configurable precision modes (FULL/HIGH/MEDIUM/LOW) and encoding strategies (INDEPENDENT/COMMON_EXPONENT/DELTA_EXPONENT). Achieves 1.5x-4.0x compression for sensor data, scientific measurements, and GPS coordinates while maintaining specified accuracy bounds. FULL mode is lossless. Full details in [varintFloat.h](https://github.com/mattsta/varint/blob/main/src/varintFloat.h).
+
+### Run-Length Encoding (varintRLE)
+
+Run-length encoding compresses sequences with consecutive repeated values by storing (length, value) pairs using varintTagged. Achieves 8-100x compression for data with long runs (sensor readings, audio silence, sparse matrices). Supports random access via `varintRLEGetAt()`, run analysis, and both header-prefixed and raw formats. Ideal for database column compression, game state serialization, and log aggregation. Full details in [varintRLE.h](https://github.com/mattsta/varint/blob/main/src/varintRLE.h) and [module documentation](docs/modules/varintRLE.md).
+
+### Elias Universal Codes (varintElias)
+
+Elias Gamma and Delta universal codes provide bit-level compression optimal for geometric distributions. Gamma codes are optimal for very small integers (1-7), while Delta codes are better for medium integers (8-1000). Self-delimiting prefix-free codes require no delimiters. Perfect for Huffman code lengths, tree depths, gap encoding, and succinct data structures. Achieves 50-80% compression for small positive integers. Full details in [varintElias.h](https://github.com/mattsta/varint/blob/main/src/varintElias.h) and [module documentation](docs/modules/varintElias.md).
+
+### SIMD Block-Packed Encoding (varintBP128)
+
+Binary Packing with 128-value blocks optimized for SIMD processing (AVX2/NEON). Packs integers using minimum bit-width per block with optional delta encoding for sorted sequences. Achieves 2-8x compression for sorted/clustered data with 800+ MB/s encoding and 1.2+ GB/s decoding throughput. Ideal for search engine posting lists, time series timestamps, graph adjacency lists, and column store databases. Full details in [varintBP128.h](https://github.com/mattsta/varint/blob/main/src/varintBP128.h) and [module documentation](docs/modules/varintBP128.md).
 
 ## Comprehensive Examples
 
@@ -320,7 +332,10 @@ varint/
 │   │   ├── varintChained.md          # Chained encoding guide
 │   │   ├── varintPacked.md           # Packed arrays guide
 │   │   ├── varintDimension.md        # Matrix encoding guide
-│   │   └── varintBitstream.md        # Bitstream operations guide
+│   │   ├── varintBitstream.md        # Bitstream operations guide
+│   │   ├── varintRLE.md              # Run-Length Encoding guide
+│   │   ├── varintElias.md            # Elias Gamma/Delta codes guide
+│   │   └── varintBP128.md            # SIMD block-packed encoding guide
 │   └── struct-optimization-guide.md  # Memory layout optimization
 │
 ├── tools/                      # Development and analysis tools
