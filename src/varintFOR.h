@@ -78,4 +78,33 @@ size_t varintFORGetCount(const uint8_t *src);
 /* Get offset width from encoded data */
 varintWidth varintFORGetOffsetWidth(const uint8_t *src);
 
+/* ====================================================================
+ * SIMD-Accelerated Batch Operations
+ * ==================================================================== */
+
+/* Check if SIMD batch operations are available at runtime */
+bool varintFORHasSIMD(void);
+
+/* SIMD-accelerated batch decode (up to 8x faster for large arrays)
+ * Falls back to scalar if SIMD unavailable or count too small.
+ * Returns number of values decoded. */
+size_t varintFORBatchDecode(const uint8_t *src, uint64_t *values,
+                            const size_t maxCount);
+
+/* SIMD-accelerated min/max analysis (up to 4x faster)
+ * Falls back to scalar if SIMD unavailable or count too small. */
+void varintFORBatchAnalyze(const uint64_t *values, const size_t count,
+                           varintFORMeta *meta);
+
+/* SIMD-accelerated batch encode (fixed-width writes)
+ * Falls back to scalar if SIMD unavailable or count too small.
+ * Returns number of bytes written. */
+size_t varintFORBatchEncode(uint8_t *dst, const uint64_t *values,
+                            const size_t count, varintFORMeta *meta);
+
+/* Decode a block of values starting at given index
+ * Useful for streaming/chunked processing */
+size_t varintFORDecodeBlock(const uint8_t *src, uint64_t *values,
+                            const size_t startIndex, const size_t blockSize);
+
 __END_DECLS
