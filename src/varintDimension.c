@@ -4,9 +4,8 @@
 /* ====================================================================
  * Dimension Packing (row, col) = [XY] as single integer
  * ==================================================================== */
-bool varintDimensionPackedEncode(const size_t row, const size_t col,
-                                 uint64_t *result,
-                                 varintDimensionPacked *dimension) {
+bool varintDimensionPack(const size_t row, const size_t col, uint64_t *result,
+                         varintDimensionPacked *dimension) {
     varintDimensionPacked foundDimension = VARINT_DIMENSION_PACKED_1;
 
     if (row >= 15 && col >= 15) {
@@ -30,9 +29,8 @@ bool varintDimensionPackedEncode(const size_t row, const size_t col,
     return true;
 }
 
-void varintDimensionPackedDecode(size_t *rows, size_t *cols,
-                                 const uint64_t packed,
-                                 const varintDimensionPacked dimension) {
+void varintDimensionUnpack(size_t *rows, size_t *cols, const uint64_t packed,
+                           const varintDimensionPacked dimension) {
     varintDimensionUnpack_(*rows, *cols, packed, dimension);
 }
 
@@ -183,46 +181,96 @@ void varintDimensionPairEntrySetFloat(void *_dst, const size_t row,
     memcpy(dst + entryOffset, &entryValue, sizeof(float));
 }
 
-/* x86/x64 intrinsics are only available on x86 architectures */
+/* ====================================================================
+ * Half-Precision (FP16) Float Operations
+ * ==================================================================== */
+
+/* x86/x64 F16C intrinsics */
 #if defined(__x86_64__) || defined(__i386__) || defined(_M_X64) ||             \
     defined(_M_IX86)
 #include <x86intrin.h>
 #endif
 
+/* ARM NEON FP16 intrinsics */
+#if defined(__ARM_NEON) && defined(__ARM_FP16_FORMAT_IEEE)
+#include <arm_neon.h>
+#endif
+
 #ifdef __F16C__
-void varintDimensionPairEntrySetFloatHalfIntrinsic(
-    void *_dst, const size_t row, const size_t col, const float entryValue,
-    const varintDimensionPair dimension) {
+/* x86/x64 F16C implementation */
+void varintDimensionPairEntrySetFloatHalf(void *_dst, const size_t row,
+                                          const size_t col,
+                                          const float entryValue,
+                                          const varintDimensionPair dimension) {
     uint8_t *dst = (uint8_t *)_dst;
 
     const size_t entryOffset =
-        getEntryByteOffset(dst, row, col, sizeof(float), dimension);
+        getEntryByteOffset(dst, row, col, sizeof(uint16_t), dimension);
 
-    float holder[128 / sizeof(uint16_t)] = {0};
-    uint16_t half_holder[128 / sizeof(uint16_t)] = {0};
-    holder[0] = entryValue;
+    /* Use aligned buffers for SSE operations */
+    float holder[4] __attribute__((aligned(16))) = {entryValue, 0, 0, 0};
+    uint16_t half_holder[8] __attribute__((aligned(16))) = {0};
 
     __m128 float_vector = _mm_load_ps(holder);
     __m128i half_vector = _mm_cvtps_ph(float_vector, 0);
     _mm_store_si128((__m128i *)half_holder, half_vector);
-    *(uint16_t *)(dst + entryOffset) = *(uint16_t *)half_holder;
+
+    memcpy(dst + entryOffset, half_holder, sizeof(uint16_t));
 }
 
-float varintDimensionPairEntryGetFloatHalfIntrinsic(
-    const void *_dst, const size_t row, const size_t col,
+float varintDimensionPairEntryGetFloatHalf(
+    const void *_src, const size_t row, const size_t col,
     const varintDimensionPair dimension) {
-    const uint8_t *dst = (const uint8_t *)_dst;
+    const uint8_t *src = (const uint8_t *)_src;
 
     const size_t entryOffset =
-        getEntryByteOffset(dst, row, col, sizeof(float), dimension);
+        getEntryByteOffset(src, row, col, sizeof(uint16_t), dimension);
 
-    uint16_t half_holder[128 / sizeof(uint16_t)] = {0};
-    half_holder[0] = *(uint16_t *)(dst + entryOffset);
+    uint16_t half_holder[8] __attribute__((aligned(16))) = {0};
+    memcpy(half_holder, src + entryOffset, sizeof(uint16_t));
 
-    __m128 vector = _mm_cvtph_ps(_mm_load_si128((__m128i *)(half_holder)));
-    return vector[0];
+    __m128 vector = _mm_cvtph_ps(_mm_load_si128((__m128i *)half_holder));
+    float result[4] __attribute__((aligned(16)));
+    _mm_store_ps(result, vector);
+    return result[0];
 }
-#endif /* __F16C__ */
+#elif defined(__ARM_NEON) && defined(__ARM_FP16_FORMAT_IEEE)
+/* ARM NEON FP16 implementation */
+void varintDimensionPairEntrySetFloatHalf(void *_dst, const size_t row,
+                                          const size_t col,
+                                          const float entryValue,
+                                          const varintDimensionPair dimension) {
+    uint8_t *dst = (uint8_t *)_dst;
+
+    const size_t entryOffset =
+        getEntryByteOffset(dst, row, col, sizeof(uint16_t), dimension);
+
+    /* Convert single-precision float to half-precision using NEON */
+    float32x4_t float_vec = vdupq_n_f32(entryValue);
+    float16x4_t half_vec = vcvt_f16_f32(float_vec);
+    uint16_t half_value = vget_lane_u16(vreinterpret_u16_f16(half_vec), 0);
+
+    memcpy(dst + entryOffset, &half_value, sizeof(uint16_t));
+}
+
+float varintDimensionPairEntryGetFloatHalf(
+    const void *_src, const size_t row, const size_t col,
+    const varintDimensionPair dimension) {
+    const uint8_t *src = (const uint8_t *)_src;
+
+    const size_t entryOffset =
+        getEntryByteOffset(src, row, col, sizeof(uint16_t), dimension);
+
+    uint16_t half_value;
+    memcpy(&half_value, src + entryOffset, sizeof(uint16_t));
+
+    /* Convert half-precision to single-precision using NEON */
+    uint16x4_t half_vec = vdup_n_u16(half_value);
+    float16x4_t f16_vec = vreinterpret_f16_u16(half_vec);
+    float32x4_t float_vec = vcvt_f32_f16(f16_vec);
+    return vgetq_lane_f32(float_vec, 0);
+}
+#endif /* __F16C__ / __ARM_NEON */
 
 void varintDimensionPairEntrySetDouble(void *_dst, const size_t row,
                                        const size_t col,

@@ -47,10 +47,10 @@ typedef enum varintDimensionPacked {
 #define VARINT_DIMENSION_PAIR_PAIR(x, y, sparse)                               \
     (((x) << 4) | (((y) - 1) << 1) | (sparse))
 
-#define VARINT_DIMENSION_PAIR_DEPAIR(x, y, sparse)                             \
+#define VARINT_DIMENSION_PAIR_DEPAIR(x, y, dim)                                \
     do {                                                                       \
-        (x) = VARINT_DIMENSION_PAIR_WIDTH_ROW_COUNT(dimension);                \
-        (y) = VARINT_DIMENSION_PAIR_WIDTH_COL_COUNT(dimension);                \
+        (x) = VARINT_DIMENSION_PAIR_WIDTH_ROW_COUNT(dim);                      \
+        (y) = VARINT_DIMENSION_PAIR_WIDTH_COL_COUNT(dim);                      \
     } while (0)
 
 /* Please ignore the ugly verbosity. Big prefixed namespaces take up space. */
@@ -260,6 +260,19 @@ void varintDimensionPairEntrySetDouble(void *_dst, const size_t row,
                                        const size_t col,
                                        const double entryValue,
                                        const varintDimensionPair dimension);
+
+/* Half-precision (FP16) float operations using hardware intrinsics.
+ * Available on x86/x64 with F16C or ARM with FP16 NEON. */
+#if defined(__F16C__) ||                                                       \
+    (defined(__ARM_NEON) && defined(__ARM_FP16_FORMAT_IEEE))
+void varintDimensionPairEntrySetFloatHalf(void *_dst, const size_t row,
+                                          const size_t col,
+                                          const float entryValue,
+                                          const varintDimensionPair dimension);
+float varintDimensionPairEntryGetFloatHalf(const void *_src, const size_t row,
+                                           const size_t col,
+                                           const varintDimensionPair dimension);
+#endif
 
 bool varintDimensionPairEntryGetBit(const void *_src, const size_t row,
                                     const size_t col,
