@@ -14,10 +14,10 @@ make -j4
 make test
 
 # Run comprehensive tests with sanitizers
-make test-comprehensive
+make varint-test-comprehensive
 
 # Check for compiler warnings
-make check-warnings
+make varint-check-warnings
 ```
 
 ## Build System Overview
@@ -28,8 +28,8 @@ The varint project uses CMake as its primary build system with integrated CTest 
 
 - **`make`** or **`make all`** - Builds all libraries, tests, and examples
 - **`make test`** - Runs all unit tests via CTest
-- **`make test-comprehensive`** - Runs comprehensive test suite with AddressSanitizer and UndefinedBehaviorSanitizer
-- **`make check-warnings`** - Checks all source files for compiler warnings with GCC and Clang
+- **`make varint-test-comprehensive`** - Runs comprehensive test suite with AddressSanitizer and UndefinedBehaviorSanitizer
+- **`make varint-check-warnings`** - Checks all source files for compiler warnings with GCC and Clang
 
 ### Project Structure
 
@@ -90,7 +90,7 @@ Thorough testing with memory safety checks. Run with:
 
 ```bash
 cd build
-make test-comprehensive
+make varint-test-comprehensive
 ```
 
 This runs:
@@ -115,7 +115,7 @@ Cross-compiler warning validation. Run with:
 
 ```bash
 cd build
-make check-warnings
+make varint-check-warnings
 ```
 
 This checks all source files with:
@@ -142,7 +142,7 @@ make
 ### Disable Test Building
 
 ```bash
-cmake -DBuildTestBinary=Off ..
+cmake -DVARINT_BUILD_TESTS=OFF ..
 make
 ```
 
@@ -152,8 +152,8 @@ The `.github/workflows/` directory contains GitHub Actions workflows that run:
 
 1. **Build Matrix** - Builds on Ubuntu/macOS with GCC/Clang
 2. **Unit Tests** - Runs `make test` on all platforms
-3. **Comprehensive Tests** - Runs `make test-comprehensive` with sanitizers
-4. **Compiler Checks** - Runs `make check-warnings` to ensure zero warnings
+3. **Comprehensive Tests** - Runs `make varint-test-comprehensive` with sanitizers
+4. **Compiler Checks** - Runs `make varint-check-warnings` to ensure zero warnings
 5. **cppcheck** - Static analysis for code quality
 
 ## Development Workflow
@@ -172,10 +172,10 @@ make -j4
 make test
 
 # 3. Run comprehensive tests
-make test-comprehensive
+make varint-test-comprehensive
 
 # 4. Check for warnings
-make check-warnings
+make varint-check-warnings
 ```
 
 If ANY step fails, **DO NOT COMMIT**. Fix the issues first.
@@ -223,7 +223,7 @@ To add a new unit test:
 
 3. Add to root `CMakeLists.txt` dependencies:
    ```cmake
-   add_custom_target(test-comprehensive
+   add_custom_target(varint-test-comprehensive
        ...
        DEPENDS
            ... varintMyFeatureTest
@@ -337,8 +337,8 @@ bt
 **After:** Single unified system:
 
 - `make test` - Fast unit tests
-- `make test-comprehensive` - Complete validation
-- `make check-warnings` - Zero-warning guarantee
+- `make varint-test-comprehensive` - Complete validation
+- `make varint-check-warnings` - Zero-warning guarantee
 - CI automatically runs everything
 - **Impossible to forget** - it's just `make test`
 
@@ -348,10 +348,10 @@ bt
 # Development cycle
 mkdir -p build && cd build
 cmake ..
-make -j4 && make test && make test-comprehensive && make check-warnings
+make -j4 && make test && make varint-test-comprehensive && make varint-check-warnings
 
 # If all pass → commit and push
 # If any fail → fix issues first
 ```
 
-**Rule:** If `make test && make test-comprehensive && make check-warnings` all pass, the code is ready to commit.
+**Rule:** If `make test && make varint-test-comprehensive && make varint-check-warnings` all pass, the code is ready to commit.
