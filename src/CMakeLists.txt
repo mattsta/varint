@@ -24,7 +24,8 @@ add_library(${PROJECT_NAME} OBJECT
     varintExternalBigEndian.c
     varintChained.c
     varintChainedSimple.c
-    varintTagged.c)
+    varintTagged.c
+    varintBijou.c)
 
 set(DIMENSION ${PROJECT_NAME}Dimension)
 set(PACKED ${PROJECT_NAME}Packed)
@@ -144,6 +145,28 @@ if(VARINT_BUILD_TESTS)
     add_executable(varintBP128Test varintBP128Test.c varintBP128.c varintTagged.c)
     target_compile_definitions(varintBP128Test PRIVATE VARINT_BP128_TEST)
 
+    # varintDeltaDeltaTest - tests second-order delta (Gorilla pattern)
+    add_executable(varintDeltaDeltaTest varintDeltaDeltaTest.c
+                   varintDeltaDelta.c varintDelta.c varintExternal.c)
+    target_compile_definitions(varintDeltaDeltaTest PRIVATE VARINT_DELTA_DELTA_TEST)
+
+    # varintStrideTest - tests arithmetic-progression detection (exact + fuzzy)
+    add_executable(varintStrideTest varintStrideTest.c
+                   varintStride.c varintDelta.c varintExternal.c varintTagged.c)
+    target_compile_definitions(varintStrideTest PRIVATE VARINT_STRIDE_TEST)
+
+    # varintBijouTest - tests bijou64 bijective-offset varint (SQLite4 cousin)
+    add_executable(varintBijouTest varintBijouTest.c varintBijou.c)
+    target_compile_definitions(varintBijouTest PRIVATE VARINT_BIJOU_TEST)
+
+    # varintCompeteTest - tests evidence-based codec selection runner
+    add_executable(varintCompeteTest varintCompeteTest.c
+                   varintCompete.c varintTelemetry.c
+                   varintDeltaDelta.c varintStride.c varintDelta.c
+                   varintRLE.c varintFOR.c varintPFOR.c varintDict.c
+                   varintExternal.c varintTagged.c)
+    target_compile_definitions(varintCompeteTest PRIVATE VARINT_COMPETE_TEST)
+
     # Link math library on non-Apple systems
     if(NOT APPLE)
         target_link_libraries(${PROJECT_NAME}Compare m)
@@ -170,6 +193,9 @@ if(VARINT_BUILD_TESTS)
     add_test(NAME varint-rle COMMAND varintRLETest)
     add_test(NAME varint-elias COMMAND varintEliasTest)
     add_test(NAME varint-bp128 COMMAND varintBP128Test)
+    add_test(NAME varint-delta-delta COMMAND varintDeltaDeltaTest)
+    add_test(NAME varint-stride COMMAND varintStrideTest)
+    add_test(NAME varint-compete COMMAND varintCompeteTest)
 
     # Generate debug symbols on macOS
     if(APPLE)
@@ -187,6 +213,9 @@ if(VARINT_BUILD_TESTS)
         add_custom_command(TARGET varintRLETest POST_BUILD COMMAND dsymutil varintRLETest)
         add_custom_command(TARGET varintEliasTest POST_BUILD COMMAND dsymutil varintEliasTest)
         add_custom_command(TARGET varintBP128Test POST_BUILD COMMAND dsymutil varintBP128Test)
+        add_custom_command(TARGET varintDeltaDeltaTest POST_BUILD COMMAND dsymutil varintDeltaDeltaTest)
+        add_custom_command(TARGET varintStrideTest POST_BUILD COMMAND dsymutil varintStrideTest)
+        add_custom_command(TARGET varintCompeteTest POST_BUILD COMMAND dsymutil varintCompeteTest)
     endif()
 endif()
 
