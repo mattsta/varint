@@ -13,6 +13,12 @@
  * Usage: varintPaletteBench [values-per-run] [repeats]
  *   defaults: 1 << 20 values, 15 repeats (median reported). */
 
+/* clock_gettime/CLOCK_MONOTONIC are POSIX, hidden by glibc under strict
+ * -std=c11 unless requested. (Apple exposes them unconditionally.) */
+#if !defined(__APPLE__) && !defined(_POSIX_C_SOURCE)
+#define _POSIX_C_SOURCE 199309L
+#endif
+
 #include "varintPalette.h"
 #include <inttypes.h>
 #include <stdio.h>

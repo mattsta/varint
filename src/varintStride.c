@@ -614,7 +614,7 @@ int varintStrideTest(int argc, char *argv[]) {
         /* 1 */
         int64_t one = 999;
         w = varintStrideEncode(buf, &one, 1, &meta);
-        int64_t out1;
+        int64_t out1 = 0;
         varintStrideDecode(buf, 1, &out1);
         if (out1 != 999) {
             ERR("single decode wrong: %lld", (long long)out1);
@@ -627,7 +627,7 @@ int varintStrideTest(int argc, char *argv[]) {
             ERR("2-element stride: expected 7, got %lld",
                 (long long)meta.stride);
         }
-        int64_t out2[2];
+        int64_t out2[2] = {0, 0};
         varintStrideDecode(buf, 2, out2);
         if (out2[0] != 100 || out2[1] != 107) {
             ERRR("2-element decode wrong");
