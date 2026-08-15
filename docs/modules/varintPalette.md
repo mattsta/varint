@@ -2,7 +2,7 @@
 
 ## Overview
 
-**varintPalette** entropy-codes streams dominated by a small set of frequent values. It selects the ≤16 most frequent values as a **palette**, builds a canonical Huffman code over only those palette symbols, and classifies each 64-value block as **coded** (every value is in the palette) or **verbatim** (at least one value is not). Verbatim blocks are copied out as raw tagged varints and never enter the bitstream, so the decode hot path is completely branchless: one flat-table lookup per symbol, no escape codes, no second-stage lookups.
+**varintPalette** entropy-codes streams dominated by a small set of frequent values. It selects the ≤16 most frequent values as a **palette**, builds a canonical Huffman code over only those palette symbols, and classifies each 64-value block as **coded** (every value is in the palette) or **verbatim** (at least one value is not). Verbatim blocks are stored outside the bitstream (fixed-width or tagged, whichever is smaller per block), so the decode hot path is completely branchless: one flat-table lookup per symbol (or per symbol _pair_), no escape codes, no second-stage lookups.
 
 The design is adapted from Cloudflare's Unweight technical report (Cf-TR-2026.04, "Unweight: Lossless MLP Weight Compression for LLM Inference"), which applies the same three ideas to BF16 exponent bytes on GPUs:
 

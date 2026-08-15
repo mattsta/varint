@@ -22,8 +22,13 @@
  * Run under ASan/UBSan via scripts/test/run_palette_fuzz.sh for the
  * long sessions. */
 
+#include "varintBP128.h"
 #include "varintCompete.h"
+#include "varintDict.h"
+#include "varintFOR.h"
+#include "varintPFOR.h"
 #include "varintPalette.h"
+#include "varintRLE.h"
 #include <inttypes.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -208,6 +213,107 @@ static void strategyCompete_(uint64_t *values, size_t count, uint8_t *enc,
     }
 }
 
+/* Signed compete round-trip. The signed codecs reinterpret and wrap in
+ * the value domain, so extreme int64 magnitudes (the historical
+ * saturating-arithmetic corruption case) must round-trip exactly. */
+static void strategyCompeteSigned_(uint64_t *values, size_t count, uint8_t *enc,
+                                   uint64_t *dec) {
+    int64_t *sv = (int64_t *)values;
+    /* Inject extremes at random positions. */
+    static const int64_t extremes[] = {INT64_MIN, INT64_MAX, -1, 0,
+                                       INT64_MIN + 1};
+    const size_t injections = 1 + (size_t)(rng_() % 4);
+    for (size_t k = 0; k < injections; k++) {
+        sv[rng_() % count] = extremes[rng_() % 5];
+    }
+
+    const size_t written =
+        varintCompeteEncode(enc, sv, count, VARINT_COMPETE_DEFAULT_MASK, NULL);
+    FUZZ_CHECK(written > 0, "signed compete encode returned 0", "signed");
+
+    const size_t read =
+        varintCompeteDecode(enc, written, count, (int64_t *)dec);
+    FUZZ_CHECK(read == written, "signed compete byte mismatch", "signed");
+    if (memcmp(dec, sv, count * sizeof(*dec)) != 0) {
+        varintCompeteHeader h;
+        const char *winner = varintCompeteReadHeader(enc, written, &h) != 0
+                                 ? varintCodecName(h.codecID)
+                                 : "?";
+        fail_("signed compete value mismatch", winner);
+    }
+}
+
+/* Direct per-codec round-trips: compete only decodes the winning codec,
+ * so a losing codec's decoder is never otherwise exercised. Each codec
+ * that accepts arbitrary u64 input must round-trip it exactly whenever
+ * its encoder emits anything. */
+static void strategyDirectCodecs_(const uint64_t *values, size_t count,
+                                  uint8_t *enc, uint64_t *dec) {
+    size_t n;
+
+    n = varintRLEEncodeWithHeader(enc, values, count, NULL);
+    if (n > 0) {
+        const size_t got = varintRLEDecodeWithHeader(enc, dec, count);
+        FUZZ_CHECK(got == count &&
+                       memcmp(dec, values, count * sizeof(*dec)) == 0,
+                   "direct round-trip failed", "RLE");
+    }
+
+    n = varintFOREncode(enc, values, count, NULL);
+    if (n > 0) {
+        const size_t got = varintFORDecode(enc, dec, count);
+        FUZZ_CHECK(got == count &&
+                       memcmp(dec, values, count * sizeof(*dec)) == 0,
+                   "direct round-trip failed", "FOR");
+    }
+
+    varintPFORMeta pm;
+    n = varintPFOREncode(enc, values, (uint32_t)count, VARINT_PFOR_THRESHOLD_95,
+                         &pm);
+    if (n > 0) {
+        varintPFORMeta rm;
+        varintPFORReadMeta(enc, &rm);
+        varintPFORDecode(enc, dec, &rm);
+        FUZZ_CHECK(memcmp(dec, values, count * sizeof(*dec)) == 0,
+                   "direct round-trip failed", "PFOR");
+    }
+
+    n = varintDictEncode(enc, values, count);
+    if (n > 0) {
+        const size_t got = varintDictDecodeInto(enc, n, dec, count);
+        FUZZ_CHECK(got == count &&
+                       memcmp(dec, values, count * sizeof(*dec)) == 0,
+                   "direct round-trip failed", "DICT");
+    }
+
+    n = varintBP128Encode64(enc, values, count, NULL);
+    if (n > 0) {
+        const size_t got = varintBP128Decode64(enc, dec, count);
+        FUZZ_CHECK(got == count &&
+                       memcmp(dec, values, count * sizeof(*dec)) == 0,
+                   "direct round-trip failed", "BP128");
+    }
+}
+
+static int cmp64_(const void *a, const void *b) {
+    const uint64_t x = *(const uint64_t *)a;
+    const uint64_t y = *(const uint64_t *)b;
+    return (x > y) - (x < y);
+}
+
+/* BP128Delta accepts only ascending input — feed it a sorted copy. */
+static void strategyBP128DeltaSorted_(uint64_t *values, size_t count,
+                                      uint8_t *enc, uint64_t *dec) {
+    qsort(values, count, sizeof(*values), cmp64_);
+    const size_t n = varintBP128DeltaEncode64(enc, values, count, NULL);
+    if (n > 0) {
+        const size_t got = varintBP128DeltaDecode64(enc, dec, count);
+        FUZZ_CHECK(got == count &&
+                       memcmp(dec, values, count * sizeof(*dec)) == 0,
+                   "direct round-trip failed", "BP128_DELTA");
+    }
+}
+
 int main(int argc, char *argv[]) {
     gIterations = (argc > 1) ? strtoull(argv[1], NULL, 0) : 20000;
     gSeed = (argc > 2) ? strtoull(argv[2], NULL, 0) : 0x5EED;
@@ -229,8 +335,10 @@ int main(int argc, char *argv[]) {
         strategyRoundTrip_(values, count, enc, dec);
         const size_t written = varintPaletteEncode(enc, values, count, NULL);
 
-        /* ...then rotates through the adversarial strategies. */
-        switch (gIter % 4) {
+        /* ...then rotates through the adversarial strategies. The last
+         * three mutate `values`, so they run after everything that
+         * needs the original stream. */
+        switch (gIter % 7) {
         case 0:
         case 1:
             strategyMutate_(enc, written, scratch, dec);
@@ -238,8 +346,17 @@ int main(int argc, char *argv[]) {
         case 2:
             strategyRandom_(scratch, dec);
             break;
-        default:
+        case 3:
             strategyCompete_(values, count, scratch, dec);
+            break;
+        case 4:
+            strategyDirectCodecs_(values, count, scratch, dec);
+            break;
+        case 5:
+            strategyCompeteSigned_(values, count, scratch, dec);
+            break;
+        default:
+            strategyBP128DeltaSorted_(values, count, scratch, dec);
             break;
         }
     }

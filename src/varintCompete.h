@@ -40,6 +40,7 @@ __BEGIN_DECLS
      VARINT_COMPETE_BIT(VARINT_CODEC_PFOR) |                                   \
      VARINT_COMPETE_BIT(VARINT_CODEC_DICT) |                                   \
      VARINT_COMPETE_BIT(VARINT_CODEC_RLE) |                                    \
+     VARINT_COMPETE_BIT(VARINT_CODEC_BP128) |                                  \
      VARINT_COMPETE_BIT(VARINT_CODEC_BP128_DELTA) |                            \
      VARINT_COMPETE_BIT(VARINT_CODEC_PALETTE))
 

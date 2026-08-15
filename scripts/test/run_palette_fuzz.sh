@@ -32,6 +32,7 @@ cc -fsanitize=address,undefined -fno-omit-frame-pointer -g -O1 \
     "${REPO_ROOT}/src/varintFOR.c" \
     "${REPO_ROOT}/src/varintPFOR.c" \
     "${REPO_ROOT}/src/varintDict.c" \
+    "${REPO_ROOT}/src/varintBP128.c" \
     "${REPO_ROOT}/src/varintExternal.c" \
     "${REPO_ROOT}/src/varintTagged.c"
 

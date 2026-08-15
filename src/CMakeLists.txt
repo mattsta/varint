@@ -173,14 +173,15 @@ if(VARINT_BUILD_TESTS)
                    varintPalette.c varintCompete.c varintTelemetry.c
                    varintDeltaDelta.c varintStride.c varintDelta.c
                    varintRLE.c varintFOR.c varintPFOR.c varintDict.c
-                   varintExternal.c varintTagged.c)
+                   varintBP128.c varintExternal.c varintTagged.c)
 
     # varintCompeteTest - tests evidence-based codec selection runner
     add_executable(varintCompeteTest varintCompeteTest.c
                    varintCompete.c varintTelemetry.c
                    varintDeltaDelta.c varintStride.c varintDelta.c
                    varintRLE.c varintFOR.c varintPFOR.c varintDict.c
-                   varintPalette.c varintExternal.c varintTagged.c)
+                   varintPalette.c varintBP128.c varintExternal.c
+                   varintTagged.c)
     target_compile_definitions(varintCompeteTest PRIVATE VARINT_COMPETE_TEST)
 
     # Link math library on non-Apple systems

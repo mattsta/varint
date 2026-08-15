@@ -1,4 +1,5 @@
 #include "varintCompete.h"
+#include "varintBP128.h"
 #include "varintDelta.h"
 #include "varintDeltaDelta.h"
 #include "varintDict.h"
@@ -97,8 +98,8 @@ static size_t encDeltaDelta_(uint8_t *scratch, const int64_t *vals,
     return varintDeltaDeltaEncode(scratch, vals, count, NULL);
 }
 static size_t encStride_(uint8_t *scratch, const int64_t *vals, size_t count) {
-    /* Returns 0 if not beneficial in exact mode but fuzzy is forced —
-     * varintStrideEncode picks the best mode itself. */
+    /* Picks exact vs fuzzy itself; declines (returns 0) when fuzzy
+     * exceeds the exception threshold, keeping output bounded. */
     return varintStrideEncode(scratch, vals, count, NULL);
 }
 static size_t encTagged_(uint8_t *scratch, const int64_t *vals, size_t count) {
@@ -144,6 +145,18 @@ static size_t encDict_(uint8_t *scratch, const uint64_t *vals, size_t count) {
 static size_t encPalette_(uint8_t *scratch, const uint64_t *vals,
                           size_t count) {
     return varintPaletteEncode(scratch, vals, count, NULL);
+}
+static size_t encBP128_(uint8_t *scratch, const uint64_t *vals, size_t count) {
+    return varintBP128Encode64(scratch, vals, count, NULL);
+}
+static size_t encBP128Delta_(uint8_t *scratch, const uint64_t *vals,
+                             size_t count) {
+    /* Delta variant is defined only for ascending input — decline
+     * otherwise rather than emit an undecodable stream. */
+    if (!varintBP128IsSorted64(vals, count)) {
+        return 0;
+    }
+    return varintBP128DeltaEncode64(scratch, vals, count, NULL);
 }
 
 /* ====================================================================
@@ -237,6 +250,9 @@ static size_t competeRun_(uint8_t *dst, const void *valuesAny, size_t count,
         TRY_CODEC(VARINT_CODEC_DICT, encDict_(tryBuf, unsignedVals, count));
         TRY_CODEC(VARINT_CODEC_PALETTE,
                   encPalette_(tryBuf, unsignedVals, count));
+        TRY_CODEC(VARINT_CODEC_BP128, encBP128_(tryBuf, unsignedVals, count));
+        TRY_CODEC(VARINT_CODEC_BP128_DELTA,
+                  encBP128Delta_(tryBuf, unsignedVals, count));
     }
 #undef TRY_CODEC
 
@@ -389,6 +405,14 @@ size_t varintCompeteDecodeUnsigned(const uint8_t *src, size_t srcBytes,
     }
     case VARINT_CODEC_PALETTE: {
         varintPaletteDecode(body, h.bodyLen, output, count);
+        return hdr + h.bodyLen;
+    }
+    case VARINT_CODEC_BP128: {
+        varintBP128Decode64(body, output, count);
+        return hdr + h.bodyLen;
+    }
+    case VARINT_CODEC_BP128_DELTA: {
+        varintBP128DeltaDecode64(body, output, count);
         return hdr + h.bodyLen;
     }
     default:
@@ -568,6 +592,48 @@ int varintCompeteTest(int argc, char *argv[]) {
                 res.winnerSize, varintCodecName(res.winner));
         }
         (void)written;
+    }
+
+    TEST("Compete runs BP128_DELTA on sorted data and round-trips it") {
+        /* Sorted with small jittery gaps: BP128_DELTA territory. The
+         * key regression: this codec used to sit in the default mask
+         * without ever being evaluated or decodable. */
+        enum { N = 2048 };
+        static uint64_t values[N];
+        uint64_t v = 1000000;
+        for (size_t i = 0; i < N; i++) {
+            v += 1 + ((i * 2654435761u) >> 27); /* gaps 1..32 */
+            values[i] = v;
+        }
+        uint8_t *buf = malloc(varintCompeteMaxEncodedSize(N));
+        varintCompeteResult res;
+        size_t written = varintCompeteEncodeUnsigned(
+            buf, values, N, VARINT_COMPETE_DEFAULT_MASK, &res);
+
+        bool evaluated = false;
+        for (size_t i = 0; i < res.candidatesEvaluated; i++) {
+            if (res.candidates[i].id == VARINT_CODEC_BP128_DELTA &&
+                res.candidates[i].encodedSize > 0) {
+                evaluated = true;
+            }
+        }
+        if (!evaluated) {
+            ERRR("BP128_DELTA not evaluated on sorted input");
+        }
+
+        static uint64_t dec[N];
+        size_t read = varintCompeteDecodeUnsigned(buf, written, N, dec);
+        if (read != written) {
+            ERR("byte count mismatch: wrote %zu, read %zu", written, read);
+        }
+        for (size_t i = 0; i < N; i++) {
+            if (dec[i] != values[i]) {
+                ERR("mismatch at %zu (winner=%s)", i,
+                    varintCodecName(res.winner));
+                break;
+            }
+        }
+        free(buf);
     }
 
     TEST("Compete picks PALETTE for skewed run-free small-alphabet data") {
