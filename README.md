@@ -89,7 +89,7 @@ We have **twenty-two types of varints** organized into three categories:
 
 **Basic Encodings** (5 types): tagged, bijou, external, split, and chained. The chained type is the slowest and is not recommended for use in new systems.
 
-**Advanced Encodings** (14 types): delta, delta-of-delta, stride, FOR (Frame-of-Reference), group, PFOR (Patched FOR), dictionary, bitmap, adaptive, compete, float, RLE (Run-Length Encoding), Elias (Gamma/Delta universal codes), and BP128 (SIMD block-packed). These provide 2-100x compression for specialized use cases like sorted data, regular-interval time series, arithmetic progressions, clustered values, repetitive data, floating point arrays, repeated values, small integers, and large sorted arrays. (The `compete` selector is supported by opt-in `varintTelemetry` per-codec counters.)
+**Advanced Encodings** (15 types): delta, delta-of-delta, stride, FOR (Frame-of-Reference), group, PFOR (Patched FOR), dictionary, bitmap, adaptive, compete, float, RLE (Run-Length Encoding), Elias (Gamma/Delta universal codes), BP128 (SIMD block-packed), and palette (Huffman over top-16 values with verbatim-block outlier routing). These provide 2-100x compression for specialized use cases like sorted data, regular-interval time series, arithmetic progressions, clustered values, repetitive data, floating point arrays, repeated values, small integers, and large sorted arrays. (The `compete` selector is supported by opt-in `varintTelemetry` per-codec counters.)
 
 **Specialized Encodings** (3 types): packed (fixed-width bit arrays), dimension (matrix encoding), and bitstream (bit-level operations).
 
@@ -185,6 +185,10 @@ Delta-of-delta encoding stores the _difference between successive deltas_, so da
 ### Arithmetic-Progression Detection (varintStride)
 
 Stride encoding detects arithmetic progressions — sequences with a constant difference — and stores them in a constant-size record (~24 bytes) regardless of length. An **exact** mode requires every delta to match (with O(1) random access); a **fuzzy** mode tolerates up to 20% outliers, stored as `(index, value)` patches. SIMD-accelerated mismatch detection (NEON/AVX2). Ideal for paginated IDs, page offsets, fixed-grid coordinates, and polling intervals. Full details in [varintStride.h](https://github.com/mattsta/varint/blob/main/src/varintStride.h) and [module documentation](docs/modules/varintStride.md).
+
+### Palette Huffman Encoding (varintPalette)
+
+Palette encoding entropy-codes streams dominated by a small value set: the ≤16 most frequent values become a palette coded with canonical Huffman (skewed distributions compress toward their entropy, down to 1 bit/value), while any 64-value block containing an out-of-palette outlier is routed to verbatim storage via a bitmask — the decode hot path stays branchless (flat terminal tables decoding up to two symbols per lookup, no escape codes). Per-block bit offsets let the decoder run four independent bit cursors in lockstep, reaching ~1 Gval/s decode on skewed data (Apple M-series); the srcBytes-bounded decoder fully validates untrusted input and is hardened by a self-contained deterministic fuzzer (`varintPaletteFuzz`). Design adapted from Cloudflare's Unweight report (Cf-TR-2026.04) on lossless LLM weight compression. Ideal for status/enum columns, quantized readings, and mostly-clean data with rare wild outliers. Full details in [varintPalette.h](https://github.com/mattsta/varint/blob/main/src/varintPalette.h) and [module documentation](docs/modules/varintPalette.md).
 
 ### Evidence-Based Selection (varintCompete + varintTelemetry)
 

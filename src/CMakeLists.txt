@@ -159,12 +159,28 @@ if(VARINT_BUILD_TESTS)
     add_executable(varintBijouTest varintBijouTest.c varintBijou.c)
     target_compile_definitions(varintBijouTest PRIVATE VARINT_BIJOU_TEST)
 
+    # varintPaletteTest - tests palette Huffman with verbatim-block routing
+    add_executable(varintPaletteTest varintPaletteTest.c
+                   varintPalette.c varintExternal.c varintTagged.c)
+    target_compile_definitions(varintPaletteTest PRIVATE VARINT_PALETTE_TEST)
+
+    # varintPaletteBench - throughput benchmark (not registered with ctest)
+    add_executable(varintPaletteBench varintPaletteBench.c
+                   varintPalette.c varintExternal.c varintTagged.c)
+
+    # varintPaletteFuzz - self-contained deterministic fuzzer (no libFuzzer)
+    add_executable(varintPaletteFuzz varintPaletteFuzz.c
+                   varintPalette.c varintCompete.c varintTelemetry.c
+                   varintDeltaDelta.c varintStride.c varintDelta.c
+                   varintRLE.c varintFOR.c varintPFOR.c varintDict.c
+                   varintExternal.c varintTagged.c)
+
     # varintCompeteTest - tests evidence-based codec selection runner
     add_executable(varintCompeteTest varintCompeteTest.c
                    varintCompete.c varintTelemetry.c
                    varintDeltaDelta.c varintStride.c varintDelta.c
                    varintRLE.c varintFOR.c varintPFOR.c varintDict.c
-                   varintExternal.c varintTagged.c)
+                   varintPalette.c varintExternal.c varintTagged.c)
     target_compile_definitions(varintCompeteTest PRIVATE VARINT_COMPETE_TEST)
 
     # Link math library on non-Apple systems
@@ -195,6 +211,8 @@ if(VARINT_BUILD_TESTS)
     add_test(NAME varint-bp128 COMMAND varintBP128Test)
     add_test(NAME varint-delta-delta COMMAND varintDeltaDeltaTest)
     add_test(NAME varint-stride COMMAND varintStrideTest)
+    add_test(NAME varint-palette COMMAND varintPaletteTest)
+    add_test(NAME varint-palette-fuzz COMMAND varintPaletteFuzz 20000 24151)
     add_test(NAME varint-compete COMMAND varintCompeteTest)
 
     # Generate debug symbols on macOS
@@ -215,6 +233,7 @@ if(VARINT_BUILD_TESTS)
         add_custom_command(TARGET varintBP128Test POST_BUILD COMMAND dsymutil varintBP128Test)
         add_custom_command(TARGET varintDeltaDeltaTest POST_BUILD COMMAND dsymutil varintDeltaDeltaTest)
         add_custom_command(TARGET varintStrideTest POST_BUILD COMMAND dsymutil varintStrideTest)
+        add_custom_command(TARGET varintPaletteTest POST_BUILD COMMAND dsymutil varintPaletteTest)
         add_custom_command(TARGET varintCompeteTest POST_BUILD COMMAND dsymutil varintCompeteTest)
     endif()
 endif()

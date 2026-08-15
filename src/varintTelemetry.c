@@ -32,6 +32,8 @@ const char *varintCodecName(varintCodecID id) {
         return "ELIAS_DELTA";
     case VARINT_CODEC_EXTERNAL:
         return "EXTERNAL";
+    case VARINT_CODEC_PALETTE:
+        return "PALETTE";
     default:
         return "?";
     }

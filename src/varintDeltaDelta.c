@@ -33,26 +33,17 @@ static inline varintWidth deltaDeltaPredictedWidth_(int64_t signedValue) {
     return (varintWidth)(1 + (uint8_t)w);
 }
 
-/* Saturating signed subtraction. Using __int128 to detect overflow without
- * UB; defensive — typical inputs (timestamps, sensor curves) stay well
- * within int64 range. */
-static inline int64_t deltaDeltaSubSat_(int64_t a, int64_t b) {
-#if defined(__GNUC__) || defined(__clang__)
-    int64_t r;
-    if (__builtin_sub_overflow(a, b, &r)) {
-        return (a > 0) ? INT64_MAX : INT64_MIN;
-    }
-    return r;
-#else
-    __int128 r = (__int128)a - (__int128)b;
-    if (r > (__int128)INT64_MAX) {
-        return INT64_MAX;
-    }
-    if (r < (__int128)INT64_MIN) {
-        return INT64_MIN;
-    }
-    return (int64_t)r;
-#endif
+/* Wrapping (mod-2^64) signed subtraction. Wrapping — not saturating —
+ * because the decoder reconstructs with wrapping additions, so wrapped
+ * deltas round-trip exactly for ALL int64 inputs; saturation silently
+ * corrupts extreme-range pairs. Unsigned math avoids the overflow UB. */
+static inline int64_t deltaDeltaSubWrap_(int64_t a, int64_t b) {
+    return (int64_t)((uint64_t)a - (uint64_t)b);
+}
+
+/* Wrapping signed addition; pairs with deltaDeltaSubWrap_. */
+static inline int64_t deltaDeltaAddWrap_(int64_t a, int64_t b) {
+    return (int64_t)((uint64_t)a + (uint64_t)b);
 }
 
 /* ====================================================================
@@ -79,14 +70,14 @@ bool varintDeltaDeltaAnalyze(const int64_t *values, size_t count,
     }
 
     /* First delta */
-    int64_t prevDelta = deltaDeltaSubSat_(values[1], values[0]);
+    int64_t prevDelta = deltaDeltaSubWrap_(values[1], values[0]);
     meta->encodedSize += deltaDeltaPredictedWidth_(prevDelta);
 
     /* Delta-of-deltas. Mostly tiny for regular streams — count those
      * that fit in 1 byte payload as a quality signal. */
     for (size_t i = 2; i < count; i++) {
-        int64_t curDelta = deltaDeltaSubSat_(values[i], values[i - 1]);
-        int64_t dod = deltaDeltaSubSat_(curDelta, prevDelta);
+        int64_t curDelta = deltaDeltaSubWrap_(values[i], values[i - 1]);
+        int64_t dod = deltaDeltaSubWrap_(curDelta, prevDelta);
         prevDelta = curDelta;
 
         if (dod == 0) {
@@ -136,13 +127,13 @@ size_t varintDeltaDeltaEncode(uint8_t *output, const int64_t *values,
     }
 
     /* First delta */
-    int64_t prevDelta = deltaDeltaSubSat_(values[1], values[0]);
+    int64_t prevDelta = deltaDeltaSubWrap_(values[1], values[0]);
     p += varintDeltaPut(p, prevDelta);
 
     /* Delta-of-deltas */
     for (size_t i = 2; i < count; i++) {
-        int64_t curDelta = deltaDeltaSubSat_(values[i], values[i - 1]);
-        int64_t dod = deltaDeltaSubSat_(curDelta, prevDelta);
+        int64_t curDelta = deltaDeltaSubWrap_(values[i], values[i - 1]);
+        int64_t dod = deltaDeltaSubWrap_(curDelta, prevDelta);
         prevDelta = curDelta;
 
         if (meta) {
@@ -187,15 +178,15 @@ size_t varintDeltaDeltaDecode(const uint8_t *input, size_t count,
     /* First delta — second value is base + first delta */
     int64_t prevDelta;
     p += varintDeltaGet(p, &prevDelta);
-    int64_t prev = base + prevDelta;
+    int64_t prev = deltaDeltaAddWrap_(base, prevDelta);
     output[1] = prev;
 
     /* Reconstruct from dods */
     for (size_t i = 2; i < count; i++) {
         int64_t dod;
         p += varintDeltaGet(p, &dod);
-        prevDelta += dod;
-        prev += prevDelta;
+        prevDelta = deltaDeltaAddWrap_(prevDelta, dod);
+        prev = deltaDeltaAddWrap_(prev, prevDelta);
         output[i] = prev;
     }
 
@@ -247,7 +238,7 @@ size_t varintDeltaDeltaEncodeUnsigned(uint8_t *output, const uint64_t *values,
 
     for (size_t i = 2; i < count; i++) {
         int64_t curDelta = (int64_t)(values[i] - values[i - 1]);
-        int64_t dod = deltaDeltaSubSat_(curDelta, prevDelta);
+        int64_t dod = deltaDeltaSubWrap_(curDelta, prevDelta);
         prevDelta = curDelta;
 
         if (meta && dod == 0) {
@@ -290,14 +281,14 @@ size_t varintDeltaDeltaDecodeUnsigned(const uint8_t *input, size_t count,
 
     int64_t prevDelta;
     p += varintDeltaGet(p, &prevDelta);
-    uint64_t prev = (uint64_t)((int64_t)base + prevDelta);
+    uint64_t prev = base + (uint64_t)prevDelta;
     output[1] = prev;
 
     for (size_t i = 2; i < count; i++) {
         int64_t dod;
         p += varintDeltaGet(p, &dod);
-        prevDelta += dod;
-        prev = (uint64_t)((int64_t)prev + prevDelta);
+        prevDelta = deltaDeltaAddWrap_(prevDelta, dod);
+        prev += (uint64_t)prevDelta;
         output[i] = prev;
     }
 

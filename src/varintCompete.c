@@ -4,6 +4,7 @@
 #include "varintDict.h"
 #include "varintFOR.h"
 #include "varintPFOR.h"
+#include "varintPalette.h"
 #include "varintRLE.h"
 #include "varintStride.h"
 #include "varintTagged.h"
@@ -11,13 +12,17 @@
 #include <stdlib.h>
 #include <string.h>
 
-/* Maximum scratch we ever need: bound by the most pessimistic codec
- * (tagged: 9 bytes per value). */
+/* Maximum scratch we ever need: must dominate EVERY participating
+ * codec's worst case, since each encoder writes into this scratch
+ * before sizes are compared. Current worst offenders on adversarial
+ * (all-unique) data: DICT ~13 B/value (9-byte tagged dictionary entries
+ * + 4-byte indices), RLE 10 B/value (varintRLEMaxSize), TAGGED/palette
+ * 9 B/value + headers. 16 B/value + slack covers them all. */
 static inline size_t competeBodyUpperBound_(size_t count) {
     if (count == 0) {
         return 0;
     }
-    return count * 9 + 64; /* +64 for various header bytes */
+    return count * 16 + 320;
 }
 
 size_t varintCompeteMaxEncodedSize(size_t count) {
@@ -136,6 +141,10 @@ static size_t encPFOR_(uint8_t *scratch, const uint64_t *vals, size_t count) {
 static size_t encDict_(uint8_t *scratch, const uint64_t *vals, size_t count) {
     return varintDictEncode(scratch, vals, count);
 }
+static size_t encPalette_(uint8_t *scratch, const uint64_t *vals,
+                          size_t count) {
+    return varintPaletteEncode(scratch, vals, count, NULL);
+}
 
 /* ====================================================================
  * Competition loop
@@ -226,6 +235,8 @@ static size_t competeRun_(uint8_t *dst, const void *valuesAny, size_t count,
         TRY_CODEC(VARINT_CODEC_FOR, encFOR_(tryBuf, unsignedVals, count));
         TRY_CODEC(VARINT_CODEC_PFOR, encPFOR_(tryBuf, unsignedVals, count));
         TRY_CODEC(VARINT_CODEC_DICT, encDict_(tryBuf, unsignedVals, count));
+        TRY_CODEC(VARINT_CODEC_PALETTE,
+                  encPalette_(tryBuf, unsignedVals, count));
     }
 #undef TRY_CODEC
 
@@ -374,6 +385,10 @@ size_t varintCompeteDecodeUnsigned(const uint8_t *src, size_t srcBytes,
     }
     case VARINT_CODEC_DICT: {
         varintDictDecodeInto(body, h.bodyLen, output, count);
+        return hdr + h.bodyLen;
+    }
+    case VARINT_CODEC_PALETTE: {
+        varintPaletteDecode(body, h.bodyLen, output, count);
         return hdr + h.bodyLen;
     }
     default:
@@ -553,6 +568,48 @@ int varintCompeteTest(int argc, char *argv[]) {
                 res.winnerSize, varintCodecName(res.winner));
         }
         (void)written;
+    }
+
+    TEST("Compete picks PALETTE for skewed run-free small-alphabet data") {
+        /* Alternating hot zero + rotating 16-value alphabet: no runs for
+         * RLE, 4-bit floor for FOR/BP128, but heavy frequency skew that
+         * entropy coding exploits. */
+        enum { N = 6400 };
+        static uint64_t values[N];
+        for (size_t i = 0; i < N; i++) {
+            values[i] = (i % 2) ? 0 : (i % 32) / 2;
+        }
+        uint8_t *buf = malloc(varintCompeteMaxEncodedSize(N));
+        varintCompeteResult res;
+        size_t written = varintCompeteEncodeUnsigned(
+            buf, values, N, VARINT_COMPETE_DEFAULT_MASK, &res);
+
+        if (res.winner != VARINT_CODEC_PALETTE) {
+            ERR("Expected PALETTE winner for skewed alphabet, got %s (%zu B)",
+                varintCodecName(res.winner), res.winnerSize);
+        }
+
+        static uint64_t dec[N];
+        size_t read = varintCompeteDecodeUnsigned(buf, written, N, dec);
+        if (read != written) {
+            ERR("byte count mismatch: wrote %zu, read %zu", written, read);
+        }
+        for (size_t i = 0; i < N; i++) {
+            if (dec[i] != values[i]) {
+                ERR("mismatch at %zu", i);
+                break;
+            }
+        }
+
+        /* Truncated palette-winning frames must be rejected at the frame
+         * header layer (bodyLen exceeds the surviving bytes). */
+        for (size_t cut = 1; cut < 64 && cut < written; cut++) {
+            if (varintCompeteDecodeUnsigned(buf, written - cut, N, dec) != 0) {
+                ERR("Truncated compete frame (-%zu bytes) accepted", cut);
+                break;
+            }
+        }
+        free(buf);
     }
 
     TEST_FINAL_RESULT;

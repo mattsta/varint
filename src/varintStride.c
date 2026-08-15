@@ -43,16 +43,22 @@ static inline size_t stridePredictTagged_(uint64_t v) {
 /* ====================================================================
  * Stride mismatch counting (SWAR / SIMD)
  * ====================================================================
- * Count how many consecutive deltas (values[i+1]-values[i]) differ from
- * the candidate stride. Returns the mismatch count; also outputs an
- * array of mismatch indices (caller-allocated, size at least count-1).
- * If excIdx is NULL, only counts. */
+ * Count how many values differ from the arithmetic progression
+ * values[0] + i*stride (wrapping mod 2^64) — the exact sequence the
+ * decoder materializes, so the exception set patches every deviating
+ * position. (Comparing consecutive DELTAS against the stride is NOT
+ * equivalent: one level shift changes a single delta but displaces
+ * every subsequent value from the progression.)
+ * Returns the mismatch count; also outputs an array of mismatch indices
+ * (caller-allocated, size at least count-1). If excIdx is NULL, only
+ * counts. */
 static size_t strideCountMismatchesScalar_(const int64_t *values, size_t count,
                                            int64_t stride, size_t *excIdx) {
     size_t mismatches = 0;
+    uint64_t expect = (uint64_t)values[0];
     for (size_t i = 1; i < count; i++) {
-        int64_t d = values[i] - values[i - 1];
-        if (d != stride) {
+        expect += (uint64_t)stride;
+        if ((uint64_t)values[i] != expect) {
             if (excIdx) {
                 excIdx[mismatches] = i;
             }
@@ -63,8 +69,8 @@ static size_t strideCountMismatchesScalar_(const int64_t *values, size_t count,
 }
 
 #ifdef VARINT_STRIDE_NEON
-/* NEON path — process 2 deltas at a time. Each loop iteration reads 3
- * consecutive values to compute 2 deltas. We use a sliding window. */
+/* NEON path — compare 2 values per iteration against an expected-value
+ * vector that steps by 2*stride; no per-iteration loads beyond the data. */
 static size_t strideCountMismatchesNEON_(const int64_t *values, size_t count,
                                          int64_t stride, size_t *excIdx) {
     if (count < 4) {
@@ -72,31 +78,26 @@ static size_t strideCountMismatchesNEON_(const int64_t *values, size_t count,
     }
 
     size_t mismatches = 0;
-    int64x2_t strideVec = vdupq_n_s64(stride);
+    const uint64_t base = (uint64_t)values[0];
+    const uint64_t s = (uint64_t)stride;
 
-    /* SIMD body — pair deltas (i,i+1) loaded as (values[i+1]-values[i],
-     * values[i+2]-values[i+1]). We don't have an aligned 2-element delta
-     * primitive, so do it by hand: load v[i..i+2], shift-pair, subtract. */
+    uint64_t lanes[2] = {base + s, base + 2 * s};
+    uint64x2_t expectVec = vld1q_u64(lanes);
+    uint64x2_t stepVec = vdupq_n_u64(2 * s);
+
     size_t i = 1;
     for (; i + 1 < count; i += 2) {
-        int64x2_t cur = vld1q_s64(&values[i]);      /* [v[i],   v[i+1]] */
-        int64x2_t prev = vld1q_s64(&values[i - 1]); /* [v[i-1], v[i]] */
-        int64x2_t deltas = vsubq_s64(cur, prev);
+        uint64x2_t cur = vld1q_u64((const uint64_t *)&values[i]);
+        uint64x2_t eq = vceqq_u64(cur, expectVec);
+        expectVec = vaddq_u64(expectVec, stepVec);
 
-        /* Equality compare; vceq returns all-ones on match. */
-        uint64x2_t eq = vceqq_s64(deltas, strideVec);
-
-        /* Lane-wise: 0 = mismatch, 1 = match */
-        uint64_t lo = vgetq_lane_u64(eq, 0);
-        uint64_t hi = vgetq_lane_u64(eq, 1);
-
-        if (lo == 0) {
+        if (vgetq_lane_u64(eq, 0) == 0) {
             if (excIdx) {
                 excIdx[mismatches] = i;
             }
             mismatches++;
         }
-        if (hi == 0) {
+        if (vgetq_lane_u64(eq, 1) == 0) {
             if (excIdx) {
                 excIdx[mismatches] = i + 1;
             }
@@ -105,8 +106,7 @@ static size_t strideCountMismatchesNEON_(const int64_t *values, size_t count,
     }
     /* Tail */
     for (; i < count; i++) {
-        int64_t d = values[i] - values[i - 1];
-        if (d != stride) {
+        if ((uint64_t)values[i] != base + (uint64_t)i * s) {
             if (excIdx) {
                 excIdx[mismatches] = i;
             }
@@ -125,19 +125,22 @@ static size_t strideCountMismatchesAVX2_(const int64_t *values, size_t count,
     }
 
     size_t mismatches = 0;
-    __m256i strideVec = _mm256_set1_epi64x(stride);
+    const uint64_t base = (uint64_t)values[0];
+    const uint64_t s = (uint64_t)stride;
+
+    __m256i expectVec =
+        _mm256_set_epi64x((long long)(base + 4 * s), (long long)(base + 3 * s),
+                          (long long)(base + 2 * s), (long long)(base + s));
+    const __m256i stepVec = _mm256_set1_epi64x((long long)(4 * s));
 
     size_t i = 1;
     for (; i + 3 < count; i += 4) {
         __m256i cur = _mm256_loadu_si256((const __m256i *)&values[i]);
-        __m256i prev = _mm256_loadu_si256((const __m256i *)&values[i - 1]);
-        __m256i deltas = _mm256_sub_epi64(cur, prev);
-        __m256i eq = _mm256_cmpeq_epi64(deltas, strideVec);
+        __m256i eq = _mm256_cmpeq_epi64(cur, expectVec);
+        expectVec = _mm256_add_epi64(expectVec, stepVec);
 
-        /* Extract mask: each int64 lane contributes its top bit. */
+        /* Extract mask: each int64 lane contributes 8 identical bits. */
         int mask = _mm256_movemask_epi8(eq);
-        /* Each int64 lane = 8 bytes; lane matched if those 8 mask bits all set
-         */
         for (int lane = 0; lane < 4; lane++) {
             int laneByteMask = (mask >> (lane * 8)) & 0xFF;
             if (laneByteMask != 0xFF) {
@@ -149,8 +152,7 @@ static size_t strideCountMismatchesAVX2_(const int64_t *values, size_t count,
         }
     }
     for (; i < count; i++) {
-        int64_t d = values[i] - values[i - 1];
-        if (d != stride) {
+        if ((uint64_t)values[i] != base + (uint64_t)i * s) {
             if (excIdx) {
                 excIdx[mismatches] = i;
             }
@@ -202,7 +204,7 @@ bool varintStrideAnalyze(const int64_t *values, size_t count,
         return meta->encodedSize < count * sizeof(int64_t);
     }
 
-    meta->stride = values[1] - values[0];
+    meta->stride = (int64_t)((uint64_t)values[1] - (uint64_t)values[0]);
 
     /* Count mismatches against candidate stride. */
     size_t mismatches =
@@ -341,7 +343,14 @@ size_t varintStrideEncode(uint8_t *dst, const int64_t *values, size_t count,
     if (!meta) {
         meta = &local;
     }
-    varintStrideAnalyze(values, count, meta);
+    const bool viable = varintStrideAnalyze(values, count, meta);
+    /* A non-viable fuzzy encoding is unbounded (up to ~13 bytes per
+     * exception with no exception cap), so decline instead of emitting
+     * something larger than callers' scratch bounds. Exact/trivial modes
+     * are constant-size and may proceed regardless of benefit. */
+    if (!viable && meta->mode == VARINT_STRIDE_MODE_FUZZY) {
+        return 0;
+    }
     return varintStrideEncodeWithMode(dst, values, count, meta->mode, meta);
 }
 
@@ -388,11 +397,12 @@ size_t varintStrideDecode(const uint8_t *src, size_t count, int64_t *output) {
         return 0;
     }
 
-    /* Materialize arithmetic progression first. */
+    /* Materialize arithmetic progression first. Wrapping addition
+     * mirrors the wrapping stride subtraction used during analysis. */
     int64_t v = meta.base;
     for (size_t i = 0; i < count; i++) {
         output[i] = v;
-        v += meta.stride;
+        v = (int64_t)((uint64_t)v + (uint64_t)meta.stride);
     }
 
     if (meta.mode == VARINT_STRIDE_MODE_FUZZY) {
@@ -428,7 +438,8 @@ int64_t varintStrideGetAt(const uint8_t *src, size_t index) {
         return 0;
     }
 
-    int64_t base = meta.base + (int64_t)index * meta.stride;
+    int64_t base = (int64_t)((uint64_t)meta.base +
+                             (uint64_t)index * (uint64_t)meta.stride);
 
     if (meta.mode == VARINT_STRIDE_MODE_FUZZY) {
         uint64_t excCount;
