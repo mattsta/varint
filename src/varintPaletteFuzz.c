@@ -34,7 +34,9 @@
 #include <stdlib.h>
 #include <string.h>
 
-#define FUZZ_MAX_VALUES 4096
+/* Above the palette sampling-fast-path threshold (4096) so the
+ * high-cardinality shortcut gets regular fuzz coverage. */
+#define FUZZ_MAX_VALUES 8192
 
 static uint64_t rngState_;
 static uint64_t rng_(void) {
@@ -81,7 +83,7 @@ static size_t genCount_(void) {
 
 static size_t genValues_(uint64_t *values) {
     const size_t count = genCount_();
-    const uint32_t style = (uint32_t)(rng_() % 5);
+    const uint32_t style = (uint32_t)(rng_() % 6);
     uint32_t card = 1 + (uint32_t)(rng_() % 48);
     if (rng_() % 4 == 0) {
         /* Bias to the palette-capacity boundary. */
@@ -104,6 +106,10 @@ static size_t genValues_(uint64_t *values) {
         switch (style) {
         case 0: /* constant */
             values[i] = alpha[0];
+            break;
+        case 5: /* monotonic with alphabet gaps (palette-delta shape) */
+            values[i] =
+                (i == 0) ? base : values[i - 1] + (alpha[rng_() % card] & 0xFF);
             break;
         case 1: /* uniform over alphabet */
             values[i] = alpha[rng_() % card];
@@ -295,6 +301,44 @@ static void strategyDirectCodecs_(const uint64_t *values, size_t count,
     }
 }
 
+/* Palette-of-deltas: full oracle round-trip plus mutation and random
+ * decode against its bounded decoder. */
+static void strategyPaletteDelta_(const uint64_t *values, size_t count,
+                                  uint8_t *enc, uint8_t *scratch,
+                                  uint64_t *dec) {
+    const size_t written = varintPaletteDeltaEncode(enc, values, count, NULL);
+    FUZZ_CHECK(written > 0, "delta encode returned 0", "palette-delta");
+    FUZZ_CHECK(written <= varintPaletteDeltaMaxSize(count),
+               "delta encode exceeded MaxSize", "palette-delta");
+
+    const size_t got =
+        varintPaletteDeltaDecode(enc, written, dec, FUZZ_MAX_VALUES);
+    FUZZ_CHECK(got == count && memcmp(dec, values, count * sizeof(*dec)) == 0,
+               "delta round-trip failed", "palette-delta");
+
+    /* Mutate. */
+    memcpy(scratch, enc, written);
+    size_t len = written;
+    if (rng_() % 4 == 0) {
+        len = rng_() % written;
+    }
+    if (len > 0) {
+        const int flips = 1 + (int)(rng_() % 8);
+        for (int f = 0; f < flips; f++) {
+            const size_t bound = (rng_() & 1) && len > 48 ? 48 : len;
+            scratch[rng_() % bound] ^= (uint8_t)(rng_() | 1);
+        }
+    }
+    (void)varintPaletteDeltaDecode(scratch, len, dec, FUZZ_MAX_VALUES);
+
+    /* Pure random. */
+    const size_t rlen = 1 + (size_t)(rng_() % 600);
+    for (size_t i = 0; i < rlen; i++) {
+        scratch[i] = (uint8_t)rng_();
+    }
+    (void)varintPaletteDeltaDecode(scratch, rlen, dec, FUZZ_MAX_VALUES);
+}
+
 static int cmp64_(const void *a, const void *b) {
     const uint64_t x = *(const uint64_t *)a;
     const uint64_t y = *(const uint64_t *)b;
@@ -336,9 +380,9 @@ int main(int argc, char *argv[]) {
         const size_t written = varintPaletteEncode(enc, values, count, NULL);
 
         /* ...then rotates through the adversarial strategies. The last
-         * three mutate `values`, so they run after everything that
-         * needs the original stream. */
-        switch (gIter % 7) {
+         * two mutate `values`, so they run after everything that needs
+         * the original stream. */
+        switch (gIter % 8) {
         case 0:
         case 1:
             strategyMutate_(enc, written, scratch, dec);
@@ -353,6 +397,9 @@ int main(int argc, char *argv[]) {
             strategyDirectCodecs_(values, count, scratch, dec);
             break;
         case 5:
+            strategyPaletteDelta_(values, count, enc, scratch, dec);
+            break;
+        case 6:
             strategyCompeteSigned_(values, count, scratch, dec);
             break;
         default:

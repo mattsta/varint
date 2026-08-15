@@ -38,6 +38,7 @@ typedef enum varintCodecID {
     VARINT_CODEC_ELIAS_DELTA = 13,
     VARINT_CODEC_EXTERNAL = 14,
     VARINT_CODEC_PALETTE = 15,
+    VARINT_CODEC_PALETTE_DELTA = 16,
     /* Reserved range for future codecs. */
     VARINT_CODEC_MAX = 32,
 } varintCodecID;

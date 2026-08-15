@@ -34,6 +34,8 @@ const char *varintCodecName(varintCodecID id) {
         return "EXTERNAL";
     case VARINT_CODEC_PALETTE:
         return "PALETTE";
+    case VARINT_CODEC_PALETTE_DELTA:
+        return "PALETTE_DELTA";
     default:
         return "?";
     }

@@ -146,6 +146,10 @@ static size_t encPalette_(uint8_t *scratch, const uint64_t *vals,
                           size_t count) {
     return varintPaletteEncode(scratch, vals, count, NULL);
 }
+static size_t encPaletteDelta_(uint8_t *scratch, const uint64_t *vals,
+                               size_t count) {
+    return varintPaletteDeltaEncode(scratch, vals, count, NULL);
+}
 static size_t encBP128_(uint8_t *scratch, const uint64_t *vals, size_t count) {
     return varintBP128Encode64(scratch, vals, count, NULL);
 }
@@ -250,6 +254,8 @@ static size_t competeRun_(uint8_t *dst, const void *valuesAny, size_t count,
         TRY_CODEC(VARINT_CODEC_DICT, encDict_(tryBuf, unsignedVals, count));
         TRY_CODEC(VARINT_CODEC_PALETTE,
                   encPalette_(tryBuf, unsignedVals, count));
+        TRY_CODEC(VARINT_CODEC_PALETTE_DELTA,
+                  encPaletteDelta_(tryBuf, unsignedVals, count));
         TRY_CODEC(VARINT_CODEC_BP128, encBP128_(tryBuf, unsignedVals, count));
         TRY_CODEC(VARINT_CODEC_BP128_DELTA,
                   encBP128Delta_(tryBuf, unsignedVals, count));
@@ -405,6 +411,10 @@ size_t varintCompeteDecodeUnsigned(const uint8_t *src, size_t srcBytes,
     }
     case VARINT_CODEC_PALETTE: {
         varintPaletteDecode(body, h.bodyLen, output, count);
+        return hdr + h.bodyLen;
+    }
+    case VARINT_CODEC_PALETTE_DELTA: {
+        varintPaletteDeltaDecode(body, h.bodyLen, output, count);
         return hdr + h.bodyLen;
     }
     case VARINT_CODEC_BP128: {
@@ -630,6 +640,41 @@ int varintCompeteTest(int argc, char *argv[]) {
             if (dec[i] != values[i]) {
                 ERR("mismatch at %zu (winner=%s)", i,
                     varintCodecName(res.winner));
+                break;
+            }
+        }
+        free(buf);
+    }
+
+    TEST("Compete picks PALETTE_DELTA for skewed-gap monotonic series") {
+        /* Gaps drawn from a skewed 4-symbol alphabet: plain DELTA pays a
+         * byte per gap, BP128_DELTA pays 4 bits, entropy is ~1.6 bits. */
+        enum { N = 4096 };
+        static const uint64_t gaps[] = {1, 1, 1, 1, 1, 1, 2, 2, 5, 10};
+        static uint64_t values[N];
+        uint64_t v = 5000000;
+        for (size_t i = 0; i < N; i++) {
+            v += gaps[(i * 2654435761u >> 13) % 10];
+            values[i] = v;
+        }
+        uint8_t *buf = malloc(varintCompeteMaxEncodedSize(N));
+        varintCompeteResult res;
+        size_t written = varintCompeteEncodeUnsigned(
+            buf, values, N, VARINT_COMPETE_DEFAULT_MASK, &res);
+
+        if (res.winner != VARINT_CODEC_PALETTE_DELTA) {
+            ERR("Expected PALETTE_DELTA winner, got %s (%zu B)",
+                varintCodecName(res.winner), res.winnerSize);
+        }
+
+        static uint64_t dec[N];
+        size_t read = varintCompeteDecodeUnsigned(buf, written, N, dec);
+        if (read != written) {
+            ERR("byte count mismatch: wrote %zu, read %zu", written, read);
+        }
+        for (size_t i = 0; i < N; i++) {
+            if (dec[i] != values[i]) {
+                ERR("mismatch at %zu", i);
                 break;
             }
         }

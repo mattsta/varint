@@ -102,6 +102,30 @@ size_t varintPaletteDecode(const uint8_t *src, size_t srcBytes,
  * Returns 0 for an empty stream OR a malformed/truncated header. */
 size_t varintPaletteGetCount(const uint8_t *src, size_t srcBytes);
 
+/* ====================================================================
+ * Palette-of-Deltas Variant
+ * ====================================================================
+ * Palette coding over the wrapped (mod-2^64) first-difference
+ * transform: [count:tagged][first:tagged][palette stream of deltas].
+ * Captures streams whose GAPS form a skewed small alphabet — regular
+ * timestamps with a few interval classes, paginated IDs with mixed
+ * strides — where plain delta pays >=1 byte per gap and plain palette
+ * sees high cardinality. Decode reverses with a wrapping prefix sum,
+ * so any uint64 sequence round-trips exactly. Meta (when provided)
+ * describes the inner delta-domain palette stream. */
+
+static inline size_t varintPaletteDeltaMaxSize(size_t count) {
+    /* count(<=9) + first(<=9) + inner stream over count-1 deltas */
+    return 18 + varintPaletteMaxSize(count);
+}
+
+size_t varintPaletteDeltaEncode(uint8_t *dst, const uint64_t *values,
+                                size_t count, varintPaletteMeta *meta);
+
+/* Bounded like varintPaletteDecode; safe on untrusted input. */
+size_t varintPaletteDeltaDecode(const uint8_t *src, size_t srcBytes,
+                                uint64_t *values, size_t maxCount);
+
 #ifdef VARINT_PALETTE_TEST
 int varintPaletteTest(int argc, char *argv[]);
 #endif

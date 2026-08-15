@@ -341,6 +341,64 @@ static int cmpU64_(const void *a, const void *b) {
     return (x > y) - (x < y);
 }
 
+/* Classify one block as verbatim and account its storage: fixed width
+ * at the block max, or tagged varints, whichever is smaller. Shared by
+ * normal classification and the high-cardinality fast path. */
+static void paletteVerbatimPlanBlock_(palettePlan *plan, const uint64_t *values,
+                                      size_t b, size_t start, size_t end) {
+    plan->blockMask[b >> 3] |= (uint8_t)(1u << (b & 7));
+    plan->verbatimBlocks++;
+    uint8_t width = 1;
+    size_t taggedBytes = 0;
+    for (size_t v = start; v < end; v++) {
+        const uint8_t bw = paletteByteWidth_(values[v]);
+        if (bw > width) {
+            width = bw;
+        }
+        taggedBytes += varintTaggedLenQuick(values[v]);
+    }
+    const size_t fixedBytes = (end - start) * (size_t)width;
+    if (fixedBytes <= taggedBytes) {
+        plan->blockWidth[b] = width;
+        plan->verbatimBytes += 1 + fixedBytes;
+    } else {
+        plan->blockWidth[b] = 0; /* tagged mode */
+        plan->verbatimBytes += 1 + taggedBytes;
+    }
+}
+
+/* High-cardinality sampling pre-pass. Probes a fixed-size deterministic
+ * sample (constant cost — ~0.1% of a 1M-value encode, and skipped
+ * entirely below the count threshold, so "normal" encodes are
+ * unaffected). Returns true when the stream is provably hopeless for
+ * palette coding: if >= 7/8 of sampled values are distinct, the best
+ * possible 16-entry palette covers ~<=15% of the stream, making the
+ * probability of any fully-covered 64-value block ~0.15^64 — every
+ * block is verbatim no matter which palette is chosen, so the full
+ * frequency count and per-value classification are pure waste. */
+#define PALETTE_SAMPLE_MIN_COUNT 4096
+#define PALETTE_SAMPLE_SIZE 1024
+
+static bool paletteSampleLooksUnique_(const uint64_t *values, size_t count,
+                                      uint64_t *keys, uint64_t *counts) {
+    memset(counts, 0, PALETTE_HASH_SLOTS * sizeof(*counts));
+    const size_t stride = count / PALETTE_SAMPLE_SIZE;
+    size_t distinct = 0;
+    for (size_t s = 0; s < PALETTE_SAMPLE_SIZE; s++) {
+        const uint64_t v = values[s * stride];
+        size_t h = (size_t)((v * 0x9E3779B97F4A7C15ULL) >> 52);
+        while (counts[h] != 0 && keys[h] != v) {
+            h = (h + 1) & (PALETTE_HASH_SLOTS - 1);
+        }
+        if (counts[h] == 0) {
+            keys[h] = v;
+            distinct++;
+        }
+        counts[h]++;
+    }
+    return distinct >= PALETTE_SAMPLE_SIZE * 7 / 8;
+}
+
 /* Build the full plan: palette selection, code assignment, block
  * classification, section sizes. Returns false on allocation failure. */
 static bool paletteBuildPlan_(const uint64_t *values, size_t count,
@@ -348,6 +406,15 @@ static bool paletteBuildPlan_(const uint64_t *values, size_t count,
     memset(plan, 0, sizeof(*plan));
     plan->numBlocks =
         (count + VARINT_PALETTE_BLOCK_VALUES - 1) / VARINT_PALETTE_BLOCK_VALUES;
+
+    plan->blockMask = calloc((plan->numBlocks + 7) / 8, 1);
+    plan->symIdx = malloc(count);
+    plan->blockBits = malloc(plan->numBlocks * sizeof(*plan->blockBits));
+    plan->blockWidth = malloc(plan->numBlocks);
+    if (!plan->blockMask || !plan->symIdx || !plan->blockBits ||
+        !plan->blockWidth) {
+        return false;
+    }
 
     /* Frequency scan, cheapest exact method first: hash counting for
      * small alphabets (one ~O(1)-probe pass), radix sort + run scan
@@ -358,6 +425,30 @@ static bool paletteBuildPlan_(const uint64_t *values, size_t count,
     }
     uint64_t *keys = hash;
     uint64_t *counts = hash + PALETTE_HASH_SLOTS;
+
+    /* High-cardinality fast path: when a constant-cost sample proves no
+     * 16-entry palette could cover any 64-value block, skip frequency
+     * counting AND per-value classification entirely — declare every
+     * block verbatim (always a valid lossless plan) under a degenerate
+     * 1-symbol palette header. */
+    if (count >= PALETTE_SAMPLE_MIN_COUNT &&
+        paletteSampleLooksUnique_(values, count, keys, counts)) {
+        free(hash);
+        plan->m = 1;
+        plan->palVal[0] = values[0];
+        plan->palFreq[0] = 1;
+        paletteHuffLengths_(plan->palFreq, 1, plan->palLen);
+        plan->maxBits = 1;
+        paletteCanonicalCodes_(plan->palLen, 1, 1, plan->palCode);
+        for (size_t b = 0; b < plan->numBlocks; b++) {
+            const size_t start = b * VARINT_PALETTE_BLOCK_VALUES;
+            const size_t end = start + VARINT_PALETTE_BLOCK_VALUES < count
+                                   ? start + VARINT_PALETTE_BLOCK_VALUES
+                                   : count;
+            paletteVerbatimPlanBlock_(plan, values, b, start, end);
+        }
+        return true;
+    }
 
     const size_t distinct = paletteHashCount_(values, count, keys, counts);
     if (distinct > 0) {
@@ -450,15 +541,6 @@ static bool paletteBuildPlan_(const uint64_t *values, size_t count,
      * the palette; otherwise its exact coded bit cost is accumulated and
      * each value's palette index is cached so the bitstream writer never
      * repeats the palette probe. */
-    plan->blockMask = calloc((plan->numBlocks + 7) / 8, 1);
-    plan->symIdx = malloc(count);
-    plan->blockBits = malloc(plan->numBlocks * sizeof(*plan->blockBits));
-    plan->blockWidth = malloc(plan->numBlocks);
-    if (!plan->blockMask || !plan->symIdx || !plan->blockBits ||
-        !plan->blockWidth) {
-        return false;
-    }
-
 #ifdef VARINT_PALETTE_NEON
     bool useNeonClassify = plan->palCoveragePct >= 50;
 #ifdef VARINT_PALETTE_FORCE_NEON_CLASSIFY
@@ -494,30 +576,7 @@ static bool paletteBuildPlan_(const uint64_t *values, size_t count,
             }
         }
         if (verbatim) {
-            plan->blockMask[b >> 3] |= (uint8_t)(1u << (b & 7));
-            plan->verbatimBlocks++;
-            /* Hybrid verbatim storage, chosen per block: fixed width at
-             * the block max (branch-free unpack; ideal when magnitudes
-             * are uniform) versus tagged varints (width byte 0; wins
-             * when one large outlier would inflate every neighbor).
-             * Width >= 1 in fixed mode so zeros have a size. */
-            uint8_t width = 1;
-            size_t taggedBytes = 0;
-            for (size_t v = start; v < end; v++) {
-                const uint8_t bw = paletteByteWidth_(values[v]);
-                if (bw > width) {
-                    width = bw;
-                }
-                taggedBytes += varintTaggedLenQuick(values[v]);
-            }
-            const size_t fixedBytes = (end - start) * (size_t)width;
-            if (fixedBytes <= taggedBytes) {
-                plan->blockWidth[b] = width;
-                plan->verbatimBytes += 1 + fixedBytes;
-            } else {
-                plan->blockWidth[b] = 0; /* tagged mode */
-                plan->verbatimBytes += 1 + taggedBytes;
-            }
+            paletteVerbatimPlanBlock_(plan, values, b, start, end);
         } else {
             plan->blockBits[b] = (uint16_t)bits;
             plan->codedBits += bits;
@@ -1120,6 +1179,104 @@ size_t varintPaletteDecode(const uint8_t *src, size_t srcBytes,
     free(pair);
     free(table);
     free(coded);
+    return count;
+}
+
+/* ====================================================================
+ * Palette-of-Deltas Variant
+ * ==================================================================== */
+
+size_t varintPaletteDeltaEncode(uint8_t *dst, const uint64_t *values,
+                                size_t count, varintPaletteMeta *meta) {
+    if (meta) {
+        memset(meta, 0, sizeof(*meta));
+        meta->count = count;
+    }
+
+    uint8_t *p = dst;
+    p += varintTaggedPut64(p, count);
+    if (count == 0) {
+        if (meta) {
+            meta->encodedSize = (size_t)(p - dst);
+        }
+        return (size_t)(p - dst);
+    }
+
+    p += varintTaggedPut64(p, values[0]);
+    if (count == 1) {
+        if (meta) {
+            meta->encodedSize = (size_t)(p - dst);
+        }
+        return (size_t)(p - dst);
+    }
+
+    /* Wrapped first differences: unsigned subtraction is mod-2^64, and
+     * the decoder's prefix sum wraps identically, so ANY sequence
+     * round-trips — no monotonicity requirement. */
+    uint64_t *deltas = malloc((count - 1) * sizeof(*deltas));
+    if (!deltas) {
+        return 0;
+    }
+    for (size_t i = 1; i < count; i++) {
+        deltas[i - 1] = values[i] - values[i - 1];
+    }
+
+    const size_t inner = varintPaletteEncode(p, deltas, count - 1, meta);
+    free(deltas);
+    if (inner == 0) {
+        return 0;
+    }
+    if (meta) {
+        /* Inner meta describes the delta-domain stream; restore the
+         * caller-visible frame totals. */
+        meta->count = count;
+        meta->encodedSize = (size_t)(p - dst) + inner;
+    }
+    return (size_t)(p - dst) + inner;
+}
+
+size_t varintPaletteDeltaDecode(const uint8_t *src, size_t srcBytes,
+                                uint64_t *values, size_t maxCount) {
+    if (!src) {
+        return 0;
+    }
+    const uint8_t *p = src;
+    const uint8_t *const end = src + srcBytes;
+
+    uint64_t count64;
+    size_t w = paletteBoundedTagged_(p, end, &count64);
+    if (w == 0) {
+        return 0;
+    }
+    p += w;
+    if (count64 == 0) {
+        return 0;
+    }
+    if (count64 > (uint64_t)maxCount) {
+        return 0;
+    }
+    const size_t count = (size_t)count64;
+
+    uint64_t first;
+    w = paletteBoundedTagged_(p, end, &first);
+    if (w == 0) {
+        return 0;
+    }
+    p += w;
+    values[0] = first;
+    if (count == 1) {
+        return 1;
+    }
+
+    /* Decode deltas into values[1..] then prefix-sum in place. */
+    const size_t got =
+        varintPaletteDecode(p, (size_t)(end - p), values + 1, count - 1);
+    if (got != count - 1) {
+        return 0;
+    }
+    for (size_t i = 1; i < count; i++) {
+        values[i] += values[i - 1];
+    }
     return count;
 }
 
@@ -1843,6 +2000,117 @@ int varintPaletteTest(int argc, char *argv[]) {
             ERR("Alternation: verbatim=%zu coded=%zu (want 2/2)",
                 meta.verbatimBlocks, meta.codedBlocks);
         }
+    }
+
+    TEST("High-cardinality fast path: all-verbatim degenerate plan") {
+        enum { N = 8192 }; /* >= PALETTE_SAMPLE_MIN_COUNT */
+        uint64_t *values = malloc(N * sizeof(*values));
+        testRngState_ = 0xABCDEF;
+        for (size_t i = 0; i < N; i++) {
+            values[i] = (testRng_() << 20) ^ i; /* effectively all unique */
+        }
+
+        varintPaletteMeta meta;
+        if (!roundTrip_(values, N, &meta, NULL)) {
+            ERRR("Fast-path round-trip failed");
+        }
+        if (meta.paletteSize != 1 || meta.codedBlocks != 0) {
+            ERR("Fast path not taken: paletteSize=%u codedBlocks=%zu",
+                meta.paletteSize, meta.codedBlocks);
+        }
+
+        /* Guard: high-coverage data at the same count must NOT trigger
+         * the fast path — hot repeats dominate any sample. */
+        for (size_t i = 0; i < N; i++) {
+            values[i] = (testRng_() % 64 == 0) ? testRng_() : i % 16;
+        }
+        if (!roundTrip_(values, N, &meta, NULL)) {
+            ERRR("Guard round-trip failed");
+        }
+        if (meta.codedBlocks == 0) {
+            ERRR("Fast path wrongly triggered on high-coverage data");
+        }
+        free(values);
+    }
+
+    TEST("Palette-of-deltas: skewed gaps compress, all edges round-trip") {
+        enum { N = 4000 };
+        uint64_t *values = malloc(N * sizeof(*values));
+        uint64_t *dec = malloc(N * sizeof(*dec));
+        uint8_t *buf = malloc(varintPaletteDeltaMaxSize(N));
+
+        /* Monotonic with a skewed 4-gap alphabet. */
+        static const uint64_t gaps[] = {1, 1, 1, 1, 1, 1, 2, 2, 5, 10};
+        uint64_t v = 1000000;
+        testRngState_ = 0x600D;
+        for (size_t i = 0; i < N; i++) {
+            v += gaps[testRng_() % 10];
+            values[i] = v;
+        }
+        varintPaletteMeta meta;
+        size_t written = varintPaletteDeltaEncode(buf, values, N, &meta);
+        if (written == 0 || written > varintPaletteDeltaMaxSize(N)) {
+            ERR("Delta encode size out of range: %zu", written);
+        }
+        /* ~1.6 bits/gap expected; plain delta varints would be N bytes. */
+        if (written > N / 2) {
+            ERR("Skewed gaps compressed poorly: %zu bytes for %d values",
+                written, N);
+        }
+        if (varintPaletteDeltaDecode(buf, written, dec, N) != N ||
+            memcmp(dec, values, N * sizeof(*dec)) != 0) {
+            ERRR("Palette-of-deltas round-trip failed");
+        }
+
+        /* Wrap-around: sequence crossing 2^64 must round-trip. */
+        uint64_t wrapv[130];
+        wrapv[0] = UINT64_MAX - 40;
+        for (size_t i = 1; i < 130; i++) {
+            wrapv[i] = wrapv[i - 1] + ((i % 4) + 1); /* wraps past 2^64 */
+        }
+        written = varintPaletteDeltaEncode(buf, wrapv, 130, NULL);
+        if (varintPaletteDeltaDecode(buf, written, dec, 130) != 130 ||
+            memcmp(dec, wrapv, 130 * sizeof(*dec)) != 0) {
+            ERRR("Wrap-around sequence round-trip failed");
+        }
+
+        /* Non-monotonic input is legal (wrapped deltas). */
+        uint64_t zig[200];
+        for (size_t i = 0; i < 200; i++) {
+            zig[i] = (i & 1) ? 100 : 200;
+        }
+        written = varintPaletteDeltaEncode(buf, zig, 200, NULL);
+        if (varintPaletteDeltaDecode(buf, written, dec, 200) != 200 ||
+            memcmp(dec, zig, 200 * sizeof(*dec)) != 0) {
+            ERRR("Non-monotonic round-trip failed");
+        }
+
+        /* count 0/1/2 edges + undersized output + truncation. */
+        written = varintPaletteDeltaEncode(buf, values, 0, NULL);
+        if (written == 0) {
+            ERRR("Empty delta encode should emit a header");
+        }
+        written = varintPaletteDeltaEncode(buf, values, 1, NULL);
+        if (varintPaletteDeltaDecode(buf, written, dec, 1) != 1 ||
+            dec[0] != values[0]) {
+            ERRR("Single-value delta round-trip failed");
+        }
+        written = varintPaletteDeltaEncode(buf, values, 2, NULL);
+        if (varintPaletteDeltaDecode(buf, written, dec, 2) != 2) {
+            ERRR("Two-value delta round-trip failed");
+        }
+        if (varintPaletteDeltaDecode(buf, written, dec, 1) != 0) {
+            ERRR("Undersized maxCount accepted");
+        }
+        for (size_t cut = 0; cut < written; cut++) {
+            if (varintPaletteDeltaDecode(buf, cut, dec, 2) != 0) {
+                ERR("Truncated delta prefix %zu accepted", cut);
+                break;
+            }
+        }
+        free(values);
+        free(dec);
+        free(buf);
     }
 
     TEST("maxCount edges around the true count") {

@@ -44,12 +44,16 @@ Each verbatim block picks the smaller of two storages: **fixed width** (`width` 
 
 | Distribution                    | Ratio  | Encode     | Decode      |
 | ------------------------------- | ------ | ---------- | ----------- |
-| skewed (8-symbol geometric)     | 3.5%   | 170 Mval/s | 985 Mval/s  |
-| constant                        | 2.0%   | 270 Mval/s | 1015 Mval/s |
-| mixed (16 hot + outlier blocks) | 7.6%   | 175 Mval/s | 670 Mval/s  |
-| unique (fully verbatim)         | 100.2% | 21 Mval/s  | 4110 Mval/s |
+| skewed (8-symbol geometric)     | 3.5%   | 206 Mval/s | 1029 Mval/s |
+| constant                        | 2.0%   | 297 Mval/s | 1059 Mval/s |
+| mixed (16 hot + outlier blocks) | 7.6%   | 183 Mval/s | 824 Mval/s  |
+| unique (fully verbatim)         | 100.2% | 190 Mval/s | 4680 Mval/s |
 
-Reproduce with `varintPaletteBench [values] [repeats]`. Key mechanisms: hash-based frequency counting with a radix-sort fallback, NEON block classification gated by palette coverage, a double-symbol decode table (two symbols per lookup when `2×maxCodeBits ≤ 14`), and the four-way interleaved block decode. x86 builds use the scalar classifier; all other optimizations are architecture-neutral.
+Reproduce with `varintPaletteBench [values] [repeats]`. Key mechanisms: hash-based frequency counting with a radix-sort fallback, NEON block classification gated by palette coverage, a double-symbol decode table (two symbols per lookup when `2×maxCodeBits ≤ 14`), the four-way interleaved block decode, and a **high-cardinality sampling fast path** — a constant-cost 1024-value sample that, when ≥7/8 distinct (proving no 16-entry palette could cover any block), skips frequency counting and classification entirely and emits the all-verbatim plan directly (unique-data encode: 21 → 190 Mval/s, with zero measurable cost on other distributions). x86 builds use the scalar classifier; all other optimizations are architecture-neutral.
+
+## Palette-of-Deltas Variant (`varintPaletteDelta*`)
+
+A thin transform wrapper: `[count:tagged][first:tagged][palette stream over the wrapped mod-2⁶⁴ first differences]`. Decode reverses with a wrapping prefix sum, so **any** uint64 sequence round-trips — monotonicity is not required. It captures streams whose _gaps_ form a skewed small alphabet (timestamps with a few interval classes, IDs with mixed strides): plain delta pays ≥1 byte per gap and BP128_DELTA pays the max gap's bit width, while palette-of-deltas pays the gap entropy (~1.6 bits for a 90/10-style gap mix). Registered as `VARINT_CODEC_PALETTE_DELTA` in compete's default mask; compete arbitrates against DELTA/DoD/BP128_DELTA per stream as usual. The bounded `varintPaletteDeltaDecode(src, srcBytes, …)` is safe on untrusted input like the base codec.
 
 ## When It Wins
 
