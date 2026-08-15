@@ -159,7 +159,9 @@ size_t varintDeltaDecodeUnsigned(const uint8_t *input, size_t count,
         varintWidth deltaBytes = varintDeltaGet(p, &delta);
         p += deltaBytes;
 
-        current = (uint64_t)((int64_t)current + delta);
+        /* Unsigned addition wraps mod 2^64, exactly reversing the
+         * encoder's wrapped subtraction; a signed add here is UB. */
+        current = current + (uint64_t)delta;
         output[i] = current;
     }
 

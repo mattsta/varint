@@ -22,14 +22,19 @@
  * Run under ASan/UBSan via scripts/test/run_palette_fuzz.sh for the
  * long sessions. */
 
+#include "varintAdaptive.h"
 #include "varintBP128.h"
+#include "varintBitmap.h"
 #include "varintCompete.h"
 #include "varintDict.h"
+#include "varintElias.h"
 #include "varintFOR.h"
+#include "varintGroup.h"
 #include "varintPFOR.h"
 #include "varintPalette.h"
 #include "varintRLE.h"
 #include <inttypes.h>
+#include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -47,6 +52,25 @@ static uint64_t rng_(void) {
 static uint64_t gIterations;
 static uint64_t gSeed;
 static uint64_t gIter;
+static size_t gCount;
+static const char *gPhase = "";
+
+/* Library-side assert() calls abort() and would otherwise die without
+ * fuzz context; this handler makes ANY abort as reproducible as a
+ * FUZZ_CHECK failure. (Triage lesson: a failure that appears only in
+ * plain -O3 builds — passing at -O0 and under ASan/UBSan — usually
+ * means an uninitialized read, which sanitizers here cannot see.) */
+static void abortContext_(int sig) {
+    (void)sig;
+    fprintf(stderr,
+            "FUZZ ABORT (library assert?)\n"
+            "  iteration : %" PRIu64 " (strategy slot %" PRIu64 ", phase %s)\n"
+            "  count     : %zu\n"
+            "  reproduce : varintPaletteFuzz %" PRIu64 " %" PRIu64 "\n",
+            gIter, gIter % 9, gPhase, gCount, gIterations, gSeed);
+    signal(SIGABRT, SIG_DFL);
+    /* fall through to the default abort */
+}
 
 static void fail_(const char *what, const char *detail) {
     fprintf(stderr,
@@ -339,6 +363,79 @@ static void strategyPaletteDelta_(const uint64_t *values, size_t count,
     (void)varintPaletteDeltaDecode(scratch, rlen, dec, FUZZ_MAX_VALUES);
 }
 
+/* Round-trip oracles for the remaining codec family members that have
+ * their own container formats: the adaptive selector, Elias gamma and
+ * delta arrays (positive-integer domain), grouped varints (<=64 fields)
+ * and the u16 bitmap set. `aux` holds domain-transformed copies. */
+static void strategyMoreCodecs_(const uint64_t *values, size_t count,
+                                uint8_t *enc, uint8_t *scratch, uint64_t *aux,
+                                uint64_t *dec) {
+    size_t n;
+
+    /* Adaptive selector (heuristic cousin of compete). */
+    gPhase = "adaptive";
+    n = varintAdaptiveEncode(enc, values, count, NULL);
+    if (n > 0) {
+        const size_t got = varintAdaptiveDecode(enc, dec, count, NULL);
+        FUZZ_CHECK(got == count &&
+                       memcmp(dec, values, count * sizeof(*dec)) == 0,
+                   "direct round-trip failed", "ADAPTIVE");
+    }
+
+    /* Elias gamma + delta over the >=1 domain. */
+    gPhase = "elias";
+    for (size_t i = 0; i < count; i++) {
+        aux[i] = values[i] | 1;
+    }
+    n = varintEliasGammaEncodeArray(enc, aux, count, NULL);
+    if (n > 0) {
+        const size_t got = varintEliasGammaDecodeArray(enc, n * 8, dec, count);
+        FUZZ_CHECK(got == count && memcmp(dec, aux, count * sizeof(*dec)) == 0,
+                   "direct round-trip failed", "ELIAS_GAMMA");
+    }
+    n = varintEliasDeltaEncodeArray(enc, aux, count, NULL);
+    if (n > 0) {
+        const size_t got = varintEliasDeltaDecodeArray(enc, n * 8, dec, count);
+        FUZZ_CHECK(got == count && memcmp(dec, aux, count * sizeof(*dec)) == 0,
+                   "direct round-trip failed", "ELIAS_DELTA");
+    }
+
+    /* Grouped varints: first <=64 values as one group. */
+    gPhase = "group";
+    const uint8_t fields =
+        (uint8_t)(count < VARINT_GROUP_MAX_FIELDS ? count
+                                                  : VARINT_GROUP_MAX_FIELDS);
+    n = varintGroupEncode(enc, values, fields);
+    if (n > 0) {
+        uint8_t gotFields = 0;
+        const size_t used = varintGroupDecode(enc, dec, &gotFields, fields);
+        FUZZ_CHECK(used > 0 && gotFields == fields &&
+                       memcmp(dec, values, fields * sizeof(*dec)) == 0,
+                   "direct round-trip failed", "GROUP");
+    }
+
+    /* Bitmap set over the u16 projection: decode then re-encode must be
+     * byte-identical. */
+    gPhase = "bitmap";
+    varintBitmap *vb = varintBitmapCreate();
+    if (vb) {
+        const size_t nvals = count < 1024 ? count : 1024;
+        for (size_t i = 0; i < nvals; i++) {
+            varintBitmapAdd(vb, (uint16_t)values[i]);
+        }
+        const size_t bytes = varintBitmapEncode(vb, enc);
+        if (bytes > 0) {
+            varintBitmap *back = varintBitmapDecode(enc, bytes);
+            FUZZ_CHECK(back != NULL, "bitmap decode failed", "BITMAP");
+            const size_t bytes2 = varintBitmapEncode(back, scratch);
+            FUZZ_CHECK(bytes2 == bytes && memcmp(enc, scratch, bytes) == 0,
+                       "bitmap re-encode mismatch", "BITMAP");
+            varintBitmapFree(back);
+        }
+        varintBitmapFree(vb);
+    }
+}
+
 static int cmp64_(const void *a, const void *b) {
     const uint64_t x = *(const uint64_t *)a;
     const uint64_t y = *(const uint64_t *)b;
@@ -365,15 +462,19 @@ int main(int argc, char *argv[]) {
 
     uint64_t *values = malloc(FUZZ_MAX_VALUES * sizeof(*values));
     uint64_t *dec = malloc(FUZZ_MAX_VALUES * sizeof(*dec));
+    uint64_t *aux = malloc(FUZZ_MAX_VALUES * sizeof(*aux));
     uint8_t *enc = malloc(varintCompeteMaxEncodedSize(FUZZ_MAX_VALUES));
     uint8_t *scratch = malloc(varintCompeteMaxEncodedSize(FUZZ_MAX_VALUES));
-    if (!values || !dec || !enc || !scratch) {
+    if (!values || !dec || !aux || !enc || !scratch) {
         fprintf(stderr, "fuzz: allocation failed\n");
         return 2;
     }
 
+    signal(SIGABRT, abortContext_);
+
     for (gIter = 0; gIter < gIterations; gIter++) {
         const size_t count = genValues_(values);
+        gCount = count;
 
         /* Every iteration exercises the oracle... */
         strategyRoundTrip_(values, count, enc, dec);
@@ -382,7 +483,7 @@ int main(int argc, char *argv[]) {
         /* ...then rotates through the adversarial strategies. The last
          * two mutate `values`, so they run after everything that needs
          * the original stream. */
-        switch (gIter % 8) {
+        switch (gIter % 9) {
         case 0:
         case 1:
             strategyMutate_(enc, written, scratch, dec);
@@ -400,6 +501,9 @@ int main(int argc, char *argv[]) {
             strategyPaletteDelta_(values, count, enc, scratch, dec);
             break;
         case 6:
+            strategyMoreCodecs_(values, count, enc, scratch, aux, dec);
+            break;
+        case 7:
             strategyCompeteSigned_(values, count, scratch, dec);
             break;
         default:
@@ -413,6 +517,7 @@ int main(int argc, char *argv[]) {
            gIterations, gSeed);
     free(values);
     free(dec);
+    free(aux);
     free(enc);
     free(scratch);
     return 0;

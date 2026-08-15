@@ -173,7 +173,9 @@ if(VARINT_BUILD_TESTS)
                    varintPalette.c varintCompete.c varintTelemetry.c
                    varintDeltaDelta.c varintStride.c varintDelta.c
                    varintRLE.c varintFOR.c varintPFOR.c varintDict.c
-                   varintBP128.c varintExternal.c varintTagged.c)
+                   varintBP128.c varintAdaptive.c varintElias.c
+                   varintGroup.c varintBitmap.c
+                   varintExternal.c varintTagged.c)
 
     # varintCompeteTest - tests evidence-based codec selection runner
     add_executable(varintCompeteTest varintCompeteTest.c
