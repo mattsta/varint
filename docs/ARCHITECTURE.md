@@ -48,6 +48,8 @@ High-level abstractions built on varint primitives:
 6. **[varintBP128](modules/varintBP128.md)** - SIMD-accelerated block-packed encoding for large arrays
 7. **[varintDeltaDelta](modules/varintDeltaDelta.md)** - Second-order delta (Gorilla-style) for regular-interval time series
 8. **[varintStride](modules/varintStride.md)** - Arithmetic-progression detection with exact and fuzzy modes
+9. **[varintDD](modules/varintDD.md)** - Double-double (106-bit) arithmetic with SIMD array operations and compensated reductions
+10. **[varintDDStream](modules/varintDDStream.md)** - Compression for double-double arrays, exploiting the normalization invariant
 
 ### Layer 4: Self-Managing Selection
 
