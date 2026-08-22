@@ -141,7 +141,7 @@ Within a stream, every numeric column already adapts per block — the COMPETE/X
 
 Field loads and stores are the record layer's own hot loop (once per record per column on gather and scatter); on little-endian hosts every power-of-two width is a single word move plus a bswap for declared-big-endian fields, worth 10–18% on decode versus byte-at-a-time assembly. The compression work itself lives in the delegated codecs, which carry their own SIMD (BP128, palette, stride scans, DD stream).
 
-Encode throughput scales with how many lanes a column's kind runs (4–650 MB/s across the shapes above; multi-lane float columns are the most expensive). The per-kind eval matrix in `varintRecordTest` enforces both minimum ratios and expected winning strategies for every kind, so a regression in any lane fails the build.
+Encode throughput scales with how many lanes a column's kind runs (4 MB/s to 1.1 GB/s across the shapes above; multi-lane float columns are the most expensive). Encode stages every narrow field's value bits in one cache-blocked sweep over the records, and every lane — compete input, XOR transform, float values, verbatim bytes, plane bytes, and verification references — derives from that staging, so the record array streams once instead of once per lane per field. The FLOAT lane, like PLANES, runs only when cheaper lanes left more than 60% of raw on the table. The per-kind eval matrix in `varintRecordTest` enforces both minimum ratios and expected winning strategies for every kind, so a regression in any lane fails the build.
 
 ## When to Use
 

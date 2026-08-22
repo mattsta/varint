@@ -319,6 +319,74 @@ static bool recordGatherNormalized_(const uint8_t *base, size_t recordCount,
     return true;
 }
 
+/* Fields narrow enough to stage as a u64 bits column. */
+static bool recordFieldNarrow_(const varintRecordField *fld) {
+    return fld->kind != VARINT_RECORD_DD &&
+           (fld->kind != VARINT_RECORD_BYTES || fld->size <= 8);
+}
+
+/* Cache-block size: the record window all per-field passes revisit
+ * while it is still resident, bounding record-array DRAM traffic near
+ * one pass regardless of field count. */
+static size_t recordBlockRecords_(size_t recordSize) {
+    size_t block = (256 * 1024) / recordSize;
+    if (block < 64) {
+        block = 64;
+    }
+    if (block > 8192) {
+        block = 8192;
+    }
+    return block;
+}
+
+/* Staging memory ceiling for fused gather/scatter; schemas whose
+ * columns exceed it fall back to the per-field paths. */
+#define VARINT_RECORD_FUSE_BUDGET ((size_t)256 << 20)
+
+/* Fused gather: fill every narrow field's raw-bits column (value bits
+ * per declared endianness, no sign mapping) in one cache-blocked sweep
+ * over the records — field passes within a block hit hot cache instead
+ * of re-streaming the record array once per field. BYTES columns stage
+ * their raw bytes as little-endian-packed u64s. Returns false on a
+ * BOOL contract violation. */
+static bool recordGatherBitsFused_(const uint8_t *base, size_t recordCount,
+                                   size_t recordSize,
+                                   const varintRecordField *fields,
+                                   size_t fieldCount, uint64_t *const *cols) {
+    const size_t block = recordBlockRecords_(recordSize);
+    for (size_t start = 0; start < recordCount; start += block) {
+        size_t end = start + block;
+        if (end > recordCount) {
+            end = recordCount;
+        }
+        for (size_t f = 0; f < fieldCount; f++) {
+            if (!cols[f]) {
+                continue;
+            }
+            const varintRecordField *fld = &fields[f];
+            const bool bigEndian =
+                (fld->flags & VARINT_RECORD_FLAG_BIG_ENDIAN) &&
+                fld->kind != VARINT_RECORD_BYTES;
+            uint64_t *col = cols[f];
+            const uint8_t *p = base + start * recordSize + fld->offset;
+            if (fld->kind == VARINT_RECORD_BOOL) {
+                for (size_t i = start; i < end; i++, p += recordSize) {
+                    const uint64_t v = p[0];
+                    if (v > 1) {
+                        return false;
+                    }
+                    col[i] = v;
+                }
+            } else {
+                for (size_t i = start; i < end; i++, p += recordSize) {
+                    col[i] = recordLoadField_(p, fld->size, bigEndian);
+                }
+            }
+        }
+    }
+    return true;
+}
+
 /* Raw-byte gather: the VERBATIM payload, exactly as laid out in the
  * records (no endianness or sign transform). */
 static void recordGatherRaw_(const uint8_t *base, size_t recordCount,
@@ -489,16 +557,31 @@ static void recordConsider_(recordEncodeCtx *ctx, varintRecordStrategy strat,
 /* PLANES lane: byte position p of every value becomes its own column
  * through the chunked competition. Payload: size x [planeBytes][VCHK].
  * Operates on raw record bytes, so it is transform-free and lossless
- * for every kind. */
+ * for every kind. When a staged bits column exists, plane bytes derive
+ * from it sequentially instead of re-striding the record array once
+ * per byte of width. */
 static size_t recordEncodePlanes_(recordEncodeCtx *ctx, const uint8_t *base,
                                   size_t recordSize,
                                   const varintRecordField *fld,
-                                  uint8_t *dst) {
+                                  const uint64_t *bits, uint8_t *dst) {
     const size_t n = ctx->recordCount;
+    const bool bigEndian = (fld->flags & VARINT_RECORD_FLAG_BIG_ENDIAN) &&
+                           fld->kind != VARINT_RECORD_BYTES;
     size_t written = 0;
     for (size_t p = 0; p < fld->size; p++) {
-        for (size_t i = 0; i < n; i++) {
-            ctx->column[i] = base[i * recordSize + fld->offset + p];
+        if (bits) {
+            /* Raw byte p of the field: for little-endian layouts that
+             * is bits byte p; declared-big-endian fields store their
+             * raw bytes reversed relative to the value bits. */
+            const size_t shift =
+                8 * (bigEndian ? (fld->size - 1 - p) : p);
+            for (size_t i = 0; i < n; i++) {
+                ctx->column[i] = (bits[i] >> shift) & 0xFF;
+            }
+        } else {
+            for (size_t i = 0; i < n; i++) {
+                ctx->column[i] = base[i * recordSize + fld->offset + p];
+            }
         }
         /* Reserve the worst-case tagged prefix, then move the stream
          * back over the gap once its real length is known. */
@@ -518,12 +601,27 @@ static size_t recordEncodePlanes_(recordEncodeCtx *ctx, const uint8_t *base,
 
 /* FLOAT lane: value-domain doubles through varintFloat, all three
  * exponent-coding modes measured, winner verified bit-exact by decode
- * before it may compete. */
+ * before it may compete. Doubles and the verification reference both
+ * derive from the staged bits column when present. */
 static size_t recordEncodeFloat_(recordEncodeCtx *ctx, const uint8_t *base,
                                  size_t recordSize,
-                                 const varintRecordField *fld, uint8_t *dst) {
+                                 const varintRecordField *fld,
+                                 const uint64_t *bits, uint8_t *dst) {
     const size_t n = ctx->recordCount;
-    recordGatherDoubles_(base, n, recordSize, fld, ctx->doubles);
+    if (bits) {
+        for (size_t i = 0; i < n; i++) {
+            if (fld->kind == VARINT_RECORD_F32) {
+                const uint32_t b32 = (uint32_t)bits[i];
+                float fv;
+                memcpy(&fv, &b32, sizeof(fv));
+                ctx->doubles[i] = (double)fv;
+            } else {
+                memcpy(&ctx->doubles[i], &bits[i], sizeof(double));
+            }
+        }
+    } else {
+        recordGatherDoubles_(base, n, recordSize, fld, ctx->doubles);
+    }
 
     static const varintFloatEncodingMode modes[] = {
         VARINT_FLOAT_MODE_INDEPENDENT,
@@ -567,8 +665,10 @@ static size_t recordEncodeFloat_(recordEncodeCtx *ctx, const uint8_t *base,
         } else {
             memcpy(&roundTrip, &verify[i], sizeof(roundTrip));
         }
-        const uint64_t original = recordLoadField_(
-            base + i * recordSize + fld->offset, fld->size, bigEndian);
+        const uint64_t original =
+            bits ? bits[i]
+                 : recordLoadField_(base + i * recordSize + fld->offset,
+                                    fld->size, bigEndian);
         if (roundTrip != original) {
             return 0;
         }
@@ -670,50 +770,115 @@ size_t varintRecordEncode(uint8_t *dst, const void *records,
                    (!needFloat || ctx.doubles) &&
                    (!needDD || (ctx.ddVals && ctx.ddVerify));
 
+    /* Fused staging: every narrow field's bits column fills in one
+     * cache-blocked sweep, and all lanes (compete input, XOR transform,
+     * float values, verbatim bytes, plane bytes, verification) derive
+     * from it — the record array streams once instead of once per lane
+     * per field. Falls back to per-field gathers past the budget. */
+    uint64_t *bitsCols[VARINT_RECORD_MAX_FIELDS] = {NULL};
+    uint64_t *bitsArena = NULL;
+    size_t narrowCount = 0;
+    for (size_t f = 0; f < fieldCount; f++) {
+        if (recordFieldNarrow_(&fields[f])) {
+            narrowCount++;
+        }
+    }
+    size_t arenaBytes;
+    if (allocOk && narrowCount > 0 &&
+        recordMul_(narrowCount * sizeof(uint64_t), recordCount,
+                   &arenaBytes) &&
+        arenaBytes <= VARINT_RECORD_FUSE_BUDGET) {
+        bitsArena = malloc(arenaBytes);
+        if (bitsArena) {
+            size_t slot = 0;
+            for (size_t f = 0; f < fieldCount; f++) {
+                if (recordFieldNarrow_(&fields[f])) {
+                    bitsCols[f] = bitsArena + slot * recordCount;
+                    slot++;
+                }
+            }
+            if (!recordGatherBitsFused_(records, recordCount, recordSize,
+                                        fields, fieldCount, bitsCols)) {
+                allocOk = false; /* BOOL contract violation */
+            }
+        }
+    }
+
     const uint8_t *base = records;
     size_t written = (size_t)(p - dst);
 
     for (size_t f = 0; allocOk && f < fieldCount; f++) {
         const varintRecordField *fld = &fields[f];
+        const uint64_t *bits = bitsCols[f];
         varintRecordStrategy bestStrat = VARINT_RECORD_STRAT_VERBATIM;
         size_t bestLen = SIZE_MAX;
         size_t rawLen = recordCount * fld->size;
 
         /* VERBATIM first: it is the guaranteed floor, so every later
-         * lane must beat raw bytes to win. */
-        recordGatherRaw_(base, recordCount, recordSize, fld, ctx.tryBuf);
+         * lane must beat raw bytes to win. Raw bytes derive from the
+         * staged bits (BYTES columns stage little-endian-packed, so a
+         * plain LE store reproduces them). */
+        if (bits) {
+            const bool bigEndian =
+                (fld->flags & VARINT_RECORD_FLAG_BIG_ENDIAN) &&
+                fld->kind != VARINT_RECORD_BYTES;
+            for (size_t i = 0; i < recordCount; i++) {
+                recordStoreField_(ctx.tryBuf + i * fld->size, fld->size,
+                                  bigEndian, bits[i]);
+            }
+        } else {
+            recordGatherRaw_(base, recordCount, recordSize, fld, ctx.tryBuf);
+        }
         recordConsider_(&ctx, VARINT_RECORD_STRAT_VERBATIM, rawLen,
                         &bestStrat, &bestLen);
 
         if (recordStrategyAllowed_(fld->kind, VARINT_RECORD_STRAT_COMPETE)) {
-            if (!recordGatherNormalized_(base, recordCount, recordSize, fld,
-                                         ctx.column)) {
-                allocOk = false; /* BOOL contract violation */
-                break;
+            const uint64_t *competeInput;
+            if (bits) {
+                if (recordKindSigned_(fld->kind)) {
+                    for (size_t i = 0; i < recordCount; i++) {
+                        ctx.column[i] = varintDeltaZigZag(
+                            recordSignExtend_(bits[i], fld->size));
+                    }
+                    competeInput = ctx.column;
+                } else {
+                    competeInput = bits;
+                }
+            } else {
+                if (!recordGatherNormalized_(base, recordCount, recordSize,
+                                             fld, ctx.column)) {
+                    allocOk = false; /* BOOL contract violation */
+                    break;
+                }
+                competeInput = ctx.column;
             }
             recordConsider_(&ctx, VARINT_RECORD_STRAT_COMPETE,
                             varintCompeteEncodeChunkedUnsigned(
-                                ctx.tryBuf, ctx.column, recordCount, codecMask,
-                                0, NULL),
+                                ctx.tryBuf, competeInput, recordCount,
+                                codecMask, 0, NULL),
                             &bestStrat, &bestLen);
-        }
 
-        if (recordStrategyAllowed_(fld->kind, VARINT_RECORD_STRAT_XOR)) {
-            ctx.aux[0] = ctx.column[0];
-            for (size_t i = 1; i < recordCount; i++) {
-                ctx.aux[i] = ctx.column[i] ^ ctx.column[i - 1];
+            if (recordStrategyAllowed_(fld->kind, VARINT_RECORD_STRAT_XOR)) {
+                ctx.aux[0] = competeInput[0];
+                for (size_t i = 1; i < recordCount; i++) {
+                    ctx.aux[i] = competeInput[i] ^ competeInput[i - 1];
+                }
+                recordConsider_(&ctx, VARINT_RECORD_STRAT_XOR,
+                                varintCompeteEncodeChunkedUnsigned(
+                                    ctx.tryBuf, ctx.aux, recordCount,
+                                    codecMask, 0, NULL),
+                                &bestStrat, &bestLen);
             }
-            recordConsider_(&ctx, VARINT_RECORD_STRAT_XOR,
-                            varintCompeteEncodeChunkedUnsigned(
-                                ctx.tryBuf, ctx.aux, recordCount, codecMask, 0,
-                                NULL),
-                            &bestStrat, &bestLen);
         }
 
-        if (recordStrategyAllowed_(fld->kind, VARINT_RECORD_STRAT_FLOAT)) {
+        /* FLOAT costs three varintFloat passes plus a verification
+         * decode; like PLANES it runs only when the cheap lanes left
+         * compression on the table. */
+        if (recordStrategyAllowed_(fld->kind, VARINT_RECORD_STRAT_FLOAT) &&
+            bestLen * 10 > rawLen * 6) {
             recordConsider_(&ctx, VARINT_RECORD_STRAT_FLOAT,
                             recordEncodeFloat_(&ctx, base, recordSize, fld,
-                                               ctx.tryBuf),
+                                               bits, ctx.tryBuf),
                             &bestStrat, &bestLen);
         }
 
@@ -730,7 +895,7 @@ size_t varintRecordEncode(uint8_t *dst, const void *records,
             bestLen * 10 > rawLen * 6) {
             recordConsider_(&ctx, VARINT_RECORD_STRAT_PLANES,
                             recordEncodePlanes_(&ctx, base, recordSize, fld,
-                                                ctx.tryBuf),
+                                                bits, ctx.tryBuf),
                             &bestStrat, &bestLen);
         }
 
@@ -745,6 +910,7 @@ size_t varintRecordEncode(uint8_t *dst, const void *records,
         }
     }
 
+    free(bitsArena);
     free(ctx.column);
     free(ctx.aux);
     free(ctx.doubles);
