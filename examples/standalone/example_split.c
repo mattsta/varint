@@ -305,6 +305,7 @@ void example_length(void) {
 
         printf("  Value: %" PRIu64 ", Length: %d bytes ", decoded, width);
         assert(len == width);
+        (void)len;
         printf("✓\n");
 
         offset += width;

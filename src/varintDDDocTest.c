@@ -200,7 +200,11 @@ int main(void) {
     docLadder(values, decoded, N);
 
     column c = {"ratio", 20, NULL, 0};
-    assert(columnStore(&c, values, N));
+    /* The call must survive NDEBUG builds — c.bytes/c.byteCount are used
+     * below — so it cannot live inside the assert. */
+    const bool stored = columnStore(&c, values, N);
+    assert(stored);
+    (void)stored;
     printf("column %s: %zu bytes\n", c.name, c.byteCount);
 
     uint8_t *stream = malloc(varintDDStreamMaxSize(N));
