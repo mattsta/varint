@@ -8,7 +8,8 @@ This directory contains all automation scripts for building, testing, and valida
 scripts/
 ├── build/          # Build and compiler checking scripts
 │   ├── check_warnings.sh       # Single compiler warning check
-│   └── run_all_compilers.sh    # Multi-compiler verification (GCC + Clang)
+│   ├── run_all_compilers.sh    # Multi-compiler verification (GCC + Clang)
+│   └── validate_workflows.py   # YAML-validate .github/workflows before pushing
 └── test/           # Test execution scripts
     ├── run_all_tests.sh                # Unit tests with optional sanitizers
     ├── run_unit_tests.sh               # Unit tests with ASan+UBSan
