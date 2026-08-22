@@ -121,7 +121,7 @@ Within a stream, every numeric column already adapts per block — the COMPETE/X
 
 ## Record Printing
 
-`varintRecordPrintRecords` renders any window of records (`firstRecord`, `maxRecords` — pagination for large datasets) as a table driven entirely by the schema: integers in decimal, floats as `%g`, BOOL as 0/1, BYTES as hex, DD as `hi[+lo]`, with the same per-field endianness handling as the codec paths. `fieldNames` is an optional label array (NULL prints `f0..fN`), so one helper replaces per-struct debug printing everywhere a schema already exists.
+`varintRecordPrintRecords` renders any window of records (`firstRecord`, `maxRecords` — pagination for large datasets) as a table driven entirely by the schema: integers in decimal, floats as `%g`, BOOL as 0/1, BYTES as hex, DD through `varintDDToString` (~30 significant digits, so the 106-bit value prints as itself), with the same per-field endianness handling as the codec paths. `fieldNames` is an optional label array (NULL prints `f0..fN`), so one helper replaces per-struct debug printing everywhere a schema already exists.
 
 `varintRecordMeta` reports per-column payload bytes **and the winning strategy**, index-aligned with the schema, so callers see exactly which fields dominate storage and how each was encoded. `codecMask` passes through to the COMPETE/XOR/PLANES lanes (0 = `VARINT_COMPETE_DEFAULT_MASK`).
 

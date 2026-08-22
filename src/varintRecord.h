@@ -223,11 +223,13 @@ size_t varintRecordStreamBytes(const uint8_t *src, size_t srcBytes);
 #include <stdio.h>
 
 /* Print records [firstRecord, firstRecord + maxRecords) as a table, one
- * row per record, formatted per field kind (integers in decimal, floats
- * as %g, BOOL as 0/1, BYTES as hex, DD as hi[+lo]). fieldNames may be
- * NULL (columns print as f0..fN) or an array of fieldCount labels,
- * index-aligned with the schema. Returns records printed (0 for an
- * invalid schema or a window past the end). */
+ * row per record, formatted per field kind: integers in decimal, floats
+ * as %g, BOOL as 0/1, BYTES as hex, and DD through varintDDToString so
+ * the 106-bit value prints with its full ~30 significant digits (a
+ * plain %g on the hi limb would hide the precision the type exists
+ * for). fieldNames may be NULL (columns print as f0..fN) or an array of
+ * fieldCount labels, index-aligned with the schema. Returns records
+ * printed (0 for an invalid schema or a window past the end). */
 size_t varintRecordPrintRecords(FILE *out, const void *records,
                                 size_t recordCount, size_t recordSize,
                                 const varintRecordField *fields,

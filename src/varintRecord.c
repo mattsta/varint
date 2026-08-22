@@ -1142,12 +1142,14 @@ static void recordPrintValue_(FILE *out, const uint8_t *fieldBytes,
         break;
     }
     case VARINT_RECORD_DD: {
+        /* printf cannot show a double-double — %g on the hi limb hides
+         * the 106-bit precision the type exists for. varintDDToString
+         * renders the actual value to ~30 significant digits. */
         varintDD dd;
         memcpy(&dd, fieldBytes, sizeof(dd));
-        fprintf(out, "%.17g", dd.hi);
-        if (dd.lo != 0.0) {
-            fprintf(out, "%+.3g", dd.lo);
-        }
+        char ddText[VARINT_DD_STRING_MAX];
+        varintDDToString(ddText, sizeof(ddText), dd, 0);
+        fprintf(out, "%s", ddText);
         break;
     }
     case VARINT_RECORD_BYTES:
@@ -1801,13 +1803,15 @@ int varintRecordTest(int argc, char *argv[]) {
             int32_t temp;
             uint8_t on;
             uint8_t id[2];
+            varintDD dd;
         } row;
         static const varintRecordField schema[] = {
             VARINT_RECORD_FIELD(row, temp, VARINT_RECORD_I32),
             VARINT_RECORD_FIELD(row, on, VARINT_RECORD_BOOL),
             {offsetof(row, id), 2, VARINT_RECORD_BYTES, 0},
+            VARINT_RECORD_FIELD(row, dd, VARINT_RECORD_DD),
         };
-        static const char *names[] = {"temp", "on", "id"};
+        static const char *names[] = {"temp", "on", "id", "dd"};
         enum { N = 100 };
         row rows[N];
         memset(rows, 0, sizeof(rows));
@@ -1816,6 +1820,26 @@ int varintRecordTest(int argc, char *argv[]) {
             rows[i].on = (i % 2);
             rows[i].id[0] = 0xAB;
             rows[i].id[1] = (uint8_t)i;
+            /* A value whose lo limb carries real precision: hi + tiny. */
+            rows[i].dd = varintDDTwoSum(1.0, 1e-25);
+        }
+
+        /* The DD column must render through varintDDToString: beyond
+         * double precision, so the tiny limb must appear in the text. */
+        {
+            char oneRow[512];
+            FILE *cap = tmpfile();
+            if (cap) {
+                varintRecordPrintRecords(cap, rows, N, sizeof(row), schema, 4,
+                                         names, 0, 1);
+                rewind(cap);
+                size_t got = fread(oneRow, 1, sizeof(oneRow) - 1, cap);
+                oneRow[got] = '\0';
+                if (!strstr(oneRow, "1.0000000000000000000000001")) {
+                    ERR("DD column lost sub-double precision: %s", oneRow);
+                }
+                fclose(cap);
+            }
         }
 
         FILE *sink = tmpfile();
@@ -1824,19 +1848,19 @@ int varintRecordTest(int argc, char *argv[]) {
         } else {
             /* Middle page: records 40..49. */
             size_t printed = varintRecordPrintRecords(
-                sink, rows, N, sizeof(row), schema, 3, names, 40, 10);
+                sink, rows, N, sizeof(row), schema, 4, names, 40, 10);
             if (printed != 10) {
                 ERR("expected 10 printed, got %zu", printed);
             }
             /* Window clipped at the end. */
             printed = varintRecordPrintRecords(sink, rows, N, sizeof(row),
-                                               schema, 3, NULL, 95, 10);
+                                               schema, 4, NULL, 95, 10);
             if (printed != 5) {
                 ERR("expected clipped 5 printed, got %zu", printed);
             }
             /* Window past the end prints nothing. */
             if (varintRecordPrintRecords(sink, rows, N, sizeof(row), schema,
-                                         3, names, N, 10) != 0) {
+                                         4, names, N, 10) != 0) {
                 ERRR("out-of-range window printed rows");
             }
             if (ftell(sink) <= 0) {
