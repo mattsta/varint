@@ -228,6 +228,16 @@ if(VARINT_BUILD_TESTS)
                    varintTagged.c)
     target_compile_definitions(varintCompeteTest PRIVATE VARINT_COMPETE_TEST)
 
+    # varintCompeteBench - compete-layer performance validation (not
+    # registered with ctest): SIMD scan kernels vs scalar references,
+    # and chunked vs single-frame codec throughput per dataset shape.
+    add_executable(varintCompeteBench varintCompeteBench.c
+                   varintCompete.c varintTelemetry.c
+                   varintDeltaDelta.c varintStride.c varintDelta.c
+                   varintRLE.c varintFOR.c varintPFOR.c varintDict.c
+                   varintPalette.c varintBP128.c varintExternal.c
+                   varintTagged.c)
+
     # Link math library on non-Apple systems
     if(NOT APPLE)
         target_link_libraries(${PROJECT_NAME}Compare m)

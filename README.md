@@ -298,6 +298,9 @@ make varint-check-warnings
 ./build/src/varint-compare
 ./build/src/varintDimensionTest
 ./build/src/varintPackedTest 3000
+./build/src/varintCompeteBench     # compete-layer SIMD kernels + chunked codec throughput
+./build/src/varintPaletteBench
+./build/src/varintDDBench
 ```
 
 See [`scripts/README.md`](scripts/README.md) for complete testing documentation.
