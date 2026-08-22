@@ -102,7 +102,26 @@ size_t varintRecordReadHeader(const uint8_t *src, size_t srcBytes,
 size_t varintRecordDecode(const uint8_t *src, size_t srcBytes, void *records,
                           size_t maxRecords, size_t recordSize,
                           size_t *decodedCount);
+
+/* Sharding: streams are self-delimiting */
+size_t varintRecordStreamBytes(const uint8_t *src, size_t srcBytes);
+
+/* Diagnostics: schema-driven paginated record printing */
+size_t varintRecordPrintRecords(FILE *out, const void *records,
+                                size_t recordCount, size_t recordSize,
+                                const varintRecordField *fields,
+                                size_t fieldCount,
+                                const char *const *fieldNames,
+                                size_t firstRecord, size_t maxRecords);
 ```
+
+## Sharding
+
+Within a stream, every numeric column already adapts per block — the COMPETE/XOR/PLANES lanes ride `varintCompete`'s chunked format, so a column that changes character mid-stream gets different per-block winners. At the stream level, sharding is concatenation: encode shards of whatever record count fits the memory and parallelism budget, append the streams, and walk them with `varintRecordStreamBytes`, which finds each stream's end in O(fieldCount) by following the length prefixes without decoding any payload. Each shard is independently self-describing, so shards decode in parallel or stream one at a time, and different shards may even use different schemas.
+
+## Record Printing
+
+`varintRecordPrintRecords` renders any window of records (`firstRecord`, `maxRecords` — pagination for large datasets) as a table driven entirely by the schema: integers in decimal, floats as `%g`, BOOL as 0/1, BYTES as hex, DD as `hi[+lo]`, with the same per-field endianness handling as the codec paths. `fieldNames` is an optional label array (NULL prints `f0..fN`), so one helper replaces per-struct debug printing everywhere a schema already exists.
 
 `varintRecordMeta` reports per-column payload bytes **and the winning strategy**, index-aligned with the schema, so callers see exactly which fields dominate storage and how each was encoded. `codecMask` passes through to the COMPETE/XOR/PLANES lanes (0 = `VARINT_COMPETE_DEFAULT_MASK`).
 
@@ -112,13 +131,15 @@ size_t varintRecordDecode(const uint8_t *src, size_t srcBytes, void *records,
 
 | Shape     | Records                          | Ratio  | Decode    | Winning lanes |
 | --------- | -------------------------------- | ------ | --------- | ------------- |
-| telemetry | stride ts, jitter i32, enum, bool| 12.2x  | ~1.2 GB/s | COMPETE ×4    |
-| ticks     | clustered prices, sparse flags   | 5.8x   | ~0.6 GB/s | COMPETE ×4    |
-| floats    | smooth F64 + F32 curves          | 3.8x   | ~1.0 GB/s | PLANES + COMPETE/XOR (data-dependent) |
+| telemetry | stride ts, jitter i32, enum, bool| 12.2x  | ~1.3 GB/s | COMPETE ×4    |
+| ticks     | clustered prices, sparse flags   | 5.8x   | ~0.7 GB/s | COMPETE ×4    |
+| floats    | smooth F64 + F32 curves          | 3.8x   | ~1.1 GB/s | PLANES + COMPETE/XOR (data-dependent) |
 | ddcol     | double-double column             | 2.3x   | ~1.8 GB/s | DD_STREAM     |
 | tags      | structured 12-byte tags          | 24.8x  | ~1.1 GB/s | PLANES        |
-| constant  | identical records                | ~110,000x | ~1.7 GB/s | COMPETE (stride) |
-| noise     | incompressible                   | 1.13x  | ~1.5 GB/s | VERBATIM floor |
+| constant  | identical records                | ~110,000x | ~2.0 GB/s | COMPETE (stride) |
+| noise     | incompressible                   | 1.13x  | ~1.4 GB/s | VERBATIM floor |
+
+Field loads and stores are the record layer's own hot loop (once per record per column on gather and scatter); on little-endian hosts every power-of-two width is a single word move plus a bswap for declared-big-endian fields, worth 10–18% on decode versus byte-at-a-time assembly. The compression work itself lives in the delegated codecs, which carry their own SIMD (BP128, palette, stride scans, DD stream).
 
 Encode throughput scales with how many lanes a column's kind runs (4–650 MB/s across the shapes above; multi-lane float columns are the most expensive). The per-kind eval matrix in `varintRecordTest` enforces both minimum ratios and expected winning strategies for every kind, so a regression in any lane fails the build.
 
@@ -135,7 +156,7 @@ Encode throughput scales with how many lanes a column's kind runs (4–650 MB/s 
 - Test target: `varintRecordTest` (ctest `varint-record`) — includes the per-kind eval matrix
 - Fuzz target: `varintRecordFuzz` (ctest `varint-record-fuzz`) — round trips, re-encode idempotency, truncation, header/schema/strategy corruption; run under the sanitizer harness for the memory-safety half
 - Benchmark: `varintRecordBench` (not ctest-registered)
-- Example: `examples/standalone/example_record.c`
+- Example: `examples/standalone/example_record.c` — three scenarios: IoT sensor fleet (all seven kinds + row-oriented comparison), wire-format market data (big-endian network fields), and game entity snapshots (small signed ints, flags, byte planes)
 
 ## See Also
 

@@ -107,6 +107,154 @@ static size_t encodeRowOriented(uint8_t *dst, const SensorReading *rows,
     return (size_t)(p - dst);
 }
 
+/* Shared reporter: per-column strategy + ratio table from encode meta. */
+static void printColumns(const varintRecordField *schema,
+                         const char *const *names, size_t fieldCount,
+                         size_t count, const varintRecordMeta *meta) {
+    for (size_t f = 0; f < fieldCount; f++) {
+        const size_t colRaw = count * schema[f].size;
+        printf("   %-12s %-5s %9zu B raw -> %8zu B (%8.2fx) via %s\n",
+               names[f], varintRecordKindName(schema[f].kind), colRaw,
+               meta->columnBytes[f],
+               (double)colRaw / (double)meta->columnBytes[f],
+               varintRecordStrategyName(
+                   (varintRecordStrategy)meta->columnStrategy[f]));
+    }
+}
+
+/* Shared driver: encode, report, decode, verify byte-identity. */
+static int runScenario(const char *title, const void *rows, size_t count,
+                       size_t recordSize, const varintRecordField *schema,
+                       const char *const *names, size_t fieldCount) {
+    printf("\n===========================================\n");
+    printf("   %s\n", title);
+    printf("===========================================\n");
+    const size_t rawBytes = count * recordSize;
+    printf("Dataset: %zu records x %zu bytes = %.2f MB raw\n", count,
+           recordSize, (double)rawBytes / (1024.0 * 1024.0));
+
+    uint8_t *enc = malloc(
+        varintRecordMaxEncodedSize(count, recordSize, schema, fieldCount));
+    varintRecordMeta meta;
+    const size_t written = varintRecordEncode(enc, rows, count, recordSize,
+                                              schema, fieldCount, 0, &meta);
+    if (written == 0) {
+        fprintf(stderr, "encode failed\n");
+        return 1;
+    }
+    printf("Encoded: %zu bytes (%.2fx compression)\n", written,
+           (double)rawBytes / (double)written);
+    printColumns(schema, names, fieldCount, count, &meta);
+
+    uint8_t *dec = malloc(rawBytes);
+    size_t decodedCount = 0;
+    const size_t read = varintRecordDecode(enc, written, dec, count,
+                                           recordSize, &decodedCount);
+    if (read != written || decodedCount != count ||
+        memcmp(dec, rows, rawBytes) != 0) {
+        fprintf(stderr, "decode round trip failed\n");
+        return 1;
+    }
+    printf("Round trip: %zu records, byte-identical ✓\n", decodedCount);
+    free(enc);
+    free(dec);
+    return 0;
+}
+
+/* --------------------------------------------------------------------
+ * Scenario B: market data capture — records exactly as they arrive off
+ * the wire, big-endian network fields included. The schema declares the
+ * byte order per field, so the stream round-trips the wire bytes
+ * bit-exactly on any host while the columns still compress in the
+ * value domain.
+ * -------------------------------------------------------------------- */
+typedef struct MarketTick {
+    uint64_t exchangeTsNs; /* big-endian on the wire, ~1us cadence */
+    int64_t priceE8;       /* signed fixed-point, random-walks */
+    uint32_t quantity;     /* small lot sizes */
+    uint16_t venue;        /* big-endian, 6 venues */
+    uint8_t isBid;         /* side flag */
+    char symbol[8];        /* padded ticker — plane-structured */
+    uint8_t pad_[1];
+} MarketTick;
+
+static const varintRecordField tickSchema[] = {
+    VARINT_RECORD_FIELD_BE(MarketTick, exchangeTsNs, VARINT_RECORD_U64),
+    VARINT_RECORD_FIELD(MarketTick, priceE8, VARINT_RECORD_I64),
+    VARINT_RECORD_FIELD(MarketTick, quantity, VARINT_RECORD_U32),
+    VARINT_RECORD_FIELD_BE(MarketTick, venue, VARINT_RECORD_U16),
+    VARINT_RECORD_FIELD(MarketTick, isBid, VARINT_RECORD_BOOL),
+    {offsetof(MarketTick, symbol), 8, VARINT_RECORD_BYTES, 0},
+};
+static const char *tickFieldNames[] = {"exchangeTsNs", "priceE8", "quantity",
+                                       "venue",        "isBid",   "symbol"};
+
+static void storeBE64(uint8_t *p, uint64_t v) {
+    for (size_t i = 8; i > 0; i--) {
+        p[i - 1] = (uint8_t)v;
+        v >>= 8;
+    }
+}
+
+static void fillTicks(MarketTick *rows, size_t count) {
+    static const char *symbols[] = {"AAPL    ", "MSFT    ", "NVDA    ",
+                                    "TSLA    "};
+    uint64_t ts = UINT64_C(1700000000000000000);
+    int64_t price = INT64_C(19000000000);
+    for (size_t i = 0; i < count; i++) {
+        ts += 800 + rng() % 400;
+        storeBE64((uint8_t *)&rows[i].exchangeTsNs, ts);
+        price += (int64_t)(rng() % 200001) - 100000;
+        rows[i].priceE8 = price;
+        rows[i].quantity = 100 * (1 + (uint32_t)(rng() % 20));
+        const uint16_t venue = (uint16_t)(rng() % 6);
+        ((uint8_t *)&rows[i].venue)[0] = (uint8_t)(venue >> 8);
+        ((uint8_t *)&rows[i].venue)[1] = (uint8_t)venue;
+        rows[i].isBid = (uint8_t)(rng() & 1);
+        memcpy(rows[i].symbol, symbols[rng() % 4], 8);
+    }
+}
+
+/* --------------------------------------------------------------------
+ * Scenario C: game entity snapshots — grid coordinates, animation
+ * enums, liveness flags. Small signed values and near-constant bytes,
+ * the shape a replay or netcode system serializes every frame.
+ * -------------------------------------------------------------------- */
+typedef struct EntitySnapshot {
+    uint32_t entityId; /* dense id space */
+    int16_t x, y, z;   /* grid coordinates, entities cluster */
+    uint8_t alive;     /* almost always 1 */
+    uint8_t animState; /* 5 animations, idle-heavy */
+    uint8_t skin[4];   /* cosmetic id — few distinct */
+} EntitySnapshot;
+
+static const varintRecordField entitySchema[] = {
+    VARINT_RECORD_FIELD(EntitySnapshot, entityId, VARINT_RECORD_U32),
+    VARINT_RECORD_FIELD(EntitySnapshot, x, VARINT_RECORD_I16),
+    VARINT_RECORD_FIELD(EntitySnapshot, y, VARINT_RECORD_I16),
+    VARINT_RECORD_FIELD(EntitySnapshot, z, VARINT_RECORD_I16),
+    VARINT_RECORD_FIELD(EntitySnapshot, alive, VARINT_RECORD_BOOL),
+    VARINT_RECORD_FIELD(EntitySnapshot, animState, VARINT_RECORD_U8),
+    {offsetof(EntitySnapshot, skin), 4, VARINT_RECORD_BYTES, 0},
+};
+static const char *entityFieldNames[] = {"entityId", "x",         "y",
+                                         "z",        "alive",     "animState",
+                                         "skin"};
+
+static void fillEntities(EntitySnapshot *rows, size_t count) {
+    static const uint8_t skins[][4] = {
+        {1, 0, 0, 0}, {2, 0, 1, 0}, {7, 3, 0, 0}};
+    for (size_t i = 0; i < count; i++) {
+        rows[i].entityId = 1000 + (uint32_t)i;
+        rows[i].x = (int16_t)((int64_t)(rng() % 401) - 200);
+        rows[i].y = (int16_t)((int64_t)(rng() % 401) - 200);
+        rows[i].z = (int16_t)((int64_t)(rng() % 33) - 16);
+        rows[i].alive = (rng() % 50 != 0);
+        rows[i].animState = (rng() % 4 == 0) ? (uint8_t)(rng() % 5) : 0;
+        memcpy(rows[i].skin, skins[rng() % 3], 4);
+    }
+}
+
 int main(void) {
     printf("===========================================\n");
     printf("   varintRecord Example: Sensor Fleet\n");
@@ -172,6 +320,13 @@ int main(void) {
     printf("   Decoded %zu records, byte-identical to the originals ✓\n",
            decodedCount);
 
+    /* The same schema drives a generic paginated printer — inspect any
+     * window of records without writing per-struct print code. */
+    printf("\n   First 3 decoded records via varintRecordPrintRecords:\n");
+    varintRecordPrintRecords(stdout, dec, N, sizeof(SensorReading),
+                             sensorSchema, SENSOR_FIELDS, sensorFieldNames, 0,
+                             3);
+
     /* 4. Why columns beat rows. */
     uint8_t *rowEnc = malloc(rawBytes * 2);
     const size_t rowBytes = encodeRowOriented(rowEnc, rows, N);
@@ -187,6 +342,26 @@ int main(void) {
     free(enc);
     free(dec);
     free(rowEnc);
+
+    /* Scenario B: wire-format market data (big-endian network fields). */
+    MarketTick *ticks = calloc(N, sizeof(*ticks));
+    fillTicks(ticks, N);
+    if (runScenario("Scenario B: Market Data Capture (wire format)", ticks, N,
+                    sizeof(MarketTick), tickSchema, tickFieldNames, 6)) {
+        return 1;
+    }
+    free(ticks);
+
+    /* Scenario C: game entity snapshots (small ints, flags, planes). */
+    EntitySnapshot *entities = calloc(N, sizeof(*entities));
+    fillEntities(entities, N);
+    if (runScenario("Scenario C: Game Entity Snapshots", entities, N,
+                    sizeof(EntitySnapshot), entitySchema, entityFieldNames,
+                    7)) {
+        return 1;
+    }
+    free(entities);
+
     printf("\n✅ All operations completed successfully!\n");
     return 0;
 }

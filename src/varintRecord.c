@@ -1,4 +1,6 @@
 #include "varintRecord.h"
+#include "endianIsLittle.h"
+#include <inttypes.h>
 #include "varintDD.h"
 #include "varintDDStream.h"
 #include "varintDelta.h"
@@ -181,8 +183,39 @@ bool varintRecordSchemaValid(size_t recordSize,
  * Field byte access — endianness-explicit, host-independent
  * ==================================================================== */
 
+/* Field loads/stores run once per record per column on both the gather
+ * and scatter paths, so they are the record layer's own hot loop. On
+ * little-endian hosts each power-of-two width is a single word move
+ * (plus a bswap for declared-big-endian fields) via memcpy, which the
+ * compiler lowers to one load/store; the byte loops remain as the
+ * portable fallback for big-endian hosts. endianIsLittle() folds at
+ * compile time, so the fallback costs nothing where it is dead. */
+
 static uint64_t recordLoadField_(const uint8_t *p, size_t size,
                                  bool bigEndian) {
+    if (endianIsLittle()) {
+        switch (size) {
+        case 1:
+            return p[0];
+        case 2: {
+            uint16_t v;
+            memcpy(&v, p, sizeof(v));
+            return bigEndian ? __builtin_bswap16(v) : v;
+        }
+        case 4: {
+            uint32_t v;
+            memcpy(&v, p, sizeof(v));
+            return bigEndian ? __builtin_bswap32(v) : v;
+        }
+        case 8: {
+            uint64_t v;
+            memcpy(&v, p, sizeof(v));
+            return bigEndian ? __builtin_bswap64(v) : v;
+        }
+        default:
+            break;
+        }
+    }
     uint64_t v = 0;
     if (bigEndian) {
         for (size_t i = 0; i < size; i++) {
@@ -198,6 +231,39 @@ static uint64_t recordLoadField_(const uint8_t *p, size_t size,
 
 static void recordStoreField_(uint8_t *p, size_t size, bool bigEndian,
                               uint64_t v) {
+    if (endianIsLittle()) {
+        switch (size) {
+        case 1:
+            p[0] = (uint8_t)v;
+            return;
+        case 2: {
+            uint16_t w = (uint16_t)v;
+            if (bigEndian) {
+                w = __builtin_bswap16(w);
+            }
+            memcpy(p, &w, sizeof(w));
+            return;
+        }
+        case 4: {
+            uint32_t w = (uint32_t)v;
+            if (bigEndian) {
+                w = __builtin_bswap32(w);
+            }
+            memcpy(p, &w, sizeof(w));
+            return;
+        }
+        case 8: {
+            uint64_t w = v;
+            if (bigEndian) {
+                w = __builtin_bswap64(w);
+            }
+            memcpy(p, &w, sizeof(w));
+            return;
+        }
+        default:
+            break;
+        }
+    }
     if (bigEndian) {
         for (size_t i = size; i > 0; i--) {
             p[i - 1] = (uint8_t)v;
@@ -988,6 +1054,154 @@ size_t varintRecordDecode(const uint8_t *src, size_t srcBytes, void *records,
 }
 
 /* ====================================================================
+ * Stream walking — sharding support
+ * ==================================================================== */
+
+size_t varintRecordStreamBytes(const uint8_t *src, size_t srcBytes) {
+    varintRecordHeader hdr;
+    size_t cursor = varintRecordReadHeader(src, srcBytes, &hdr);
+    if (cursor == 0) {
+        return 0;
+    }
+    /* Schema table: kind + flags + two tagged scalars per field. */
+    for (uint64_t f = 0; f < hdr.fieldCount; f++) {
+        if (srcBytes - cursor < 2) {
+            return 0;
+        }
+        cursor += 2;
+        for (int32_t part = 0; part < 2; part++) {
+            uint64_t scratch;
+            const varintWidth w =
+                recordReadTagged_(src + cursor, srcBytes - cursor, &scratch);
+            if (w == 0) {
+                return 0;
+            }
+            cursor += (size_t)w;
+        }
+    }
+    if (hdr.recordCount == 0) {
+        return cursor;
+    }
+    /* Columns: strategy byte + length prefix + skipped payload. */
+    for (uint64_t f = 0; f < hdr.fieldCount; f++) {
+        if (srcBytes - cursor < 1) {
+            return 0;
+        }
+        cursor += 1;
+        uint64_t colBytes;
+        const varintWidth w =
+            recordReadTagged_(src + cursor, srcBytes - cursor, &colBytes);
+        if (w == 0 || colBytes > srcBytes - cursor - (size_t)w) {
+            return 0;
+        }
+        cursor += (size_t)w + (size_t)colBytes;
+    }
+    return cursor;
+}
+
+/* ====================================================================
+ * Diagnostics — schema-driven record printing
+ * ==================================================================== */
+
+static void recordPrintValue_(FILE *out, const uint8_t *fieldBytes,
+                              const varintRecordField *fld) {
+    const bool bigEndian = (fld->flags & VARINT_RECORD_FLAG_BIG_ENDIAN);
+    switch (fld->kind) {
+    case VARINT_RECORD_U8:
+    case VARINT_RECORD_U16:
+    case VARINT_RECORD_U32:
+    case VARINT_RECORD_U64:
+    case VARINT_RECORD_BOOL: {
+        const uint64_t v = recordLoadField_(fieldBytes, fld->size, bigEndian);
+        fprintf(out, "%" PRIu64, v);
+        break;
+    }
+    case VARINT_RECORD_I8:
+    case VARINT_RECORD_I16:
+    case VARINT_RECORD_I32:
+    case VARINT_RECORD_I64: {
+        const int64_t v = recordSignExtend_(
+            recordLoadField_(fieldBytes, fld->size, bigEndian), fld->size);
+        fprintf(out, "%" PRId64, v);
+        break;
+    }
+    case VARINT_RECORD_F32: {
+        const uint32_t bits =
+            (uint32_t)recordLoadField_(fieldBytes, fld->size, bigEndian);
+        float f;
+        memcpy(&f, &bits, sizeof(f));
+        fprintf(out, "%g", (double)f);
+        break;
+    }
+    case VARINT_RECORD_F64: {
+        const uint64_t bits =
+            recordLoadField_(fieldBytes, fld->size, bigEndian);
+        double d;
+        memcpy(&d, &bits, sizeof(d));
+        fprintf(out, "%g", d);
+        break;
+    }
+    case VARINT_RECORD_DD: {
+        varintDD dd;
+        memcpy(&dd, fieldBytes, sizeof(dd));
+        fprintf(out, "%.17g", dd.hi);
+        if (dd.lo != 0.0) {
+            fprintf(out, "%+.3g", dd.lo);
+        }
+        break;
+    }
+    case VARINT_RECORD_BYTES:
+    default: {
+        for (size_t b = 0; b < fld->size; b++) {
+            fprintf(out, "%02x", fieldBytes[b]);
+        }
+        break;
+    }
+    }
+}
+
+size_t varintRecordPrintRecords(FILE *out, const void *records,
+                                size_t recordCount, size_t recordSize,
+                                const varintRecordField *fields,
+                                size_t fieldCount,
+                                const char *const *fieldNames,
+                                size_t firstRecord, size_t maxRecords) {
+    if (!out || !records ||
+        !varintRecordSchemaValid(recordSize, fields, fieldCount) ||
+        firstRecord >= recordCount) {
+        return 0;
+    }
+    size_t n = recordCount - firstRecord;
+    if (n > maxRecords) {
+        n = maxRecords;
+    }
+
+    fprintf(out, "%10s", "#");
+    for (size_t f = 0; f < fieldCount; f++) {
+        if (fieldNames && fieldNames[f]) {
+            fprintf(out, "  %s", fieldNames[f]);
+        } else {
+            fprintf(out, "  f%zu", f);
+        }
+        fprintf(out, "(%s)", varintRecordKindName(fields[f].kind));
+    }
+    fprintf(out, "\n");
+
+    const uint8_t *base = records;
+    for (size_t i = 0; i < n; i++) {
+        const size_t idx = firstRecord + i;
+        fprintf(out, "%10zu", idx);
+        for (size_t f = 0; f < fieldCount; f++) {
+            fprintf(out, "  ");
+            recordPrintValue_(out, base + idx * recordSize + fields[f].offset,
+                              &fields[f]);
+        }
+        fprintf(out, "\n");
+    }
+    return n;
+}
+
+/* ====================================================================
  * Unit Tests
  * ==================================================================== */
 #ifdef VARINT_RECORD_TEST
@@ -1513,6 +1727,123 @@ int varintRecordTest(int argc, char *argv[]) {
         }
         enc[0] = save;
         free(enc);
+    }
+
+    TEST("Record: concatenated shards walk with StreamBytes") {
+        typedef struct s {
+            uint64_t a;
+            uint8_t b;
+        } s;
+        static const varintRecordField schema[] = {
+            VARINT_RECORD_FIELD(s, a, VARINT_RECORD_U64),
+            VARINT_RECORD_FIELD(s, b, VARINT_RECORD_U8),
+        };
+        enum { SHARD = 700, SHARDS = 3 };
+        s rows[SHARD * SHARDS];
+        memset(rows, 0, sizeof(rows));
+        for (size_t i = 0; i < SHARD * SHARDS; i++) {
+            rows[i].a = i * 7;
+            rows[i].b = (uint8_t)(i % 3);
+        }
+
+        /* Encode three shards back to back into one buffer. */
+        const size_t bound =
+            varintRecordMaxEncodedSize(SHARD, sizeof(s), schema, 2);
+        uint8_t *stream = malloc(bound * SHARDS);
+        size_t total = 0;
+        size_t shardSizes[SHARDS];
+        for (size_t sh = 0; sh < SHARDS; sh++) {
+            shardSizes[sh] =
+                varintRecordEncode(stream + total, rows + sh * SHARD, SHARD,
+                                   sizeof(s), schema, 2, 0, NULL);
+            if (shardSizes[sh] == 0) {
+                ERRR("shard encode failed");
+            }
+            total += shardSizes[sh];
+        }
+
+        /* Walk without decoding, then decode each shard independently. */
+        s dec[SHARD * SHARDS];
+        size_t cursor = 0;
+        size_t got = 0;
+        while (cursor < total) {
+            const size_t bytes =
+                varintRecordStreamBytes(stream + cursor, total - cursor);
+            if (bytes == 0 || bytes != shardSizes[got / SHARD]) {
+                ERR("walk mismatch at shard %zu: %zu vs %zu", got / SHARD,
+                    bytes, shardSizes[got / SHARD]);
+                break;
+            }
+            size_t decodedCount = 0;
+            if (varintRecordDecode(stream + cursor, bytes, dec + got, SHARD,
+                                   sizeof(s), &decodedCount) != bytes ||
+                decodedCount != SHARD) {
+                ERRR("shard decode failed");
+                break;
+            }
+            cursor += bytes;
+            got += decodedCount;
+        }
+        if (got != SHARD * SHARDS ||
+            memcmp(dec, rows, sizeof(rows)) != 0) {
+            ERRR("sharded round trip incomplete");
+        }
+
+        /* Truncated walks must fail, not lie. */
+        if (varintRecordStreamBytes(stream, shardSizes[0] - 1) != 0) {
+            ERRR("truncated stream walk reported a size");
+        }
+        free(stream);
+    }
+
+    TEST("Record: schema-driven printer paginates and formats kinds") {
+        typedef struct row {
+            int32_t temp;
+            uint8_t on;
+            uint8_t id[2];
+        } row;
+        static const varintRecordField schema[] = {
+            VARINT_RECORD_FIELD(row, temp, VARINT_RECORD_I32),
+            VARINT_RECORD_FIELD(row, on, VARINT_RECORD_BOOL),
+            {offsetof(row, id), 2, VARINT_RECORD_BYTES, 0},
+        };
+        static const char *names[] = {"temp", "on", "id"};
+        enum { N = 100 };
+        row rows[N];
+        memset(rows, 0, sizeof(rows));
+        for (size_t i = 0; i < N; i++) {
+            rows[i].temp = (int32_t)i - 50;
+            rows[i].on = (i % 2);
+            rows[i].id[0] = 0xAB;
+            rows[i].id[1] = (uint8_t)i;
+        }
+
+        FILE *sink = tmpfile();
+        if (!sink) {
+            ERRR("tmpfile failed");
+        } else {
+            /* Middle page: records 40..49. */
+            size_t printed = varintRecordPrintRecords(
+                sink, rows, N, sizeof(row), schema, 3, names, 40, 10);
+            if (printed != 10) {
+                ERR("expected 10 printed, got %zu", printed);
+            }
+            /* Window clipped at the end. */
+            printed = varintRecordPrintRecords(sink, rows, N, sizeof(row),
+                                               schema, 3, NULL, 95, 10);
+            if (printed != 5) {
+                ERR("expected clipped 5 printed, got %zu", printed);
+            }
+            /* Window past the end prints nothing. */
+            if (varintRecordPrintRecords(sink, rows, N, sizeof(row), schema,
+                                         3, names, N, 10) != 0) {
+                ERRR("out-of-range window printed rows");
+            }
+            if (ftell(sink) <= 0) {
+                ERRR("printer produced no output");
+            }
+            fclose(sink);
+        }
     }
 
     TEST("Record: header is self-describing") {

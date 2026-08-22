@@ -200,6 +200,41 @@ size_t varintRecordDecode(const uint8_t *src, size_t srcBytes, void *records,
                           size_t maxRecords, size_t recordSize,
                           size_t *decodedCount);
 
+/* ====================================================================
+ * Stream walking — sharding support
+ * ==================================================================== */
+
+/* Total bytes of the record stream starting at src, discovered by
+ * walking the header, schema, and column length prefixes without
+ * decoding any payload — O(fieldCount). Returns 0 on malformed or
+ * truncated input.
+ *
+ * Streams are self-delimiting, so sharding is concatenation: encode
+ * shards of whatever record count fits the memory/parallelism budget,
+ * append the streams, and walk them with this function. Each shard is
+ * independently decodable (and independently schema'd), so shards can
+ * decode in parallel or stream one at a time. */
+size_t varintRecordStreamBytes(const uint8_t *src, size_t srcBytes);
+
+/* ====================================================================
+ * Diagnostics — schema-driven record printing
+ * ==================================================================== */
+
+#include <stdio.h>
+
+/* Print records [firstRecord, firstRecord + maxRecords) as a table, one
+ * row per record, formatted per field kind (integers in decimal, floats
+ * as %g, BOOL as 0/1, BYTES as hex, DD as hi[+lo]). fieldNames may be
+ * NULL (columns print as f0..fN) or an array of fieldCount labels,
+ * index-aligned with the schema. Returns records printed (0 for an
+ * invalid schema or a window past the end). */
+size_t varintRecordPrintRecords(FILE *out, const void *records,
+                                size_t recordCount, size_t recordSize,
+                                const varintRecordField *fields,
+                                size_t fieldCount,
+                                const char *const *fieldNames,
+                                size_t firstRecord, size_t maxRecords);
+
 #ifdef VARINT_RECORD_TEST
 int varintRecordTest(int argc, char *argv[]);
 #endif
