@@ -66,7 +66,11 @@ Single compiler warning checker (used by `run_all_compilers.sh`).
 
 #### `scripts/test/run_all_tests.sh`
 
-Runs all 8 unit tests with configurable sanitizers.
+Builds the full CMake tree with the requested sanitizer into
+`build_tests/<sanitizer>/` and runs **every registered ctest suite**.
+`src/CMakeLists.txt` is the single source of truth for the test list,
+defines, and dependencies — a suite added there is automatically covered
+here, so this script cannot drift out of sync with the tree.
 
 **Usage:**
 
@@ -82,17 +86,6 @@ Runs all 8 unit tests with configurable sanitizers.
 ./scripts/test/run_all_tests.sh ubsan      # UndefinedBehaviorSanitizer only
 ./scripts/test/run_all_tests.sh both       # Both sanitizers (recommended)
 ```
-
-**Tests:**
-
-- varintDeltaTest
-- varintFORTest
-- varintPFORTest
-- varintFloatTest
-- varintBitmapTest
-- varintDictTest
-- varintAdaptiveTest
-- varintGroupTest
 
 #### `scripts/test/run_unit_tests.sh`
 
