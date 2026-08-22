@@ -85,11 +85,11 @@ positions for the highest numbers capable of being stored:
 
 Varints are defined by how they track their size. Since varints have variable lengths, a varint must know how many bytes it contains.
 
-We have **twenty-five types of varints** organized into three categories:
+We have **twenty-six types of varints** organized into three categories:
 
 **Basic Encodings** (5 types): tagged, bijou, external, split, and chained. The chained type is the slowest and is not recommended for use in new systems.
 
-**Advanced Encodings** (17 types): delta, delta-of-delta, stride, FOR (Frame-of-Reference), group, PFOR (Patched FOR), dictionary, bitmap, adaptive, compete, float, double-double stream (106-bit values compressed via the normalization invariant), RLE (Run-Length Encoding), Elias (Gamma/Delta universal codes), BP128 (SIMD block-packed), palette (Huffman over top-16 values with verbatim-block outlier routing), and palette-of-deltas (palette coding over wrapped first differences for skewed gap alphabets). These provide 2-100x compression for specialized use cases like sorted data, regular-interval time series, arithmetic progressions, clustered values, repetitive data, floating point arrays, repeated values, small integers, and large sorted arrays. (The `compete` selector is supported by opt-in `varintTelemetry` per-codec counters.)
+**Advanced Encodings** (18 types): delta, delta-of-delta, stride, FOR (Frame-of-Reference), group, PFOR (Patched FOR), dictionary, bitmap, adaptive, compete, record (schema-driven columnar struct compression), float, double-double stream (106-bit values compressed via the normalization invariant), RLE (Run-Length Encoding), Elias (Gamma/Delta universal codes), BP128 (SIMD block-packed), palette (Huffman over top-16 values with verbatim-block outlier routing), and palette-of-deltas (palette coding over wrapped first differences for skewed gap alphabets). These provide 2-100x compression for specialized use cases like sorted data, regular-interval time series, arithmetic progressions, clustered values, repetitive data, floating point arrays, repeated values, small integers, and large sorted arrays. (The `compete` selector is supported by opt-in `varintTelemetry` per-codec counters.)
 
 **Specialized Encodings** (3 types): packed (fixed-width bit arrays), dimension (matrix encoding), and bitstream (bit-level operations).
 
@@ -208,11 +208,15 @@ Palette encoding entropy-codes streams dominated by a small value set: the ≤16
 
 Where `varintAdaptive` picks a codec by a single-pass heuristic, `varintCompete` _runs_ a configurable subset of codecs, measures the actual encoded size each produces, and emits the smallest inside a self-describing frame (`[VCMP magic][version][codec ID][bodyLen][body]`) so the decoder selects the matching codec automatically. A chunked mode (`varintCompeteEncodeChunked*`) runs the competition independently per block (default 4096 values) so heterogeneous streams get a different winner per region: chunked streams carry their own counts (the decoder needs no external metadata), blocks forming one exact arithmetic progression are grown into a single ~30-byte stride record no matter how long, and a sampling probe (`varintCompetePruneMask`) skips codecs that cannot plausibly win a block before spending encode CPU on them. The companion `varintTelemetry` adds opt-in, lock-free atomic per-codec counters (calls/wins/bytes/wall-clock ns) that compile to zero-cost no-ops unless `-DVARINT_TELEMETRY` is set — use it to learn which codecs actually win, and what they cost, on your data. Full details in [module documentation](docs/modules/varintCompete.md).
 
+### Schema-Driven Record Compression (varintRecord)
+
+Where every other codec starts from a `uint64_t[]` column, `varintRecord` starts from **your structs**. A field-descriptor table (one `VARINT_RECORD_FIELD(struct, member, kind)` line per field, layout captured at compile time by `offsetof`/`sizeof`) describes a fixed-stride record over the full kind set — unsigned/signed integers, `F32`/`F64`, `BOOL`, opaque `BYTES`, and 106-bit `DD` double-doubles. Encode gathers each field into a column and runs it through **every strategy lane its kind supports**, measured, smallest wins per column: the chunked `varintCompete` competition (14 codecs) for integers, XOR-with-previous and `varintFloat` sign/exponent/mantissa streams for floats, byte-plane decomposition for opaque bytes and wide integers, `varintDDStream` for double-doubles, and a verbatim floor that guarantees no column ever expands past raw. Float-pipeline lanes are verified bit-exact by decode before they may win, so every stream round-trips byte-identically — NaN payloads, subnormals, and negative zeros included. The schema travels inside the stream (`VREC` frame), so decode needs zero external metadata, re-validates the schema and per-column strategies by encode's own rules, and bounds-checks all structure — exercised by a per-kind eval matrix (ratio + strategy assertions for every kind) and a deterministic fuzzer (`varintRecordFuzz`). Measured: 12.2x on telemetry rows, 3.8x on float sensor curves, 24.8x on structured tags via byte planes, 2.3x on double-double columns, with a verbatim floor on incompressible data. Full details in [varintRecord.h](https://github.com/mattsta/varint/blob/main/src/varintRecord.h) and [module documentation](docs/modules/varintRecord.md).
+
 ## Comprehensive Examples
 
-The `examples/` directory contains **43 production-quality examples** demonstrating real-world applications:
+The `examples/` directory contains **44 production-quality examples** demonstrating real-world applications:
 
-### **16 Standalone Examples** - Individual module demonstrations
+### **17 Standalone Examples** - Individual module demonstrations
 
 - **Basic encodings**: Tagged, External, Split, Chained, Packed, Dimension, Bitstream
 - **Advanced encodings**: Delta, FOR, Group, PFOR, Dictionary, Bitmap, Adaptive, Float
@@ -220,6 +224,7 @@ The `examples/` directory contains **43 production-quality examples** demonstrat
 - **Delta-of-Delta** (`varintDeltaDelta`) for regular-interval time series (Gorilla pattern, first-class module)
 - **Stride** (`varintStride`) for arithmetic progressions: exact mode ~24 bytes any length, fuzzy mode tolerates outliers
 - **Compete + Telemetry**: evidence-based codec selection runner with opt-in atomic per-codec wins/calls counters
+- **Record** (`varintRecord`): schema-driven columnar struct compression — describe a struct once, every field competes for its best codec (11.2x on telemetry rows)
 
 ### **9 Integration Examples** - Combining multiple varint types
 

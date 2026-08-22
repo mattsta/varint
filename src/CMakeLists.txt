@@ -238,6 +238,27 @@ if(VARINT_BUILD_TESTS)
                    varintPalette.c varintBP128.c varintElias.c
                    varintExternal.c varintTagged.c)
 
+    # varintRecord builds on the whole compete family: the record layer
+    # only gathers/scatters columns and frames the stream — every codec
+    # decision is delegated to varintCompete.
+    set(VARINT_RECORD_DEPS
+        varintRecord.c varintCompete.c varintTelemetry.c
+        varintFloat.c varintDD.c varintDDStream.c
+        varintDeltaDelta.c varintStride.c varintDelta.c
+        varintRLE.c varintFOR.c varintPFOR.c varintDict.c
+        varintPalette.c varintBP128.c varintElias.c
+        varintExternal.c varintTagged.c)
+
+    # varintRecordTest - tests schema-driven columnar record compression
+    add_executable(varintRecordTest varintRecordTest.c ${VARINT_RECORD_DEPS})
+    target_compile_definitions(varintRecordTest PRIVATE VARINT_RECORD_TEST)
+
+    # varintRecordFuzz - self-contained deterministic fuzzer (no libFuzzer)
+    add_executable(varintRecordFuzz varintRecordFuzz.c ${VARINT_RECORD_DEPS})
+
+    # varintRecordBench - throughput benchmark (not registered with ctest)
+    add_executable(varintRecordBench varintRecordBench.c ${VARINT_RECORD_DEPS})
+
     # Link math library on non-Apple systems
     if(NOT APPLE)
         target_link_libraries(${PROJECT_NAME}Compare m)
@@ -252,6 +273,9 @@ if(VARINT_BUILD_TESTS)
         target_link_libraries(varintDDStreamFuzz m)
         target_link_libraries(varintDDBench m)
         target_link_libraries(varintDDBenchScalar m)
+        target_link_libraries(varintRecordTest m)
+        target_link_libraries(varintRecordFuzz m)
+        target_link_libraries(varintRecordBench m)
         target_link_libraries(varintDDDocTest m)
     endif()
 
@@ -277,6 +301,8 @@ if(VARINT_BUILD_TESTS)
     add_test(NAME varint-palette COMMAND varintPaletteTest)
     add_test(NAME varint-palette-fuzz COMMAND varintPaletteFuzz 20000 24151)
     add_test(NAME varint-compete COMMAND varintCompeteTest)
+    add_test(NAME varint-record COMMAND varintRecordTest)
+    add_test(NAME varint-record-fuzz COMMAND varintRecordFuzz 20000 24151)
     add_test(NAME varint-dd COMMAND varintDDTest)
     add_test(NAME varint-dd-scalar COMMAND varintDDScalarTest)
     add_test(NAME varint-dd-stream COMMAND varintDDStreamTest)
