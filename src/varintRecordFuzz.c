@@ -9,9 +9,10 @@
  *   3. Structural robustness: any truncation, and any byte corruption
  *      in the header/schema region, is rejected or decodes bounded —
  *      run under ASan/UBSan (the sanitizer test harness) to enforce
- *      the memory-safety half. Column payload bytes are decoded by the
- *      underlying frame-bounded codecs, so payload corruption is
- *      exercised by those codecs' own fuzzers rather than here.
+ *      the memory-safety half. Column payload bytes are trusted at the
+ *      codec layer per the library's trust model (see Trust Model in
+ *      docs/ARCHITECTURE.md): containers validate structure, codecs
+ *      decode the bytes their encoders produced.
  *
  * Usage: varintRecordFuzz [iterations] [seed]
  */
@@ -122,8 +123,7 @@ static void randomRecords_(uint8_t *records, size_t recordCount,
 }
 
 int main(int argc, char *argv[]) {
-    const uint64_t iterations =
-        (argc > 1) ? strtoull(argv[1], NULL, 0) : 20000;
+    const uint64_t iterations = (argc > 1) ? strtoull(argv[1], NULL, 0) : 20000;
     const uint64_t seed = (argc > 2) ? strtoull(argv[2], NULL, 0) : 24151;
     rngState_ = seed ? seed : 1;
 
@@ -153,8 +153,8 @@ int main(int argc, char *argv[]) {
         }
         uint8_t *enc = malloc(bound);
         const size_t written =
-            varintRecordEncodeWithCtx(ws, enc, records, recordCount,
-                                      recordSize, fields, fieldCount, 0, NULL);
+            varintRecordEncodeWithCtx(ws, enc, records, recordCount, recordSize,
+                                      fields, fieldCount, 0, NULL);
         if (written == 0 || written > bound) {
             fprintf(stderr, "iter %" PRIu64 ": encode failed (%zu of %zu)\n",
                     iter, written, bound);
@@ -176,9 +176,8 @@ int main(int argc, char *argv[]) {
          * per-call path continuously cross-check each other: decoded
          * records must re-encode to the same bytes. */
         uint8_t *enc2 = malloc(bound);
-        const size_t written2 =
-            varintRecordEncode(enc2, dec, recordCount, recordSize, fields,
-                               fieldCount, 0, NULL);
+        const size_t written2 = varintRecordEncode(
+            enc2, dec, recordCount, recordSize, fields, fieldCount, 0, NULL);
         if (written2 != written || memcmp(enc2, enc, written) != 0) {
             fprintf(stderr, "iter %" PRIu64 ": re-encode not idempotent\n",
                     iter);
@@ -195,15 +194,15 @@ int main(int argc, char *argv[]) {
             for (uint64_t f = 0; f < hdr.fieldCount; f++) {
                 structuralEnd += 2; /* kind + flags */
                 uint64_t scratch;
-                structuralEnd += (size_t)varintTaggedGet(
-                    enc + structuralEnd, 9, &scratch);
-                structuralEnd += (size_t)varintTaggedGet(
-                    enc + structuralEnd, 9, &scratch);
+                structuralEnd +=
+                    (size_t)varintTaggedGet(enc + structuralEnd, 9, &scratch);
+                structuralEnd +=
+                    (size_t)varintTaggedGet(enc + structuralEnd, 9, &scratch);
             }
             const size_t pos = rng_() % structuralEnd;
             enc[pos] ^= (uint8_t)(1 + rng_() % 255);
-            (void)varintRecordDecode(enc, written, dec, recordCount,
-                                     recordSize, &decodedCount);
+            (void)varintRecordDecode(enc, written, dec, recordCount, recordSize,
+                                     &decodedCount);
             enc[pos] = enc2[pos];
             /* The first column's strategy byte sits right after the
              * schema — flip it too (decode validates strategy/kind). */

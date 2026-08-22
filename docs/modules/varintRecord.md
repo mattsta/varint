@@ -35,27 +35,27 @@ size_t n = varintRecordEncode(dst, rows, rowCount, sizeof(SensorReading),
 
 Each column competes across the lanes its kind supports; the winner is tagged on the wire and validated against the kind at decode:
 
-| Strategy    | What it does                                                                                          | Kinds |
-| ----------- | ----------------------------------------------------------------------------------------------------- | ----- |
-| `COMPETE`   | Normalized u64 column through `varintCompete`'s chunked per-block competition — tagged, delta, delta-of-delta, stride (with growth), FOR, PFOR, dict, RLE, BP128, BP128-delta, palette, palette-delta, Elias gamma/delta | all numeric + BOOL |
-| `XOR`       | XOR-with-previous transform, then `COMPETE` — consecutive similar floats cancel sign/exponent/high-mantissa bits, turning smooth float columns into small-integer columns | F32, F64 |
-| `FLOAT`     | `varintFloat` lossless stream: sign/exponent/mantissa planes, with all three exponent-coding modes (independent, common, delta) measured | F32, F64 |
-| `PLANES`    | Byte-plane decomposition: byte position *p* of every value becomes its own 0–255 column through `COMPETE` — captures per-position structure in opaque bytes and wide integers | BYTES, numeric width ≥ 2 |
-| `DD_STREAM` | `varintDDStream` lossless stream: gap-coded trailing limbs, XOR-chained leading limbs | DD |
-| `VERBATIM`  | Raw column bytes — the floor guaranteeing a column never expands beyond raw size plus tag overhead | all |
+| Strategy    | What it does                                                                                                                                                                                                             | Kinds                    |
+| ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------ |
+| `COMPETE`   | Normalized u64 column through `varintCompete`'s chunked per-block competition — tagged, delta, delta-of-delta, stride (with growth), FOR, PFOR, dict, RLE, BP128, BP128-delta, palette, palette-delta, Elias gamma/delta | all numeric + BOOL       |
+| `XOR`       | XOR-with-previous transform, then `COMPETE` — consecutive similar floats cancel sign/exponent/high-mantissa bits, turning smooth float columns into small-integer columns                                                | F32, F64                 |
+| `FLOAT`     | `varintFloat` lossless stream: sign/exponent/mantissa planes, with all three exponent-coding modes (independent, common, delta) measured                                                                                 | F32, F64                 |
+| `PLANES`    | Byte-plane decomposition: byte position _p_ of every value becomes its own 0–255 column through `COMPETE` — captures per-position structure in opaque bytes and wide integers                                            | BYTES, numeric width ≥ 2 |
+| `DD_STREAM` | `varintDDStream` lossless stream: gap-coded trailing limbs, XOR-chained leading limbs                                                                                                                                    | DD                       |
+| `VERBATIM`  | Raw column bytes — the floor guaranteeing a column never expands beyond raw size plus tag overhead                                                                                                                       | all                      |
 
 **Verified selection.** Lanes with float pipelines (`FLOAT`, `DD_STREAM`) are decoded and compared bit-for-bit against the source before they may win; if the round trip is not exact for this data (NaN payloads, subnormals, negative zeros), the lane is discarded and the next-best measured lane ships. Every emitted stream decodes to byte-identical records.
 
 ## Field Kinds
 
-| Kind      | Width | Column treatment                                             |
-| --------- | ----- | ------------------------------------------------------------ |
-| U8–U64    | 1–8   | bits per declared endianness                                  |
-| I8–I64    | 1–8   | sign-extended + ZigZag, so small negatives stay small         |
-| F32/F64   | 4/8   | bit patterns (COMPETE/XOR/PLANES) or values (FLOAT)           |
-| BOOL      | 1     | validated 0/1 at encode; palette's 1-bit floor + RLE runs     |
-| BYTES(n)  | n ≥ 1 | opaque run; PLANES or VERBATIM                                |
-| DD        | 16    | `varintDD {double hi; double lo}`; DD_STREAM or VERBATIM      |
+| Kind     | Width | Column treatment                                          |
+| -------- | ----- | --------------------------------------------------------- |
+| U8–U64   | 1–8   | bits per declared endianness                              |
+| I8–I64   | 1–8   | sign-extended + ZigZag, so small negatives stay small     |
+| F32/F64  | 4/8   | bit patterns (COMPETE/XOR/PLANES) or values (FLOAT)       |
+| BOOL     | 1     | validated 0/1 at encode; palette's 1-bit floor + RLE runs |
+| BYTES(n) | n ≥ 1 | opaque run; PLANES or VERBATIM                            |
+| DD       | 16    | `varintDD {double hi; double lo}`; DD_STREAM or VERBATIM  |
 
 Per-field `VARINT_RECORD_FLAG_BIG_ENDIAN` declares wire-format byte order, so network records round-trip bit-exactly on any host. Record bytes not covered by any field (padding, ignored regions) are not stored; decode zero-fills them.
 
@@ -141,15 +141,15 @@ Within a stream, every numeric column already adapts per block — the COMPETE/X
 
 `varintRecordBench` (Apple M-series, 1 Mi records, median of 15):
 
-| Shape     | Records                          | Ratio  | Decode    | Winning lanes |
-| --------- | -------------------------------- | ------ | --------- | ------------- |
-| telemetry | stride ts, jitter i32, enum, bool| 12.2x  | ~1.3 GB/s | COMPETE ×4    |
-| ticks     | clustered prices, sparse flags   | 5.8x   | ~0.7 GB/s | COMPETE ×4    |
-| floats    | smooth F64 + F32 curves          | 3.8x   | ~1.1 GB/s | PLANES + COMPETE/XOR (data-dependent) |
-| ddcol     | double-double column             | 2.3x   | ~1.8 GB/s | DD_STREAM     |
-| tags      | structured 12-byte tags          | 24.8x  | ~1.1 GB/s | PLANES        |
-| constant  | identical records                | ~110,000x | ~2.0 GB/s | COMPETE (stride) |
-| noise     | incompressible                   | 1.13x  | ~1.4 GB/s | VERBATIM floor |
+| Shape     | Records                           | Ratio     | Decode    | Winning lanes                         |
+| --------- | --------------------------------- | --------- | --------- | ------------------------------------- |
+| telemetry | stride ts, jitter i32, enum, bool | 12.2x     | ~1.3 GB/s | COMPETE ×4                            |
+| ticks     | clustered prices, sparse flags    | 5.8x      | ~0.7 GB/s | COMPETE ×4                            |
+| floats    | smooth F64 + F32 curves           | 3.8x      | ~1.1 GB/s | PLANES + COMPETE/XOR (data-dependent) |
+| ddcol     | double-double column              | 2.3x      | ~1.8 GB/s | DD_STREAM                             |
+| tags      | structured 12-byte tags           | 24.8x     | ~1.1 GB/s | PLANES                                |
+| constant  | identical records                 | ~110,000x | ~2.0 GB/s | COMPETE (stride)                      |
+| noise     | incompressible                    | 1.13x     | ~1.4 GB/s | VERBATIM floor                        |
 
 Field loads and stores are the record layer's own hot loop (once per record per column on gather and scatter); on little-endian hosts every power-of-two width is a single word move plus a bswap for declared-big-endian fields, worth 10–18% on decode versus byte-at-a-time assembly. The compression work itself lives in the delegated codecs, which carry their own SIMD (BP128, palette, stride scans, DD stream).
 
@@ -160,7 +160,7 @@ Encode throughput scales with how many lanes a column's kind runs (4 MB/s to 1.1
 - **Use varintRecord** when you have arrays of fixed-stride structs — sensor packets, DB rows, tick data, log records — and want one call that compresses every field well without picking codecs or transforms per field.
 - **Use varintCompete directly** when you already hold columnar `uint64_t` arrays.
 - **Use varintFloat / varintDDStream directly** for standalone float or double-double arrays.
-- **Use varintGroup** for encoding *individual* records compactly (row-oriented, random access per record).
+- **Use varintGroup** for encoding _individual_ records compactly (row-oriented, random access per record).
 - For formats with header-dependent or conditional record layouts, parse into fixed-stride record arrays first, then hand those to varintRecord.
 
 ## Integration

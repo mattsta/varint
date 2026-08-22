@@ -356,6 +356,14 @@ Tests bit-packed arrays at multiple widths:
 
 Matrix dimension storage and retrieval validation.
 
+## Trust Model
+
+Validation is layered to keep the numeric hot paths fast:
+
+- **Container and schema layers validate structure.** Frame magic and versions, lengths against remaining bytes, counts against output capacity, overflow-guarded size math, schema rules, and strategy/kind agreement are all enforced at the `varintCompete` / chunked / `varintRecord` boundaries before any payload is touched.
+- **Codec payloads are trusted at the codec layer.** Decoders operate on bytes their own encoders produced; re-proving number formats on every operation would collapse throughput. Payload bytes reach a codec only through a validated container that bounds where they start and end.
+- **Untrusted-input boundaries are explicit modules.** Where a decoder is meant to face arbitrary external bytes, it says so and carries a fully validating `srcBytes`-bounded implementation (`varintPalette`, `varintDDStream`, the Elias array decoders, and `varintRecord`'s FLOAT/DD guards). New external-facing surfaces get the same treatment at the wrapper, not by adding checks inside the hot codecs.
+
 ## Error Handling
 
 The library uses assertions and compile-time checks:

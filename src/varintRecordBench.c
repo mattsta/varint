@@ -223,9 +223,8 @@ static void benchOne_(const shapeRow *shape, size_t count, int repeats) {
     size_t decodedCount = 0;
     for (int r = 0; r < repeats; r++) {
         const double t0 = now_();
-        const size_t got = varintRecordDecodeWithCtx(ws, enc, written, dec,
-                                                     count, shape->recordSize,
-                                                     &decodedCount);
+        const size_t got = varintRecordDecodeWithCtx(
+            ws, enc, written, dec, count, shape->recordSize, &decodedCount);
         decTimes[r] = now_() - t0;
         if (got != written || decodedCount != count) {
             fprintf(stderr, "bench: decode failed on %s\n", shape->name);
@@ -241,8 +240,7 @@ static void benchOne_(const shapeRow *shape, size_t count, int repeats) {
     qsort(decTimes, (size_t)repeats, sizeof(double), cmpDouble_);
     const double encMed = encTimes[repeats / 2];
     const double decMed = decTimes[repeats / 2];
-    const double mb =
-        (double)(count * shape->recordSize) / (1024.0 * 1024.0);
+    const double mb = (double)(count * shape->recordSize) / (1024.0 * 1024.0);
 
     printf("%-9s  %8.2f MB -> %9zu B (%6.2f%%)  "
            "enc %7.1f MB/s  dec %7.1f MB/s  [",

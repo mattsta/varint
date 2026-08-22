@@ -113,17 +113,13 @@ typedef struct varintRecordField {
 
 /* Describe a struct member with compile-time layout capture. */
 #define VARINT_RECORD_FIELD(structType, member, kindEnum)                      \
-    {                                                                          \
-        offsetof(structType, member), sizeof(((structType *)0)->member),       \
-            (kindEnum), 0                                                      \
-    }
+    {offsetof(structType, member), sizeof(((structType *)0)->member),          \
+     (kindEnum), 0}
 
 /* Same, for big-endian (wire-format) members. */
 #define VARINT_RECORD_FIELD_BE(structType, member, kindEnum)                   \
-    {                                                                          \
-        offsetof(structType, member), sizeof(((structType *)0)->member),       \
-            (kindEnum), VARINT_RECORD_FLAG_BIG_ENDIAN                          \
-    }
+    {offsetof(structType, member), sizeof(((structType *)0)->member),          \
+     (kindEnum), VARINT_RECORD_FLAG_BIG_ENDIAN}
 
 /* Stream header parsed back from src. */
 typedef struct varintRecordHeader {
@@ -139,8 +135,8 @@ typedef struct varintRecordMeta {
     size_t recordCount;
     size_t recordSize;
     size_t fieldCount;
-    size_t encodedSize; /* total stream bytes */
-    size_t columnBytes[VARINT_RECORD_MAX_FIELDS];   /* payload bytes */
+    size_t encodedSize;                               /* total stream bytes */
+    size_t columnBytes[VARINT_RECORD_MAX_FIELDS];     /* payload bytes */
     uint8_t columnStrategy[VARINT_RECORD_MAX_FIELDS]; /* winning lane */
 } varintRecordMeta;
 
@@ -155,8 +151,7 @@ const char *varintRecordStrategyName(varintRecordStrategy strategy);
 /* Validate a schema against a record size. Checks: 1..64 fields, every
  * field in-bounds, field size matching its kind's width (BYTES: any
  * size >= 1; DD: exactly 16), no two fields overlapping. */
-bool varintRecordSchemaValid(size_t recordSize,
-                             const varintRecordField *fields,
+bool varintRecordSchemaValid(size_t recordSize, const varintRecordField *fields,
                              size_t fieldCount);
 
 /* Conservative output bound for recordCount records under this schema.
@@ -172,10 +167,10 @@ size_t varintRecordMaxEncodedSize(size_t recordCount, size_t recordSize,
  * VARINT_COMPETE_DEFAULT_MASK). meta may be NULL. Returns stream bytes
  * written; 0 on invalid schema/arguments, BOOL fields holding non-0/1
  * values, or allocation failure. */
-size_t varintRecordEncode(uint8_t *dst, const void *records,
-                          size_t recordCount, size_t recordSize,
-                          const varintRecordField *fields, size_t fieldCount,
-                          uint64_t codecMask, varintRecordMeta *meta);
+size_t varintRecordEncode(uint8_t *dst, const void *records, size_t recordCount,
+                          size_t recordSize, const varintRecordField *fields,
+                          size_t fieldCount, uint64_t codecMask,
+                          varintRecordMeta *meta);
 
 /* ====================================================================
  * Decode

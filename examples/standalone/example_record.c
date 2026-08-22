@@ -51,10 +51,9 @@ static const varintRecordField sensorSchema[] = {
     VARINT_RECORD_FIELD(SensorReading, voltage, VARINT_RECORD_F32),
     VARINT_RECORD_FIELD(SensorReading, precise, VARINT_RECORD_DD),
 };
-static const char *sensorFieldNames[] = {"timestampMs", "deviceId",
-                                         "temperature", "status",
-                                         "mac",         "voltage",
-                                         "precise"};
+static const char *sensorFieldNames[] = {
+    "timestampMs", "deviceId", "temperature", "status",
+    "mac",         "voltage",  "precise"};
 #define SENSOR_FIELDS (sizeof(sensorSchema) / sizeof(sensorSchema[0]))
 
 static uint64_t rngState = UINT64_C(0x9E3779B97F4A7C15);
@@ -113,8 +112,8 @@ static void printColumns(const varintRecordField *schema,
                          size_t count, const varintRecordMeta *meta) {
     for (size_t f = 0; f < fieldCount; f++) {
         const size_t colRaw = count * schema[f].size;
-        printf("   %-12s %-5s %9zu B raw -> %8zu B (%8.2fx) via %s\n",
-               names[f], varintRecordKindName(schema[f].kind), colRaw,
+        printf("   %-12s %-5s %9zu B raw -> %8zu B (%8.2fx) via %s\n", names[f],
+               varintRecordKindName(schema[f].kind), colRaw,
                meta->columnBytes[f],
                (double)colRaw / (double)meta->columnBytes[f],
                varintRecordStrategyName(
@@ -148,8 +147,8 @@ static int runScenario(const char *title, const void *rows, size_t count,
 
     uint8_t *dec = malloc(rawBytes);
     size_t decodedCount = 0;
-    const size_t read = varintRecordDecode(enc, written, dec, count,
-                                           recordSize, &decodedCount);
+    const size_t read =
+        varintRecordDecode(enc, written, dec, count, recordSize, &decodedCount);
     if (read != written || decodedCount != count ||
         memcmp(dec, rows, rawBytes) != 0) {
         fprintf(stderr, "decode round trip failed\n");
@@ -237,9 +236,8 @@ static const varintRecordField entitySchema[] = {
     VARINT_RECORD_FIELD(EntitySnapshot, animState, VARINT_RECORD_U8),
     {offsetof(EntitySnapshot, skin), 4, VARINT_RECORD_BYTES, 0},
 };
-static const char *entityFieldNames[] = {"entityId", "x",         "y",
-                                         "z",        "alive",     "animState",
-                                         "skin"};
+static const char *entityFieldNames[] = {"entityId", "x",         "y",   "z",
+                                         "alive",    "animState", "skin"};
 
 static void fillEntities(EntitySnapshot *rows, size_t count) {
     static const uint8_t skins[][4] = {
@@ -288,9 +286,8 @@ int main(void) {
     for (size_t f = 0; f < SENSOR_FIELDS; f++) {
         const size_t colRaw = N * sensorSchema[f].size;
         printf("   %-12s %-5s %9zu B raw -> %8zu B (%8.2fx) via %s\n",
-               sensorFieldNames[f],
-               varintRecordKindName(sensorSchema[f].kind), colRaw,
-               meta.columnBytes[f],
+               sensorFieldNames[f], varintRecordKindName(sensorSchema[f].kind),
+               colRaw, meta.columnBytes[f],
                (double)colRaw / (double)meta.columnBytes[f],
                varintRecordStrategyName(
                    (varintRecordStrategy)meta.columnStrategy[f]));
@@ -309,9 +306,9 @@ int main(void) {
     SensorReading *dec =
         malloc((size_t)hdr.recordCount * (size_t)hdr.recordSize);
     size_t decodedCount = 0;
-    const size_t read = varintRecordDecode(
-        enc, written, dec, (size_t)hdr.recordCount, sizeof(SensorReading),
-        &decodedCount);
+    const size_t read =
+        varintRecordDecode(enc, written, dec, (size_t)hdr.recordCount,
+                           sizeof(SensorReading), &decodedCount);
     if (read != written || decodedCount != N ||
         memcmp(dec, rows, rawBytes) != 0) {
         fprintf(stderr, "decode round trip failed\n");

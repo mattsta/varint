@@ -1,12 +1,12 @@
 #include "varintRecord.h"
 #include "endianIsLittle.h"
-#include <inttypes.h>
 #include "varintDD.h"
 #include "varintDDStream.h"
 #include "varintDelta.h"
 #include "varintFloat.h"
 #include "varintTagged.h"
 #include <assert.h>
+#include <inttypes.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -129,8 +129,7 @@ const char *varintRecordStrategyName(varintRecordStrategy strategy) {
  * Schema validation
  * ==================================================================== */
 
-bool varintRecordSchemaValid(size_t recordSize,
-                             const varintRecordField *fields,
+bool varintRecordSchemaValid(size_t recordSize, const varintRecordField *fields,
                              size_t fieldCount) {
     if (!fields || fieldCount == 0 || fieldCount > VARINT_RECORD_MAX_FIELDS ||
         recordSize == 0) {
@@ -300,17 +299,17 @@ static bool recordMul_(size_t a, size_t b, size_t *out) {
  * Buffer contents never survive between calls — only capacity does. */
 
 struct varintRecordCtx {
-    uint64_t *column;   /* one column of values */
-    uint64_t *aux;      /* transform scratch (signed map, XOR) */
-    uint64_t *bits;     /* fused gather staging arena */
-    double *doubles;    /* FLOAT lane values */
-    varintDD *dd0;      /* DD lane values */
-    varintDD *dd1;      /* DD lane verification */
-    uint8_t *lane0;     /* candidate payload (ping) */
-    uint8_t *lane1;     /* candidate payload (pong) */
-    uint8_t *guard;     /* bounded varintFloat decode scratch */
-    uint8_t *cs0;       /* chunked-compete scratch (ping) */
-    uint8_t *cs1;       /* chunked-compete scratch (pong) */
+    uint64_t *column; /* one column of values */
+    uint64_t *aux;    /* transform scratch (signed map, XOR) */
+    uint64_t *bits;   /* fused gather staging arena */
+    double *doubles;  /* FLOAT lane values */
+    varintDD *dd0;    /* DD lane values */
+    varintDD *dd1;    /* DD lane verification */
+    uint8_t *lane0;   /* candidate payload (ping) */
+    uint8_t *lane1;   /* candidate payload (pong) */
+    uint8_t *guard;   /* bounded varintFloat decode scratch */
+    uint8_t *cs0;     /* chunked-compete scratch (ping) */
+    uint8_t *cs1;     /* chunked-compete scratch (pong) */
     size_t columnCap;
     size_t auxCap;
     size_t bitsCap;
@@ -540,8 +539,8 @@ static size_t recordCompeteBound_(size_t recordCount) {
 }
 
 /* Largest payload any lane may produce for this field. */
-static bool recordColumnBound_(size_t recordCount,
-                               const varintRecordField *fld, size_t *out) {
+static bool recordColumnBound_(size_t recordCount, const varintRecordField *fld,
+                               size_t *out) {
     size_t verbatim, bound;
     if (!recordMul_(recordCount, fld->size, &verbatim)) {
         return false;
@@ -559,8 +558,8 @@ static bool recordColumnBound_(size_t recordCount,
         }
     }
     if (recordKindFloat_(fld->kind)) {
-        const size_t f = varintFloatMaxEncodedSize(
-            recordCount, VARINT_FLOAT_PRECISION_FULL);
+        const size_t f =
+            varintFloatMaxEncodedSize(recordCount, VARINT_FLOAT_PRECISION_FULL);
         if (f > bound) {
             bound = f;
         }
@@ -651,8 +650,7 @@ static size_t recordEncodePlanes_(recordEncodeCtx *ctx, const uint8_t *base,
             /* Raw byte p of the field: for little-endian layouts that
              * is bits byte p; declared-big-endian fields store their
              * raw bytes reversed relative to the value bits. */
-            const size_t shift =
-                8 * (bigEndian ? (fld->size - 1 - p) : p);
+            const size_t shift = 8 * (bigEndian ? (fld->size - 1 - p) : p);
             for (size_t i = 0; i < n; i++) {
                 ctx->column[i] = (bits[i] >> shift) & 0xFF;
             }
@@ -841,22 +839,20 @@ size_t varintRecordEncodeWithCtx(varintRecordCtx *ws, uint8_t *dst,
     bool allocOk =
         recordReserve_(&ws->column, &ws->columnCap,
                        recordCount * sizeof(uint64_t)) &&
-        recordReserve_(&ws->aux, &ws->auxCap,
-                       recordCount * sizeof(uint64_t)) &&
+        recordReserve_(&ws->aux, &ws->auxCap, recordCount * sizeof(uint64_t)) &&
         recordReserve_(&ws->lane0, &ws->lane0Cap, laneBound) &&
         recordReserve_(&ws->lane1, &ws->lane1Cap, laneBound) &&
         recordReserve_(&ws->cs0, &ws->cs0Cap, csBytes) &&
-        (!needFloat ||
-         (recordReserve_(&ws->doubles, &ws->doublesCap,
-                         recordCount * sizeof(double)) &&
-          recordReserve_(&ws->guard, &ws->guardCap,
-                         recordFloatReadBound_(recordCount)))) &&
+        (!needFloat || (recordReserve_(&ws->doubles, &ws->doublesCap,
+                                       recordCount * sizeof(double)) &&
+                        recordReserve_(&ws->guard, &ws->guardCap,
+                                       recordFloatReadBound_(recordCount)))) &&
         (!needDD || (recordReserve_(&ws->dd0, &ws->dd0Cap,
                                     recordCount * sizeof(varintDD)) &&
                      recordReserve_(&ws->dd1, &ws->dd1Cap,
                                     recordCount * sizeof(varintDD))));
-    allocOk = allocOk &&
-              varintCompeteChunkedScratchInit(&cs, ws->cs0, ws->cs0Cap, 0);
+    allocOk =
+        allocOk && varintCompeteChunkedScratchInit(&cs, ws->cs0, ws->cs0Cap, 0);
 
     recordEncodeCtx ctx;
     memset(&ctx, 0, sizeof(ctx));
@@ -886,8 +882,7 @@ size_t varintRecordEncodeWithCtx(varintRecordCtx *ws, uint8_t *dst,
     }
     size_t arenaBytes;
     if (allocOk && narrowCount > 0 &&
-        recordMul_(narrowCount * sizeof(uint64_t), recordCount,
-                   &arenaBytes) &&
+        recordMul_(narrowCount * sizeof(uint64_t), recordCount, &arenaBytes) &&
         arenaBytes <= VARINT_RECORD_FUSE_BUDGET &&
         recordReserve_(&ws->bits, &ws->bitsCap, arenaBytes)) {
         size_t slot = 0;
@@ -928,8 +923,8 @@ size_t varintRecordEncodeWithCtx(varintRecordCtx *ws, uint8_t *dst,
         } else {
             recordGatherRaw_(base, recordCount, recordSize, fld, ctx.tryBuf);
         }
-        recordConsider_(&ctx, VARINT_RECORD_STRAT_VERBATIM, rawLen,
-                        &bestStrat, &bestLen);
+        recordConsider_(&ctx, VARINT_RECORD_STRAT_VERBATIM, rawLen, &bestStrat,
+                        &bestLen);
 
         if (recordStrategyAllowed_(fld->kind, VARINT_RECORD_STRAT_COMPETE)) {
             const uint64_t *competeInput;
@@ -944,8 +939,8 @@ size_t varintRecordEncodeWithCtx(varintRecordCtx *ws, uint8_t *dst,
                     competeInput = bits;
                 }
             } else {
-                if (!recordGatherNormalized_(base, recordCount, recordSize,
-                                             fld, ctx.column)) {
+                if (!recordGatherNormalized_(base, recordCount, recordSize, fld,
+                                             ctx.column)) {
                     allocOk = false; /* BOOL contract violation */
                     break;
                 }
@@ -964,8 +959,8 @@ size_t varintRecordEncodeWithCtx(varintRecordCtx *ws, uint8_t *dst,
                 }
                 recordConsider_(&ctx, VARINT_RECORD_STRAT_XOR,
                                 varintCompeteEncodeChunkedUnsignedScratch(
-                                    ctx.tryBuf, ctx.aux, recordCount,
-                                    codecMask, 0, NULL, ctx.cs),
+                                    ctx.tryBuf, ctx.aux, recordCount, codecMask,
+                                    0, NULL, ctx.cs),
                                 &bestStrat, &bestLen);
             }
         }
@@ -982,10 +977,10 @@ size_t varintRecordEncodeWithCtx(varintRecordCtx *ws, uint8_t *dst,
         }
 
         if (recordStrategyAllowed_(fld->kind, VARINT_RECORD_STRAT_DD_STREAM)) {
-            recordConsider_(&ctx, VARINT_RECORD_STRAT_DD_STREAM,
-                            recordEncodeDD_(&ctx, base, recordSize, fld,
-                                            ctx.tryBuf),
-                            &bestStrat, &bestLen);
+            recordConsider_(
+                &ctx, VARINT_RECORD_STRAT_DD_STREAM,
+                recordEncodeDD_(&ctx, base, recordSize, fld, ctx.tryBuf),
+                &bestStrat, &bestLen);
         }
 
         /* PLANES costs one competition per byte of width, so it runs
@@ -1024,15 +1019,14 @@ static void recordCtxCleanup_(varintRecordCtx *ws) {
     recordCtxRelease_(ws);
 }
 
-size_t varintRecordEncode(uint8_t *dst, const void *records,
-                          size_t recordCount, size_t recordSize,
-                          const varintRecordField *fields, size_t fieldCount,
-                          uint64_t codecMask, varintRecordMeta *meta) {
+size_t varintRecordEncode(uint8_t *dst, const void *records, size_t recordCount,
+                          size_t recordSize, const varintRecordField *fields,
+                          size_t fieldCount, uint64_t codecMask,
+                          varintRecordMeta *meta) {
     __attribute__((cleanup(recordCtxCleanup_))) varintRecordCtx ws;
     memset(&ws, 0, sizeof(ws));
-    return varintRecordEncodeWithCtx(&ws, dst, records, recordCount,
-                                     recordSize, fields, fieldCount, codecMask,
-                                     meta);
+    return varintRecordEncodeWithCtx(&ws, dst, records, recordCount, recordSize,
+                                     fields, fieldCount, codecMask, meta);
 }
 
 /* ====================================================================
@@ -1175,8 +1169,7 @@ size_t varintRecordDecodeWithCtx(varintRecordCtx *ws, const uint8_t *src,
             ok = false;
             break;
         }
-        const varintRecordStrategy strat =
-            (varintRecordStrategy)src[cursor++];
+        const varintRecordStrategy strat = (varintRecordStrategy)src[cursor++];
         if (strat >= VARINT_RECORD_STRAT_MAX ||
             !recordStrategyAllowed_(fld->kind, strat)) {
             ok = false;
@@ -1244,8 +1237,7 @@ size_t varintRecordDecodeWithCtx(varintRecordCtx *ws, const uint8_t *src,
                 ok = false;
                 break;
             }
-            const bool bigEndian =
-                (fld->flags & VARINT_RECORD_FLAG_BIG_ENDIAN);
+            const bool bigEndian = (fld->flags & VARINT_RECORD_FLAG_BIG_ENDIAN);
             for (size_t i = 0; i < recordCount; i++) {
                 uint64_t bits;
                 if (fld->kind == VARINT_RECORD_F32) {
@@ -1265,9 +1257,9 @@ size_t varintRecordDecodeWithCtx(varintRecordCtx *ws, const uint8_t *src,
             size_t planeCursor = 0;
             for (size_t plane = 0; ok && plane < fld->size; plane++) {
                 uint64_t planeBytes64;
-                varintWidth pw = recordReadTagged_(
-                    payload + planeCursor, colBytes - planeCursor,
-                    &planeBytes64);
+                varintWidth pw =
+                    recordReadTagged_(payload + planeCursor,
+                                      colBytes - planeCursor, &planeBytes64);
                 if (pw == 0 ||
                     planeBytes64 > colBytes - planeCursor - (size_t)pw) {
                     ok = false;
@@ -1296,8 +1288,8 @@ size_t varintRecordDecodeWithCtx(varintRecordCtx *ws, const uint8_t *src,
         case VARINT_RECORD_STRAT_DD_STREAM: {
             if (!recordReserve_(&ws->dd0, &ws->dd0Cap,
                                 recordCount * sizeof(varintDD)) ||
-                varintDDStreamDecode(payload, colBytes, ws->dd0,
-                                     recordCount) != recordCount) {
+                varintDDStreamDecode(payload, colBytes, ws->dd0, recordCount) !=
+                    recordCount) {
                 ok = false;
                 break;
             }
@@ -1512,8 +1504,8 @@ typedef struct evalRow {
     varintRecordFieldKind kind;
     size_t size;
     void (*fill)(uint8_t *base, size_t count, size_t stride);
-    double minRatio;         /* rawBytes / encoded column payload */
-    uint32_t allowedStrats;  /* bitmask over varintRecordStrategy */
+    double minRatio;        /* rawBytes / encoded column payload */
+    uint32_t allowedStrats; /* bitmask over varintRecordStrategy */
 } evalRow;
 
 #define STRAT_BIT(s) (UINT32_C(1) << (s))
@@ -1631,8 +1623,7 @@ static void fillDDPromoted_(uint8_t *base, size_t count, size_t stride) {
 static const evalRow evalMatrix_[] = {
     {"U64 stride", VARINT_RECORD_U64, 8, fillU64Stride_, 500.0,
      STRAT_BIT(VARINT_RECORD_STRAT_COMPETE)},
-    {"U64 random floor", VARINT_RECORD_U64, 8, fillU64Random_, 0.90,
-     STRAT_ANY},
+    {"U64 random floor", VARINT_RECORD_U64, 8, fillU64Random_, 0.90, STRAT_ANY},
     {"U16 skewed", VARINT_RECORD_U16, 2, fillU16Skewed_, 4.0,
      STRAT_BIT(VARINT_RECORD_STRAT_COMPETE) |
          STRAT_BIT(VARINT_RECORD_STRAT_PLANES)},
@@ -1641,13 +1632,11 @@ static const evalRow evalMatrix_[] = {
     {"I16 jitter", VARINT_RECORD_I16, 2, fillI16Jitter_, 2.0, STRAT_ANY},
     {"I64 extremes", VARINT_RECORD_I64, 8, fillI64Extremes_, 1.5, STRAT_ANY},
     {"F64 smooth", VARINT_RECORD_F64, 8, fillF64Smooth_, 1.25,
-     STRAT_BIT(VARINT_RECORD_STRAT_XOR) |
-         STRAT_BIT(VARINT_RECORD_STRAT_FLOAT) |
+     STRAT_BIT(VARINT_RECORD_STRAT_XOR) | STRAT_BIT(VARINT_RECORD_STRAT_FLOAT) |
          STRAT_BIT(VARINT_RECORD_STRAT_PLANES)},
     {"F64 few distinct", VARINT_RECORD_F64, 8, fillF64FewDistinct_, 4.0,
      STRAT_ANY},
-    {"F32 smooth", VARINT_RECORD_F32, 4, fillF32Smooth_, 1.25,
-     STRAT_ANY},
+    {"F32 smooth", VARINT_RECORD_F32, 4, fillF32Smooth_, 1.25, STRAT_ANY},
     {"BOOL sparse", VARINT_RECORD_BOOL, 1, fillBoolSparse_, 4.0,
      STRAT_BIT(VARINT_RECORD_STRAT_COMPETE)},
     {"BYTES structured", VARINT_RECORD_BYTES, 6, fillBytesStructured_, 3.0,
@@ -1667,8 +1656,8 @@ int varintRecordTest(int argc, char *argv[]) {
 
     TEST("Record eval matrix: every kind hits its ratio + strategy") {
         enum { N = 8192 };
-        for (size_t row = 0;
-             row < sizeof(evalMatrix_) / sizeof(evalMatrix_[0]); row++) {
+        for (size_t row = 0; row < sizeof(evalMatrix_) / sizeof(evalMatrix_[0]);
+             row++) {
             const evalRow *e = &evalMatrix_[row];
             const size_t stride = e->size;
             uint8_t *records = calloc(N, stride);
@@ -1686,11 +1675,10 @@ int varintRecordTest(int argc, char *argv[]) {
             }
             uint8_t *enc = malloc(bound);
             varintRecordMeta meta;
-            const size_t written = varintRecordEncode(
-                enc, records, N, stride, field, 1, 0, &meta);
+            const size_t written =
+                varintRecordEncode(enc, records, N, stride, field, 1, 0, &meta);
             if (written == 0 || written > bound) {
-                ERR("[%s] encode failed (%zu of %zu)", e->name, written,
-                    bound);
+                ERR("[%s] encode failed (%zu of %zu)", e->name, written, bound);
                 free(records);
                 free(enc);
                 continue;
@@ -1704,8 +1692,7 @@ int varintRecordTest(int argc, char *argv[]) {
                     varintRecordStrategyName(
                         (varintRecordStrategy)meta.columnStrategy[0]));
             }
-            if (!(e->allowedStrats &
-                  STRAT_BIT(meta.columnStrategy[0]))) {
+            if (!(e->allowedStrats & STRAT_BIT(meta.columnStrategy[0]))) {
                 ERR("[%s] unexpected winning strategy %s", e->name,
                     varintRecordStrategyName(
                         (varintRecordStrategy)meta.columnStrategy[0]));
@@ -1713,8 +1700,8 @@ int varintRecordTest(int argc, char *argv[]) {
 
             uint8_t *dec = malloc(N * stride);
             size_t decodedCount = 0;
-            const size_t read = varintRecordDecode(enc, written, dec, N,
-                                                   stride, &decodedCount);
+            const size_t read =
+                varintRecordDecode(enc, written, dec, N, stride, &decodedCount);
             if (read != written || decodedCount != N ||
                 memcmp(dec, records, N * stride) != 0) {
                 ERR("[%s] round trip failed", e->name);
@@ -1804,11 +1791,11 @@ int varintRecordTest(int argc, char *argv[]) {
             rows[i].tag[5] = (uint8_t)(testRand_() % 3);
         }
 
-        uint8_t *enc = malloc(
-            varintRecordMaxEncodedSize(N, sizeof(wide), schema, 5));
+        uint8_t *enc =
+            malloc(varintRecordMaxEncodedSize(N, sizeof(wide), schema, 5));
         varintRecordMeta meta;
-        const size_t written = varintRecordEncode(enc, rows, N, sizeof(wide),
-                                                  schema, 5, 0, &meta);
+        const size_t written =
+            varintRecordEncode(enc, rows, N, sizeof(wide), schema, 5, 0, &meta);
         if (written == 0) {
             ERRR("multi-kind encode failed");
         }
@@ -1938,8 +1925,7 @@ int varintRecordTest(int argc, char *argv[]) {
         }
 
         varintRecordField badWidth[] = {{0, 2, VARINT_RECORD_U32, 0}};
-        if (varintRecordEncode(buf, rows, 2, sizeof(s), badWidth, 1, 0,
-                               NULL)) {
+        if (varintRecordEncode(buf, rows, 2, sizeof(s), badWidth, 1, 0, NULL)) {
             ERRR("kind/size mismatch accepted");
         }
 
@@ -2064,8 +2050,7 @@ int varintRecordTest(int argc, char *argv[]) {
             cursor += bytes;
             got += decodedCount;
         }
-        if (got != SHARD * SHARDS ||
-            memcmp(dec, rows, sizeof(rows)) != 0) {
+        if (got != SHARD * SHARDS || memcmp(dec, rows, sizeof(rows)) != 0) {
             ERRR("sharded round trip incomplete");
         }
 
@@ -2137,8 +2122,8 @@ int varintRecordTest(int argc, char *argv[]) {
                 ERR("expected clipped 5 printed, got %zu", printed);
             }
             /* Window past the end prints nothing. */
-            if (varintRecordPrintRecords(sink, rows, N, sizeof(row), schema,
-                                         4, names, N, 10) != 0) {
+            if (varintRecordPrintRecords(sink, rows, N, sizeof(row), schema, 4,
+                                         names, N, 10) != 0) {
                 ERRR("out-of-range window printed rows");
             }
             if (ftell(sink) <= 0) {
@@ -2247,8 +2232,8 @@ int varintRecordTest(int argc, char *argv[]) {
             ERRR("correctly sized scratch rejected");
         }
 
-        const size_t plain = varintCompeteEncodeChunkedUnsigned(
-            dst, values, N, 0, 0, NULL);
+        const size_t plain =
+            varintCompeteEncodeChunkedUnsigned(dst, values, N, 0, 0, NULL);
         const size_t withScratch = varintCompeteEncodeChunkedUnsignedScratch(
             dst, values, N, 0, 0, NULL, &scratch);
         if (plain == 0 || plain != withScratch) {

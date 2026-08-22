@@ -835,12 +835,11 @@ size_t varintCompeteDecodeUnsigned(const uint8_t *src, size_t srcBytes,
     }
     case VARINT_CODEC_ELIAS_GAMMA:
     case VARINT_CODEC_ELIAS_DELTA: {
-        const size_t got =
-            (h.codecID == VARINT_CODEC_ELIAS_GAMMA)
-                ? varintEliasGammaDecodeArray(body, h.bodyLen * 8, output,
-                                              count)
-                : varintEliasDeltaDecodeArray(body, h.bodyLen * 8, output,
-                                              count);
+        const size_t got = (h.codecID == VARINT_CODEC_ELIAS_GAMMA)
+                               ? varintEliasGammaDecodeArray(
+                                     body, h.bodyLen * 8, output, count)
+                               : varintEliasDeltaDecodeArray(
+                                     body, h.bodyLen * 8, output, count);
         if (got != count) {
             return 0;
         }
