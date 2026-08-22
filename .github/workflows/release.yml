@@ -76,7 +76,7 @@ jobs:
 
       - name: Upload release artifacts
         if: startsWith(matrix.os, 'ubuntu')
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v7
         with:
           name: release-archive
           path: varint-*.tar.gz
