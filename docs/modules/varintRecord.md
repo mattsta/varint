@@ -103,6 +103,12 @@ size_t varintRecordDecode(const uint8_t *src, size_t srcBytes, void *records,
                           size_t maxRecords, size_t recordSize,
                           size_t *decodedCount);
 
+/* Reusable workspace: grow-only buffers across calls */
+varintRecordCtx *varintRecordCtxNew(void);
+void varintRecordCtxFree(varintRecordCtx *ctx);
+size_t varintRecordEncodeWithCtx(varintRecordCtx *ctx, ...);
+size_t varintRecordDecodeWithCtx(varintRecordCtx *ctx, ...);
+
 /* Sharding: streams are self-delimiting */
 size_t varintRecordStreamBytes(const uint8_t *src, size_t srcBytes);
 
@@ -114,6 +120,12 @@ size_t varintRecordPrintRecords(FILE *out, const void *records,
                                 const char *const *fieldNames,
                                 size_t firstRecord, size_t maxRecords);
 ```
+
+## Reusable Workspace
+
+Encode and decode need working buffers proportional to the record count (staging columns, lane scratch, verification space, the chunked competition's scratch pair). The plain entry points allocate and release them per call; a `varintRecordCtx` owns them across calls in grow-only slots — a slot reallocates only when a call needs more than any earlier call did, so repeated same-shape calls run with **zero allocations** in steady state. One context serves encode and decode, any schemas and record counts, in any order; it holds no stream state, only memory (one context per thread). The sharding pattern is where it pays: `varintRecordBench`'s sharded section measures 1.17x on 4096-record telemetry shards, growing as shards shrink. The fuzzer drives one persistent context across every random shape while cross-checking the per-call path, so reuse and fresh-allocation behavior are proven byte-identical.
+
+The chunked competition exposes the same discipline one layer down as a **typed scratch**: `varintCompeteChunkedScratch` binds client-owned memory (stack or heap) via `varintCompeteChunkedScratchInit`, which validates the size and stamps the geometry; every use re-audits the stamp, the capacity, and the block target, rejecting a mismatched scratch instead of trusting it.
 
 ## Sharding
 

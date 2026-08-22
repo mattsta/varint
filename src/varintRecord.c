@@ -292,6 +292,82 @@ static bool recordMul_(size_t a, size_t b, size_t *out) {
 }
 
 /* ====================================================================
+ * Reusable context — allocation reuse across calls
+ * ====================================================================
+ * All working memory lives in grow-only slots: a slot is reallocated
+ * only when a call needs more than any earlier call did, so repeated
+ * same-shape calls (the sharding pattern) run with zero allocations.
+ * Buffer contents never survive between calls — only capacity does. */
+
+struct varintRecordCtx {
+    uint64_t *column;   /* one column of values */
+    uint64_t *aux;      /* transform scratch (signed map, XOR) */
+    uint64_t *bits;     /* fused gather staging arena */
+    double *doubles;    /* FLOAT lane values */
+    varintDD *dd0;      /* DD lane values */
+    varintDD *dd1;      /* DD lane verification */
+    uint8_t *lane0;     /* candidate payload (ping) */
+    uint8_t *lane1;     /* candidate payload (pong) */
+    uint8_t *guard;     /* bounded varintFloat decode scratch */
+    uint8_t *cs0;       /* chunked-compete scratch (ping) */
+    uint8_t *cs1;       /* chunked-compete scratch (pong) */
+    size_t columnCap;
+    size_t auxCap;
+    size_t bitsCap;
+    size_t doublesCap;
+    size_t dd0Cap;
+    size_t dd1Cap;
+    size_t lane0Cap;
+    size_t lane1Cap;
+    size_t guardCap;
+    size_t cs0Cap;
+    size_t cs1Cap;
+};
+
+/* Grow-only reservation: contents are not preserved (no call needs
+ * them to be), so growth is free+malloc rather than realloc-copy. */
+static bool recordReserve_(void *slotAny, size_t *cap, size_t need) {
+    void **slot = slotAny;
+    if (need == 0) {
+        return true;
+    }
+    if (*slot && need <= *cap) {
+        return true;
+    }
+    free(*slot);
+    *slot = malloc(need);
+    *cap = *slot ? need : 0;
+    return *slot != NULL;
+}
+
+static void recordCtxRelease_(varintRecordCtx *ws) {
+    free(ws->column);
+    free(ws->aux);
+    free(ws->bits);
+    free(ws->doubles);
+    free(ws->dd0);
+    free(ws->dd1);
+    free(ws->lane0);
+    free(ws->lane1);
+    free(ws->guard);
+    free(ws->cs0);
+    free(ws->cs1);
+    memset(ws, 0, sizeof(*ws));
+}
+
+varintRecordCtx *varintRecordCtxNew(void) {
+    return calloc(1, sizeof(varintRecordCtx));
+}
+
+void varintRecordCtxFree(varintRecordCtx *ctx) {
+    if (!ctx) {
+        return;
+    }
+    recordCtxRelease_(ctx);
+    free(ctx);
+}
+
+/* ====================================================================
  * Column gathers
  * ==================================================================== */
 
@@ -432,9 +508,12 @@ static size_t recordFloatReadBound_(size_t count) {
     return 4 + 2 * ((count + 7) / 8) + count * 9 + (count * 52 + 7) / 8 + 64;
 }
 
+/* guard is caller-reserved workspace of recordFloatReadBound_(count)
+ * bytes (both call sites reserve exactly that through the context). */
 static bool recordFloatDecodeGuarded_(const uint8_t *payload, size_t colBytes,
-                                      size_t count, double *out) {
-    if (colBytes < 4 || count == 0) {
+                                      size_t count, double *out,
+                                      uint8_t *guard) {
+    if (colBytes < 4 || count == 0 || !guard) {
         return false;
     }
     if (payload[0] > 3 || payload[1] > 16 || payload[2] > 52 ||
@@ -445,13 +524,9 @@ static bool recordFloatDecodeGuarded_(const uint8_t *payload, size_t colBytes,
     if (colBytes > bound) {
         return false;
     }
-    uint8_t *guarded = calloc(1, bound);
-    if (!guarded) {
-        return false;
-    }
-    memcpy(guarded, payload, colBytes);
-    const size_t consumed = varintFloatDecode(guarded, count, out);
-    free(guarded);
+    memcpy(guard, payload, colBytes);
+    memset(guard + colBytes, 0, bound - colBytes);
+    const size_t consumed = varintFloatDecode(guard, count, out);
     return consumed == colBytes;
 }
 
@@ -528,7 +603,8 @@ size_t varintRecordMaxEncodedSize(size_t recordCount, size_t recordSize,
     return total;
 }
 
-/* Working state shared by every column of one encode call. */
+/* Working state shared by every column of one encode call. All buffer
+ * pointers are borrowed from the varintRecordCtx workspace. */
 typedef struct recordEncodeCtx {
     uint64_t *column;   /* recordCount normalized/plane values */
     uint64_t *aux;      /* recordCount transform scratch */
@@ -537,6 +613,8 @@ typedef struct recordEncodeCtx {
     varintDD *ddVerify; /* recordCount, DD verification (NULL unless) */
     uint8_t *bestBuf;   /* winning payload so far */
     uint8_t *tryBuf;    /* candidate payload */
+    uint8_t *guard;     /* FLOAT verification decode workspace */
+    const varintCompeteChunkedScratch *cs; /* chunked-compete scratch */
     size_t recordCount;
     uint64_t codecMask;
 } recordEncodeCtx;
@@ -586,8 +664,8 @@ static size_t recordEncodePlanes_(recordEncodeCtx *ctx, const uint8_t *base,
         /* Reserve the worst-case tagged prefix, then move the stream
          * back over the gap once its real length is known. */
         uint8_t *payload = dst + written + 9;
-        const size_t planeBytes = varintCompeteEncodeChunkedUnsigned(
-            payload, ctx->column, n, ctx->codecMask, 0, NULL);
+        const size_t planeBytes = varintCompeteEncodeChunkedUnsignedScratch(
+            payload, ctx->column, n, ctx->codecMask, 0, NULL, ctx->cs);
         if (planeBytes == 0) {
             return 0;
         }
@@ -651,7 +729,7 @@ static size_t recordEncodeFloat_(recordEncodeCtx *ctx, const uint8_t *base,
      * bit-exact for this exact data (NaN payloads, subnormals, and
      * negative zeros are where float pipelines quietly diverge). */
     double *verify = (double *)(void *)ctx->aux;
-    if (!recordFloatDecodeGuarded_(dst, best, n, verify)) {
+    if (!recordFloatDecodeGuarded_(dst, best, n, verify, ctx->guard)) {
         return 0;
     }
     const bool bigEndian = (fld->flags & VARINT_RECORD_FLAG_BIG_ENDIAN);
@@ -698,11 +776,13 @@ static size_t recordEncodeDD_(recordEncodeCtx *ctx, const uint8_t *base,
     return len;
 }
 
-size_t varintRecordEncode(uint8_t *dst, const void *records,
-                          size_t recordCount, size_t recordSize,
-                          const varintRecordField *fields, size_t fieldCount,
-                          uint64_t codecMask, varintRecordMeta *meta) {
-    if (!dst || (!records && recordCount > 0) ||
+size_t varintRecordEncodeWithCtx(varintRecordCtx *ws, uint8_t *dst,
+                                 const void *records, size_t recordCount,
+                                 size_t recordSize,
+                                 const varintRecordField *fields,
+                                 size_t fieldCount, uint64_t codecMask,
+                                 varintRecordMeta *meta) {
+    if (!ws || !dst || (!records && recordCount > 0) ||
         !varintRecordSchemaValid(recordSize, fields, fieldCount)) {
         return 0;
     }
@@ -754,21 +834,43 @@ size_t varintRecordEncode(uint8_t *dst, const void *records,
         needDD = needDD || fields[f].kind == VARINT_RECORD_DD;
     }
 
+    /* Reserve every buffer in the workspace: grow-only, so repeated
+     * same-shape calls (sharding) reuse memory with zero allocations. */
+    const size_t csBytes = varintCompeteChunkedScratchBytes(0);
+    varintCompeteChunkedScratch cs;
+    bool allocOk =
+        recordReserve_(&ws->column, &ws->columnCap,
+                       recordCount * sizeof(uint64_t)) &&
+        recordReserve_(&ws->aux, &ws->auxCap,
+                       recordCount * sizeof(uint64_t)) &&
+        recordReserve_(&ws->lane0, &ws->lane0Cap, laneBound) &&
+        recordReserve_(&ws->lane1, &ws->lane1Cap, laneBound) &&
+        recordReserve_(&ws->cs0, &ws->cs0Cap, csBytes) &&
+        (!needFloat ||
+         (recordReserve_(&ws->doubles, &ws->doublesCap,
+                         recordCount * sizeof(double)) &&
+          recordReserve_(&ws->guard, &ws->guardCap,
+                         recordFloatReadBound_(recordCount)))) &&
+        (!needDD || (recordReserve_(&ws->dd0, &ws->dd0Cap,
+                                    recordCount * sizeof(varintDD)) &&
+                     recordReserve_(&ws->dd1, &ws->dd1Cap,
+                                    recordCount * sizeof(varintDD))));
+    allocOk = allocOk &&
+              varintCompeteChunkedScratchInit(&cs, ws->cs0, ws->cs0Cap, 0);
+
     recordEncodeCtx ctx;
     memset(&ctx, 0, sizeof(ctx));
     ctx.recordCount = recordCount;
     ctx.codecMask = codecMask;
-    ctx.column = malloc(recordCount * sizeof(uint64_t));
-    ctx.aux = malloc(recordCount * sizeof(uint64_t));
-    ctx.doubles = needFloat ? malloc(recordCount * sizeof(double)) : NULL;
-    ctx.ddVals = needDD ? malloc(recordCount * sizeof(varintDD)) : NULL;
-    ctx.ddVerify = needDD ? malloc(recordCount * sizeof(varintDD)) : NULL;
-    ctx.bestBuf = malloc(laneBound);
-    ctx.tryBuf = malloc(laneBound);
-
-    bool allocOk = ctx.column && ctx.aux && ctx.bestBuf && ctx.tryBuf &&
-                   (!needFloat || ctx.doubles) &&
-                   (!needDD || (ctx.ddVals && ctx.ddVerify));
+    ctx.column = ws->column;
+    ctx.aux = ws->aux;
+    ctx.doubles = ws->doubles;
+    ctx.ddVals = ws->dd0;
+    ctx.ddVerify = ws->dd1;
+    ctx.bestBuf = ws->lane0;
+    ctx.tryBuf = ws->lane1;
+    ctx.guard = ws->guard;
+    ctx.cs = &cs;
 
     /* Fused staging: every narrow field's bits column fills in one
      * cache-blocked sweep, and all lanes (compete input, XOR transform,
@@ -776,7 +878,6 @@ size_t varintRecordEncode(uint8_t *dst, const void *records,
      * from it — the record array streams once instead of once per lane
      * per field. Falls back to per-field gathers past the budget. */
     uint64_t *bitsCols[VARINT_RECORD_MAX_FIELDS] = {NULL};
-    uint64_t *bitsArena = NULL;
     size_t narrowCount = 0;
     for (size_t f = 0; f < fieldCount; f++) {
         if (recordFieldNarrow_(&fields[f])) {
@@ -787,20 +888,18 @@ size_t varintRecordEncode(uint8_t *dst, const void *records,
     if (allocOk && narrowCount > 0 &&
         recordMul_(narrowCount * sizeof(uint64_t), recordCount,
                    &arenaBytes) &&
-        arenaBytes <= VARINT_RECORD_FUSE_BUDGET) {
-        bitsArena = malloc(arenaBytes);
-        if (bitsArena) {
-            size_t slot = 0;
-            for (size_t f = 0; f < fieldCount; f++) {
-                if (recordFieldNarrow_(&fields[f])) {
-                    bitsCols[f] = bitsArena + slot * recordCount;
-                    slot++;
-                }
+        arenaBytes <= VARINT_RECORD_FUSE_BUDGET &&
+        recordReserve_(&ws->bits, &ws->bitsCap, arenaBytes)) {
+        size_t slot = 0;
+        for (size_t f = 0; f < fieldCount; f++) {
+            if (recordFieldNarrow_(&fields[f])) {
+                bitsCols[f] = ws->bits + slot * recordCount;
+                slot++;
             }
-            if (!recordGatherBitsFused_(records, recordCount, recordSize,
-                                        fields, fieldCount, bitsCols)) {
-                allocOk = false; /* BOOL contract violation */
-            }
+        }
+        if (!recordGatherBitsFused_(records, recordCount, recordSize, fields,
+                                    fieldCount, bitsCols)) {
+            allocOk = false; /* BOOL contract violation */
         }
     }
 
@@ -853,9 +952,9 @@ size_t varintRecordEncode(uint8_t *dst, const void *records,
                 competeInput = ctx.column;
             }
             recordConsider_(&ctx, VARINT_RECORD_STRAT_COMPETE,
-                            varintCompeteEncodeChunkedUnsigned(
+                            varintCompeteEncodeChunkedUnsignedScratch(
                                 ctx.tryBuf, competeInput, recordCount,
-                                codecMask, 0, NULL),
+                                codecMask, 0, NULL, ctx.cs),
                             &bestStrat, &bestLen);
 
             if (recordStrategyAllowed_(fld->kind, VARINT_RECORD_STRAT_XOR)) {
@@ -864,9 +963,9 @@ size_t varintRecordEncode(uint8_t *dst, const void *records,
                     ctx.aux[i] = competeInput[i] ^ competeInput[i - 1];
                 }
                 recordConsider_(&ctx, VARINT_RECORD_STRAT_XOR,
-                                varintCompeteEncodeChunkedUnsigned(
+                                varintCompeteEncodeChunkedUnsignedScratch(
                                     ctx.tryBuf, ctx.aux, recordCount,
-                                    codecMask, 0, NULL),
+                                    codecMask, 0, NULL, ctx.cs),
                                 &bestStrat, &bestLen);
             }
         }
@@ -910,14 +1009,6 @@ size_t varintRecordEncode(uint8_t *dst, const void *records,
         }
     }
 
-    free(bitsArena);
-    free(ctx.column);
-    free(ctx.aux);
-    free(ctx.doubles);
-    free(ctx.ddVals);
-    free(ctx.ddVerify);
-    free(ctx.bestBuf);
-    free(ctx.tryBuf);
     if (!allocOk) {
         return 0;
     }
@@ -925,6 +1016,23 @@ size_t varintRecordEncode(uint8_t *dst, const void *records,
         meta->encodedSize = written;
     }
     return written;
+}
+
+/* Cleanup hook so plain-API workspaces release automatically on every
+ * return path. */
+static void recordCtxCleanup_(varintRecordCtx *ws) {
+    recordCtxRelease_(ws);
+}
+
+size_t varintRecordEncode(uint8_t *dst, const void *records,
+                          size_t recordCount, size_t recordSize,
+                          const varintRecordField *fields, size_t fieldCount,
+                          uint64_t codecMask, varintRecordMeta *meta) {
+    __attribute__((cleanup(recordCtxCleanup_))) varintRecordCtx ws;
+    memset(&ws, 0, sizeof(ws));
+    return varintRecordEncodeWithCtx(&ws, dst, records, recordCount,
+                                     recordSize, fields, fieldCount, codecMask,
+                                     meta);
 }
 
 /* ====================================================================
@@ -995,10 +1103,11 @@ static void recordScatterNormalized_(uint8_t *base, size_t recordCount,
     }
 }
 
-size_t varintRecordDecode(const uint8_t *src, size_t srcBytes, void *records,
-                          size_t maxRecords, size_t recordSize,
-                          size_t *decodedCount) {
-    if (!src || !records) {
+size_t varintRecordDecodeWithCtx(varintRecordCtx *ws, const uint8_t *src,
+                                 size_t srcBytes, void *records,
+                                 size_t maxRecords, size_t recordSize,
+                                 size_t *decodedCount) {
+    if (!ws || !src || !records) {
         return 0;
     }
     varintRecordHeader hdr;
@@ -1052,12 +1161,11 @@ size_t varintRecordDecode(const uint8_t *src, size_t srcBytes, void *records,
         return cursor;
     }
 
-    uint64_t *column = malloc(recordCount * sizeof(uint64_t));
-    double *doubles = NULL;   /* allocated on first FLOAT column */
-    varintDD *ddVals = NULL;  /* allocated on first DD_STREAM column */
-    if (!column) {
+    if (!recordReserve_(&ws->column, &ws->columnCap,
+                        recordCount * sizeof(uint64_t))) {
         return 0;
     }
+    uint64_t *column = ws->column;
 
     uint8_t *base = records;
     bool ok = true;
@@ -1127,12 +1235,12 @@ size_t varintRecordDecode(const uint8_t *src, size_t srcBytes, void *records,
             break;
         }
         case VARINT_RECORD_STRAT_FLOAT: {
-            if (!doubles) {
-                doubles = malloc(recordCount * sizeof(double));
-            }
-            if (!doubles ||
+            if (!recordReserve_(&ws->doubles, &ws->doublesCap,
+                                recordCount * sizeof(double)) ||
+                !recordReserve_(&ws->guard, &ws->guardCap,
+                                recordFloatReadBound_(recordCount)) ||
                 !recordFloatDecodeGuarded_(payload, colBytes, recordCount,
-                                           doubles)) {
+                                           ws->doubles, ws->guard)) {
                 ok = false;
                 break;
             }
@@ -1141,12 +1249,12 @@ size_t varintRecordDecode(const uint8_t *src, size_t srcBytes, void *records,
             for (size_t i = 0; i < recordCount; i++) {
                 uint64_t bits;
                 if (fld->kind == VARINT_RECORD_F32) {
-                    const float fv = (float)doubles[i];
+                    const float fv = (float)ws->doubles[i];
                     uint32_t b32;
                     memcpy(&b32, &fv, sizeof(b32));
                     bits = b32;
                 } else {
-                    memcpy(&bits, &doubles[i], sizeof(bits));
+                    memcpy(&bits, &ws->doubles[i], sizeof(bits));
                 }
                 recordStoreField_(base + i * recordSize + fld->offset,
                                   fld->size, bigEndian, bits);
@@ -1186,17 +1294,15 @@ size_t varintRecordDecode(const uint8_t *src, size_t srcBytes, void *records,
             break;
         }
         case VARINT_RECORD_STRAT_DD_STREAM: {
-            if (!ddVals) {
-                ddVals = malloc(recordCount * sizeof(varintDD));
-            }
-            if (!ddVals ||
-                varintDDStreamDecode(payload, colBytes, ddVals,
+            if (!recordReserve_(&ws->dd0, &ws->dd0Cap,
+                                recordCount * sizeof(varintDD)) ||
+                varintDDStreamDecode(payload, colBytes, ws->dd0,
                                      recordCount) != recordCount) {
                 ok = false;
                 break;
             }
             for (size_t i = 0; i < recordCount; i++) {
-                memcpy(base + i * recordSize + fld->offset, &ddVals[i],
+                memcpy(base + i * recordSize + fld->offset, &ws->dd0[i],
                        sizeof(varintDD));
             }
             break;
@@ -1207,9 +1313,6 @@ size_t varintRecordDecode(const uint8_t *src, size_t srcBytes, void *records,
         }
     }
 
-    free(column);
-    free(doubles);
-    free(ddVals);
     if (!ok) {
         return 0;
     }
@@ -1217,6 +1320,15 @@ size_t varintRecordDecode(const uint8_t *src, size_t srcBytes, void *records,
         *decodedCount = recordCount;
     }
     return cursor;
+}
+
+size_t varintRecordDecode(const uint8_t *src, size_t srcBytes, void *records,
+                          size_t maxRecords, size_t recordSize,
+                          size_t *decodedCount) {
+    __attribute__((cleanup(recordCtxCleanup_))) varintRecordCtx ws;
+    memset(&ws, 0, sizeof(ws));
+    return varintRecordDecodeWithCtx(&ws, src, srcBytes, records, maxRecords,
+                                     recordSize, decodedCount);
 }
 
 /* ====================================================================
@@ -2034,6 +2146,129 @@ int varintRecordTest(int argc, char *argv[]) {
             }
             fclose(sink);
         }
+    }
+
+    TEST("Record: one context serves mixed shapes, output identical") {
+        varintRecordCtx *ws = varintRecordCtxNew();
+        if (!ws) {
+            ERRR("ctx alloc failed");
+        }
+
+        /* Shape 1: wide multi-kind records (grows every buffer). */
+        typedef struct big {
+            uint64_t a;
+            double d;
+            varintDD dd;
+            uint8_t tag[4];
+        } big;
+        static const varintRecordField bigSchema[] = {
+            VARINT_RECORD_FIELD(big, a, VARINT_RECORD_U64),
+            VARINT_RECORD_FIELD(big, d, VARINT_RECORD_F64),
+            VARINT_RECORD_FIELD(big, dd, VARINT_RECORD_DD),
+            {offsetof(big, tag), 4, VARINT_RECORD_BYTES, 0},
+        };
+        enum { NB = 3000, NS = 500 };
+        big *rows = calloc(NB, sizeof(*rows));
+        double dv = 5.0;
+        for (size_t i = 0; i < NB; i++) {
+            rows[i].a = i * 11;
+            dv += 0.125;
+            rows[i].d = dv;
+            rows[i].dd = varintDDTwoSum((double)i, 1e-20);
+            memset(rows[i].tag, (int32_t)(i % 3), 4);
+        }
+        uint8_t *encPlain =
+            malloc(varintRecordMaxEncodedSize(NB, sizeof(big), bigSchema, 4));
+        uint8_t *encCtx =
+            malloc(varintRecordMaxEncodedSize(NB, sizeof(big), bigSchema, 4));
+        const size_t wPlain = varintRecordEncode(
+            encPlain, rows, NB, sizeof(big), bigSchema, 4, 0, NULL);
+        const size_t wCtx = varintRecordEncodeWithCtx(
+            ws, encCtx, rows, NB, sizeof(big), bigSchema, 4, 0, NULL);
+        if (wPlain == 0 || wPlain != wCtx ||
+            memcmp(encPlain, encCtx, wPlain) != 0) {
+            ERRR("ctx encode diverged from plain encode");
+        }
+
+        /* Shape 2: a smaller, different schema on the same context —
+         * reuse must not leak state between shapes. */
+        typedef struct small {
+            int16_t v;
+        } small;
+        static const varintRecordField smallSchema[] = {
+            VARINT_RECORD_FIELD(small, v, VARINT_RECORD_I16),
+        };
+        small srows[NS];
+        for (size_t i = 0; i < NS; i++) {
+            srows[i].v = (int16_t)((int64_t)i - 250);
+        }
+        uint8_t sbuf[8192];
+        const size_t sw = varintRecordEncodeWithCtx(
+            ws, sbuf, srows, NS, sizeof(small), smallSchema, 1, 0, NULL);
+        small sdec[NS];
+        size_t got = 0;
+        if (sw == 0 ||
+            varintRecordDecodeWithCtx(ws, sbuf, sw, sdec, NS, sizeof(small),
+                                      &got) != sw ||
+            got != NS || memcmp(sdec, srows, sizeof(srows)) != 0) {
+            ERRR("ctx reuse across shapes failed");
+        }
+
+        /* Back to shape 1 for decode, same context. */
+        big *dec = malloc(NB * sizeof(*dec));
+        if (varintRecordDecodeWithCtx(ws, encCtx, wCtx, dec, NB, sizeof(big),
+                                      &got) != wCtx ||
+            got != NB || memcmp(dec, rows, NB * sizeof(big)) != 0) {
+            ERRR("ctx decode after reuse failed");
+        }
+
+        varintRecordCtxFree(ws);
+        free(rows);
+        free(encPlain);
+        free(encCtx);
+        free(dec);
+    }
+
+    TEST("Compete: typed scratch is validated before use") {
+        enum { N = 2048 };
+        static uint64_t values[N];
+        for (size_t i = 0; i < N; i++) {
+            values[i] = 100 + i;
+        }
+        uint8_t *dst = malloc(varintCompeteMaxEncodedSizeChunked(N, 0));
+        const size_t need = varintCompeteChunkedScratchBytes(0);
+        uint8_t *mem = malloc(need);
+        varintCompeteChunkedScratch scratch;
+
+        if (varintCompeteChunkedScratchInit(&scratch, mem, need - 1, 0)) {
+            ERRR("undersized scratch memory accepted by Init");
+        }
+        if (!varintCompeteChunkedScratchInit(&scratch, mem, need, 0)) {
+            ERRR("correctly sized scratch rejected");
+        }
+
+        const size_t plain = varintCompeteEncodeChunkedUnsigned(
+            dst, values, N, 0, 0, NULL);
+        const size_t withScratch = varintCompeteEncodeChunkedUnsignedScratch(
+            dst, values, N, 0, 0, NULL, &scratch);
+        if (plain == 0 || plain != withScratch) {
+            ERRR("scratch encode diverged from plain encode");
+        }
+
+        /* A scratch bound for one block target must be rejected when
+         * applied to a different one, and an unstamped scratch must be
+         * rejected outright. */
+        if (varintCompeteEncodeChunkedUnsignedScratch(dst, values, N, 0, 128,
+                                                      NULL, &scratch) != 0) {
+            ERRR("scratch applied across block targets accepted");
+        }
+        scratch.magic = 0;
+        if (varintCompeteEncodeChunkedUnsignedScratch(dst, values, N, 0, 0,
+                                                      NULL, &scratch) != 0) {
+            ERRR("unstamped scratch accepted");
+        }
+        free(dst);
+        free(mem);
     }
 
     TEST("Record: header is self-describing") {

@@ -161,6 +161,44 @@ size_t varintCompeteEncodeChunkedUnsigned(uint8_t *dst, const uint64_t *values,
                                           size_t blockValues,
                                           size_t *blocksOut);
 
+/* Typed scratch for the chunked encoder: the client owns the backing
+ * memory (stack or heap) and varintCompeteChunkedScratchInit carves and
+ * validates it, stamping the geometry so every later use can audit
+ * that the scratch is initialized, sized, and shaped for the block
+ * target it is applied to. Never fill this struct by hand. */
+typedef struct varintCompeteChunkedScratch {
+    uint8_t *laneA;
+    uint8_t *laneB;
+    size_t laneBytes;   /* capacity of each lane */
+    size_t blockValues; /* normalized block target this scratch serves */
+    uint32_t magic;     /* proves Init ran; every use validates it */
+} varintCompeteChunkedScratch;
+
+#define VARINT_COMPETE_SCRATCH_MAGIC UINT32_C(0x56435353) /* "VCSS" */
+
+/* Total backing bytes Init needs for a given per-block target
+ * (0 = default). */
+size_t varintCompeteChunkedScratchBytes(size_t blockValues);
+
+/* Bind scratch to caller memory: mem/memBytes is the backing store
+ * (at least varintCompeteChunkedScratchBytes(blockValues) bytes; the
+ * requirement is enforced, not trusted). Returns false on NULL or
+ * undersized memory, leaving the scratch unusable. */
+bool varintCompeteChunkedScratchInit(varintCompeteChunkedScratch *scratch,
+                                     uint8_t *mem, size_t memBytes,
+                                     size_t blockValues);
+
+/* As varintCompeteEncodeChunkedUnsigned, but working in caller-provided
+ * scratch instead of allocating per call. The scratch must have been
+ * bound by varintCompeteChunkedScratchInit for the SAME blockValues
+ * target — magic, geometry, and block target are all validated, and a
+ * mismatch is rejected (returns 0) rather than trusted. NULL scratch
+ * falls back to internal allocation. */
+size_t varintCompeteEncodeChunkedUnsignedScratch(
+    uint8_t *dst, const uint64_t *values, size_t count, uint64_t codecMask,
+    size_t blockValues, size_t *blocksOut,
+    const varintCompeteChunkedScratch *scratch);
+
 /* ====================================================================
  * Decode
  * ==================================================================== */

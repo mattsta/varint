@@ -259,6 +259,68 @@ static void benchOne_(const shapeRow *shape, size_t count, int repeats) {
     free(decTimes);
 }
 
+/* Sharding throughput: many small same-schema encodes are where the
+ * reusable context pays — per-call allocation cost is amortized to
+ * zero after the first shard. */
+static void benchSharded_(size_t count, int repeats) {
+    enum { SHARD = 4096 };
+    const shapeRow *shape = &shapes_[0]; /* telemetry */
+    uint8_t *rows = calloc(count, shape->recordSize);
+    uint8_t *enc = malloc(varintRecordMaxEncodedSize(
+        SHARD, shape->recordSize, shape->schema, shape->fieldCount));
+    double *plainTimes = malloc((size_t)repeats * sizeof(*plainTimes));
+    double *ctxTimes = malloc((size_t)repeats * sizeof(*ctxTimes));
+    varintRecordCtx *ws = varintRecordCtxNew();
+    if (!rows || !enc || !plainTimes || !ctxTimes || !ws) {
+        fprintf(stderr, "bench: allocation failed\n");
+        exit(2);
+    }
+    shape->fill(rows, count, shape->recordSize);
+    const size_t shards = count / SHARD;
+
+    for (int r = 0; r < repeats; r++) {
+        double t0 = now_();
+        for (size_t s = 0; s < shards; s++) {
+            if (varintRecordEncode(enc, rows + s * SHARD * shape->recordSize,
+                                   SHARD, shape->recordSize, shape->schema,
+                                   shape->fieldCount, 0, NULL) == 0) {
+                fprintf(stderr, "bench: shard encode failed\n");
+                exit(2);
+            }
+        }
+        plainTimes[r] = now_() - t0;
+
+        t0 = now_();
+        for (size_t s = 0; s < shards; s++) {
+            if (varintRecordEncodeWithCtx(
+                    ws, enc, rows + s * SHARD * shape->recordSize, SHARD,
+                    shape->recordSize, shape->schema, shape->fieldCount, 0,
+                    NULL) == 0) {
+                fprintf(stderr, "bench: ctx shard encode failed\n");
+                exit(2);
+            }
+        }
+        ctxTimes[r] = now_() - t0;
+    }
+
+    qsort(plainTimes, (size_t)repeats, sizeof(double), cmpDouble_);
+    qsort(ctxTimes, (size_t)repeats, sizeof(double), cmpDouble_);
+    const double mb =
+        (double)(shards * SHARD * shape->recordSize) / (1024.0 * 1024.0);
+    const double plainMed = plainTimes[repeats / 2];
+    const double ctxMed = ctxTimes[repeats / 2];
+    printf("\nsharded encode (%zu shards x %d records, telemetry):\n"
+           "  per-call allocation: %7.1f MB/s\n"
+           "  reused context:      %7.1f MB/s  (%.2fx)\n",
+           shards, SHARD, mb / plainMed, mb / ctxMed, plainMed / ctxMed);
+
+    varintRecordCtxFree(ws);
+    free(rows);
+    free(enc);
+    free(plainTimes);
+    free(ctxTimes);
+}
+
 int main(int argc, char *argv[]) {
     const size_t count =
         (argc > 1) ? strtoull(argv[1], NULL, 0) : ((size_t)1 << 20);
@@ -269,5 +331,6 @@ int main(int argc, char *argv[]) {
     for (size_t i = 0; i < sizeof(shapes_) / sizeof(shapes_[0]); i++) {
         benchOne_(&shapes_[i], count, repeats);
     }
+    benchSharded_(count, repeats);
     return 0;
 }

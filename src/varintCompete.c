@@ -186,41 +186,40 @@ static size_t encBP128Delta_(uint8_t *scratch, const uint64_t *vals,
 /* Elias codes encode positive integers, so values shift by +1 on the
  * wire. The lane self-gates to small values: universal codes only win
  * on small-integer columns, and the gate keeps the worst-case Gamma
- * length (2*bits+1) inside the shared scratch bound. */
+ * length (2*bits+1) inside the shared scratch bound. Values stream
+ * through the bit writer one at a time, so the lane needs no scratch
+ * copy of the column. */
 #define COMPETE_ELIAS_MAX_VALUE ((UINT64_C(1) << 30) - 2)
 
-typedef size_t (*competeEliasEncodeArrayFn_)(uint8_t *dst,
-                                             const uint64_t *values,
-                                             size_t count,
-                                             varintEliasMeta *meta);
+typedef size_t (*competeEliasEncodeFn_)(varintBitWriter *w, uint64_t value);
 
 static size_t encEliasCommon_(uint8_t *scratch, const uint64_t *vals,
-                              size_t count, competeEliasEncodeArrayFn_ enc) {
+                              size_t count, competeEliasEncodeFn_ enc) {
     for (size_t i = 0; i < count; i++) {
         if (vals[i] > COMPETE_ELIAS_MAX_VALUE) {
             return 0;
         }
     }
-    uint64_t *shifted = malloc(count * sizeof(uint64_t));
-    if (!shifted) {
-        return 0;
-    }
+    /* Capacity invariant: the value gate caps Gamma at 61 bits and
+     * Delta below that, so worst case is under 8 bytes/value against
+     * the 16 bytes/value scratch bound — the bit writer (which bounds
+     * only by assert) cannot overrun. */
+    varintBitWriter w;
+    varintBitWriterInit(&w, scratch, competeBodyUpperBound_(count));
     for (size_t i = 0; i < count; i++) {
-        shifted[i] = vals[i] + 1;
+        enc(&w, vals[i] + 1);
     }
-    const size_t n = enc(scratch, shifted, count, NULL);
-    free(shifted);
-    return n;
+    return varintBitWriterBytes(&w);
 }
 
 static size_t encEliasGamma_(uint8_t *scratch, const uint64_t *vals,
                              size_t count) {
-    return encEliasCommon_(scratch, vals, count, varintEliasGammaEncodeArray);
+    return encEliasCommon_(scratch, vals, count, varintEliasGammaEncode);
 }
 
 static size_t encEliasDelta_(uint8_t *scratch, const uint64_t *vals,
                              size_t count) {
-    return encEliasCommon_(scratch, vals, count, varintEliasDeltaEncodeArray);
+    return encEliasCommon_(scratch, vals, count, varintEliasDeltaEncode);
 }
 
 /* ====================================================================
@@ -517,10 +516,44 @@ size_t varintCompeteMaxEncodedSizeChunked(size_t count, size_t blockValues) {
     return 4 + 1 + 9 + blocks * (9 + varintCompeteMaxEncodedSize(blockValues));
 }
 
+size_t varintCompeteChunkedScratchBytes(size_t blockValues) {
+    return 2 * competeBodyUpperBound_(chunkNormalizeBlockValues_(blockValues));
+}
+
+bool varintCompeteChunkedScratchInit(varintCompeteChunkedScratch *scratch,
+                                     uint8_t *mem, size_t memBytes,
+                                     size_t blockValues) {
+    if (!scratch) {
+        return false;
+    }
+    memset(scratch, 0, sizeof(*scratch));
+    const size_t normalized = chunkNormalizeBlockValues_(blockValues);
+    const size_t lane = competeBodyUpperBound_(normalized);
+    if (!mem || memBytes < 2 * lane) {
+        return false;
+    }
+    scratch->laneA = mem;
+    scratch->laneB = mem + lane;
+    scratch->laneBytes = lane;
+    scratch->blockValues = normalized;
+    scratch->magic = VARINT_COMPETE_SCRATCH_MAGIC;
+    return true;
+}
+
+/* Audit a scratch against the block target it is being applied to. */
+static bool competeScratchValid_(const varintCompeteChunkedScratch *scratch,
+                                 size_t blockValues) {
+    return scratch->magic == VARINT_COMPETE_SCRATCH_MAGIC &&
+           scratch->laneA != NULL && scratch->laneB != NULL &&
+           scratch->blockValues == chunkNormalizeBlockValues_(blockValues) &&
+           scratch->laneBytes >= competeBodyUpperBound_(scratch->blockValues);
+}
+
 static size_t chunkedEncodeRun_(uint8_t *dst, const void *valuesAny,
                                 size_t count, uint64_t codecMask,
                                 size_t blockValues, competeKind kind,
-                                size_t *blocksOut) {
+                                size_t *blocksOut, uint8_t *extScratchA,
+                                uint8_t *extScratchB) {
     if (!dst) {
         return 0;
     }
@@ -544,16 +577,22 @@ static size_t chunkedEncodeRun_(uint8_t *dst, const void *valuesAny,
         return (size_t)(p - dst);
     }
 
-    /* One scratch pair reused across every block. Stride-grown blocks
-     * bypass the competition, so scratch never needs to exceed the
-     * per-block target. */
-    size_t cap = competeBodyUpperBound_(blockValues);
-    uint8_t *scratchA = malloc(cap);
-    uint8_t *scratchB = malloc(cap);
-    if (!scratchA || !scratchB) {
-        free(scratchA);
-        free(scratchB);
-        return 0;
+    /* One scratch pair reused across every block — caller-provided when
+     * available, allocated here otherwise. Stride-grown blocks bypass
+     * the competition, so scratch never needs to exceed the per-block
+     * target. */
+    const bool ownScratch = (extScratchA == NULL || extScratchB == NULL);
+    uint8_t *scratchA = extScratchA;
+    uint8_t *scratchB = extScratchB;
+    if (ownScratch) {
+        size_t cap = competeBodyUpperBound_(blockValues);
+        scratchA = malloc(cap);
+        scratchB = malloc(cap);
+        if (!scratchA || !scratchB) {
+            free(scratchA);
+            free(scratchB);
+            return 0;
+        }
     }
 
     /* Both kinds share bit-identical block planning: stride detection
@@ -616,8 +655,10 @@ static size_t chunkedEncodeRun_(uint8_t *dst, const void *valuesAny,
             frameBytes = competeRun_(p, uv + pos, blockCount, blockMask, kind,
                                      NULL, scratchA, scratchB);
             if (frameBytes == 0) {
-                free(scratchA);
-                free(scratchB);
+                if (ownScratch) {
+                    free(scratchA);
+                    free(scratchB);
+                }
                 return 0;
             }
         }
@@ -627,8 +668,10 @@ static size_t chunkedEncodeRun_(uint8_t *dst, const void *valuesAny,
         blocks++;
     }
 
-    free(scratchA);
-    free(scratchB);
+    if (ownScratch) {
+        free(scratchA);
+        free(scratchB);
+    }
     if (blocksOut) {
         *blocksOut = blocks;
     }
@@ -639,7 +682,7 @@ size_t varintCompeteEncodeChunked(uint8_t *dst, const int64_t *values,
                                   size_t count, uint64_t codecMask,
                                   size_t blockValues, size_t *blocksOut) {
     return chunkedEncodeRun_(dst, values, count, codecMask, blockValues,
-                             COMPETE_SIGNED, blocksOut);
+                             COMPETE_SIGNED, blocksOut, NULL, NULL);
 }
 
 size_t varintCompeteEncodeChunkedUnsigned(uint8_t *dst, const uint64_t *values,
@@ -647,7 +690,27 @@ size_t varintCompeteEncodeChunkedUnsigned(uint8_t *dst, const uint64_t *values,
                                           size_t blockValues,
                                           size_t *blocksOut) {
     return chunkedEncodeRun_(dst, values, count, codecMask, blockValues,
-                             COMPETE_UNSIGNED, blocksOut);
+                             COMPETE_UNSIGNED, blocksOut, NULL, NULL);
+}
+
+size_t varintCompeteEncodeChunkedUnsignedScratch(
+    uint8_t *dst, const uint64_t *values, size_t count, uint64_t codecMask,
+    size_t blockValues, size_t *blocksOut,
+    const varintCompeteChunkedScratch *scratch) {
+    if (!scratch) {
+        return chunkedEncodeRun_(dst, values, count, codecMask, blockValues,
+                                 COMPETE_UNSIGNED, blocksOut, NULL, NULL);
+    }
+    /* The scratch's stamped geometry is enforced, never trusted: an
+     * uninitialized, undersized, or wrong-block-target scratch is a
+     * caller bug surfaced here instead of a heap overflow inside the
+     * competition. */
+    if (!competeScratchValid_(scratch, blockValues)) {
+        return 0;
+    }
+    return chunkedEncodeRun_(dst, values, count, codecMask, blockValues,
+                             COMPETE_UNSIGNED, blocksOut, scratch->laneA,
+                             scratch->laneB);
 }
 
 /* ====================================================================

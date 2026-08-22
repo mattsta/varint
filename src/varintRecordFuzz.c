@@ -127,6 +127,14 @@ int main(int argc, char *argv[]) {
     const uint64_t seed = (argc > 2) ? strtoull(argv[2], NULL, 0) : 24151;
     rngState_ = seed ? seed : 1;
 
+    /* One persistent workspace across every iteration stresses the
+     * grow-only reuse path over random shapes and sizes. */
+    varintRecordCtx *ws = varintRecordCtxNew();
+    if (!ws) {
+        fprintf(stderr, "ctx allocation failed\n");
+        return 1;
+    }
+
     for (uint64_t iter = 0; iter < iterations; iter++) {
         varintRecordField fields[VARINT_RECORD_MAX_FIELDS];
         size_t fieldCount = 0;
@@ -145,8 +153,8 @@ int main(int argc, char *argv[]) {
         }
         uint8_t *enc = malloc(bound);
         const size_t written =
-            varintRecordEncode(enc, records, recordCount, recordSize, fields,
-                               fieldCount, 0, NULL);
+            varintRecordEncodeWithCtx(ws, enc, records, recordCount,
+                                      recordSize, fields, fieldCount, 0, NULL);
         if (written == 0 || written > bound) {
             fprintf(stderr, "iter %" PRIu64 ": encode failed (%zu of %zu)\n",
                     iter, written, bound);
@@ -155,8 +163,8 @@ int main(int argc, char *argv[]) {
 
         uint8_t *dec = malloc(recordCount * recordSize + 1);
         size_t decodedCount = 0;
-        const size_t read = varintRecordDecode(enc, written, dec, recordCount,
-                                               recordSize, &decodedCount);
+        const size_t read = varintRecordDecodeWithCtx(
+            ws, enc, written, dec, recordCount, recordSize, &decodedCount);
         if (read != written || decodedCount != recordCount ||
             (recordCount > 0 &&
              memcmp(dec, records, recordCount * recordSize) != 0)) {
@@ -164,7 +172,9 @@ int main(int argc, char *argv[]) {
             return 1;
         }
 
-        /* Idempotency: decoded records must re-encode to the same bytes. */
+        /* Idempotency, via the plain API so the context path and the
+         * per-call path continuously cross-check each other: decoded
+         * records must re-encode to the same bytes. */
         uint8_t *enc2 = malloc(bound);
         const size_t written2 =
             varintRecordEncode(enc2, dec, recordCount, recordSize, fields,
@@ -213,6 +223,7 @@ int main(int argc, char *argv[]) {
         free(dec);
     }
 
+    varintRecordCtxFree(ws);
     printf("varintRecordFuzz: %" PRIu64 " iterations OK (seed %" PRIu64 ")\n",
            iterations, seed);
     return 0;

@@ -201,6 +201,38 @@ size_t varintRecordDecode(const uint8_t *src, size_t srcBytes, void *records,
                           size_t *decodedCount);
 
 /* ====================================================================
+ * Reusable context — allocation reuse across calls
+ * ====================================================================
+ * Encode and decode need working buffers proportional to the record
+ * count (staging columns, lane scratch, verification space). The plain
+ * entry points allocate and free them per call; a varintRecordCtx owns
+ * them across calls instead, growing each buffer to the largest size
+ * any call needed and reusing it thereafter. The win is workloads that
+ * call repeatedly — especially the sharding pattern, where every shard
+ * shares one schema and one size, so steady state runs with zero
+ * allocations. One context serves both encode and decode, any schemas
+ * and record counts, in any order; it holds no stream state, only
+ * memory. Contexts are not thread-safe: use one per thread. */
+
+typedef struct varintRecordCtx varintRecordCtx;
+
+varintRecordCtx *varintRecordCtxNew(void);
+void varintRecordCtxFree(varintRecordCtx *ctx);
+
+/* varintRecordEncode / varintRecordDecode with caller-owned working
+ * memory. Identical semantics and output to the plain entry points. */
+size_t varintRecordEncodeWithCtx(varintRecordCtx *ctx, uint8_t *dst,
+                                 const void *records, size_t recordCount,
+                                 size_t recordSize,
+                                 const varintRecordField *fields,
+                                 size_t fieldCount, uint64_t codecMask,
+                                 varintRecordMeta *meta);
+size_t varintRecordDecodeWithCtx(varintRecordCtx *ctx, const uint8_t *src,
+                                 size_t srcBytes, void *records,
+                                 size_t maxRecords, size_t recordSize,
+                                 size_t *decodedCount);
+
+/* ====================================================================
  * Stream walking — sharding support
  * ==================================================================== */
 
