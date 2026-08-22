@@ -201,7 +201,11 @@ static void benchOne_(const shapeRow *shape, size_t count, int repeats) {
         count, shape->recordSize, shape->schema, shape->fieldCount));
     double *encTimes = malloc((size_t)repeats * sizeof(*encTimes));
     double *decTimes = malloc((size_t)repeats * sizeof(*decTimes));
-    if (!rows || !dec || !enc || !encTimes || !decTimes) {
+    /* The main table reports steady-state throughput (warm reused
+     * workspace); the sharded section below quantifies the per-call
+     * allocation delta separately. */
+    varintRecordCtx *ws = varintRecordCtxNew();
+    if (!rows || !dec || !enc || !encTimes || !decTimes || !ws) {
         fprintf(stderr, "bench: allocation failed\n");
         exit(2);
     }
@@ -211,17 +215,17 @@ static void benchOne_(const shapeRow *shape, size_t count, int repeats) {
     varintRecordMeta meta;
     for (int r = 0; r < repeats; r++) {
         const double t0 = now_();
-        written = varintRecordEncode(enc, rows, count, shape->recordSize,
-                                     shape->schema, shape->fieldCount, 0,
-                                     &meta);
+        written = varintRecordEncodeWithCtx(ws, enc, rows, count,
+                                            shape->recordSize, shape->schema,
+                                            shape->fieldCount, 0, &meta);
         encTimes[r] = now_() - t0;
     }
     size_t decodedCount = 0;
     for (int r = 0; r < repeats; r++) {
         const double t0 = now_();
-        const size_t got =
-            varintRecordDecode(enc, written, dec, count, shape->recordSize,
-                               &decodedCount);
+        const size_t got = varintRecordDecodeWithCtx(ws, enc, written, dec,
+                                                     count, shape->recordSize,
+                                                     &decodedCount);
         decTimes[r] = now_() - t0;
         if (got != written || decodedCount != count) {
             fprintf(stderr, "bench: decode failed on %s\n", shape->name);
@@ -252,6 +256,7 @@ static void benchOne_(const shapeRow *shape, size_t count, int repeats) {
     }
     printf("]\n");
 
+    varintRecordCtxFree(ws);
     free(rows);
     free(dec);
     free(enc);
