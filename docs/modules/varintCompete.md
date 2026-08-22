@@ -71,9 +71,13 @@ The codec mask is a `uint64_t` bitset over `varintCodecID` values (see `varintTe
 
 ```c
 VARINT_COMPETE_DEFAULT_MASK  /* TAGGED, DELTA, DELTA_DELTA, STRIDE,
-                                FOR, PFOR, DICT, RLE, BP128_DELTA */
+                                FOR, PFOR, DICT, RLE, BP128, BP128_DELTA,
+                                PALETTE, PALETTE_DELTA,
+                                ELIAS_GAMMA, ELIAS_DELTA */
 VARINT_COMPETE_ALL_MASK      /* every known codec */
 ```
+
+The Elias lanes encode values shifted by +1 (universal codes cover positive integers) and self-gate to columns whose values stay below 2^30 — the small-integer territory where gamma/delta codes actually win.
 
 Build your own with `VARINT_COMPETE_BIT(VARINT_CODEC_x)`.
 

@@ -62,7 +62,9 @@ __BEGIN_DECLS
      VARINT_COMPETE_BIT(VARINT_CODEC_BP128) |                                  \
      VARINT_COMPETE_BIT(VARINT_CODEC_BP128_DELTA) |                            \
      VARINT_COMPETE_BIT(VARINT_CODEC_PALETTE) |                                \
-     VARINT_COMPETE_BIT(VARINT_CODEC_PALETTE_DELTA))
+     VARINT_COMPETE_BIT(VARINT_CODEC_PALETTE_DELTA) |                          \
+     VARINT_COMPETE_BIT(VARINT_CODEC_ELIAS_GAMMA) |                            \
+     VARINT_COMPETE_BIT(VARINT_CODEC_ELIAS_DELTA))
 
 /* Mask of every codec compete knows how to run. */
 #define VARINT_COMPETE_ALL_MASK 0xFFFFFFFFULL

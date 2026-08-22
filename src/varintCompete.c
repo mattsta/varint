@@ -9,6 +9,7 @@
 #include "varintDelta.h"
 #include "varintDeltaDelta.h"
 #include "varintDict.h"
+#include "varintElias.h"
 #include "varintFOR.h"
 #include "varintPFOR.h"
 #include "varintPalette.h"
@@ -182,6 +183,46 @@ static size_t encBP128Delta_(uint8_t *scratch, const uint64_t *vals,
     return varintBP128DeltaEncode64(scratch, vals, count, NULL);
 }
 
+/* Elias codes encode positive integers, so values shift by +1 on the
+ * wire. The lane self-gates to small values: universal codes only win
+ * on small-integer columns, and the gate keeps the worst-case Gamma
+ * length (2*bits+1) inside the shared scratch bound. */
+#define COMPETE_ELIAS_MAX_VALUE ((UINT64_C(1) << 30) - 2)
+
+typedef size_t (*competeEliasEncodeArrayFn_)(uint8_t *dst,
+                                             const uint64_t *values,
+                                             size_t count,
+                                             varintEliasMeta *meta);
+
+static size_t encEliasCommon_(uint8_t *scratch, const uint64_t *vals,
+                              size_t count, competeEliasEncodeArrayFn_ enc) {
+    for (size_t i = 0; i < count; i++) {
+        if (vals[i] > COMPETE_ELIAS_MAX_VALUE) {
+            return 0;
+        }
+    }
+    uint64_t *shifted = malloc(count * sizeof(uint64_t));
+    if (!shifted) {
+        return 0;
+    }
+    for (size_t i = 0; i < count; i++) {
+        shifted[i] = vals[i] + 1;
+    }
+    const size_t n = enc(scratch, shifted, count, NULL);
+    free(shifted);
+    return n;
+}
+
+static size_t encEliasGamma_(uint8_t *scratch, const uint64_t *vals,
+                             size_t count) {
+    return encEliasCommon_(scratch, vals, count, varintEliasGammaEncodeArray);
+}
+
+static size_t encEliasDelta_(uint8_t *scratch, const uint64_t *vals,
+                             size_t count) {
+    return encEliasCommon_(scratch, vals, count, varintEliasDeltaEncodeArray);
+}
+
 /* ====================================================================
  * Competition loop
  * ==================================================================== */
@@ -291,6 +332,10 @@ static size_t competeRun_(uint8_t *dst, const void *valuesAny, size_t count,
         TRY_CODEC(VARINT_CODEC_BP128, encBP128_(tryBuf, unsignedVals, count));
         TRY_CODEC(VARINT_CODEC_BP128_DELTA,
                   encBP128Delta_(tryBuf, unsignedVals, count));
+        TRY_CODEC(VARINT_CODEC_ELIAS_GAMMA,
+                  encEliasGamma_(tryBuf, unsignedVals, count));
+        TRY_CODEC(VARINT_CODEC_ELIAS_DELTA,
+                  encEliasDelta_(tryBuf, unsignedVals, count));
     }
 #undef TRY_CODEC
 
@@ -723,6 +768,23 @@ size_t varintCompeteDecodeUnsigned(const uint8_t *src, size_t srcBytes,
     }
     case VARINT_CODEC_BP128_DELTA: {
         varintBP128DeltaDecode64(body, output, count);
+        return hdr + h.bodyLen;
+    }
+    case VARINT_CODEC_ELIAS_GAMMA:
+    case VARINT_CODEC_ELIAS_DELTA: {
+        const size_t got =
+            (h.codecID == VARINT_CODEC_ELIAS_GAMMA)
+                ? varintEliasGammaDecodeArray(body, h.bodyLen * 8, output,
+                                              count)
+                : varintEliasDeltaDecodeArray(body, h.bodyLen * 8, output,
+                                              count);
+        if (got != count) {
+            return 0;
+        }
+        /* Values were shifted +1 for the positive-integer code space. */
+        for (size_t i = 0; i < count; i++) {
+            output[i] -= 1;
+        }
         return hdr + h.bodyLen;
     }
     default:
@@ -1307,6 +1369,63 @@ int varintCompeteTest(int argc, char *argv[]) {
                 ERR("truncated chunked stream (-%zu bytes) accepted", cut);
                 break;
             }
+        }
+        free(buf);
+    }
+
+    TEST("Compete: Elias gamma round-trips and can win on tiny ints") {
+        enum { N = 4096 };
+        static uint64_t values[N];
+        for (size_t i = 0; i < N; i++) {
+            /* Geometric small ints: gamma's optimal distribution. */
+            uint64_t v = 0;
+            uint64_t r = (i * 2654435761U) >> 7;
+            while (v < 6 && (r & 1)) {
+                v++;
+                r >>= 1;
+            }
+            values[i] = v;
+        }
+        uint8_t *buf = malloc(varintCompeteMaxEncodedSize(N));
+        varintCompeteResult res;
+        const uint64_t eliasMask =
+            VARINT_COMPETE_BIT(VARINT_CODEC_ELIAS_GAMMA) |
+            VARINT_COMPETE_BIT(VARINT_CODEC_ELIAS_DELTA) |
+            VARINT_COMPETE_BIT(VARINT_CODEC_TAGGED);
+        size_t written =
+            varintCompeteEncodeUnsigned(buf, values, N, eliasMask, &res);
+        if (res.winner != VARINT_CODEC_ELIAS_GAMMA &&
+            res.winner != VARINT_CODEC_ELIAS_DELTA) {
+            ERR("expected an Elias winner on tiny ints, got %s",
+                varintCodecName(res.winner));
+        }
+        if (written * 2 > N) {
+            ERR("Elias should reach <4 bits/value here: %zu B for %d values",
+                written, N);
+        }
+
+        static uint64_t dec[N];
+        size_t read = varintCompeteDecodeUnsigned(buf, written, N, dec);
+        if (read != written) {
+            ERR("byte count mismatch: wrote %zu, read %zu", written, read);
+        }
+        for (size_t i = 0; i < N; i++) {
+            if (dec[i] != values[i]) {
+                ERR("mismatch at %zu", i);
+                break;
+            }
+        }
+
+        /* Values above the small-int gate must decline, not corrupt. */
+        values[7] = UINT64_C(1) << 40;
+        written = varintCompeteEncodeUnsigned(buf, values, N, eliasMask, &res);
+        if (res.winner != VARINT_CODEC_TAGGED) {
+            ERR("gate breach: %s won with an out-of-range value",
+                varintCodecName(res.winner));
+        }
+        read = varintCompeteDecodeUnsigned(buf, written, N, dec);
+        if (read != written || dec[7] != values[7]) {
+            ERRR("fallback round trip failed");
         }
         free(buf);
     }

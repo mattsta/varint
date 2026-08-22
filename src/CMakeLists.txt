@@ -224,8 +224,8 @@ if(VARINT_BUILD_TESTS)
                    varintCompete.c varintTelemetry.c
                    varintDeltaDelta.c varintStride.c varintDelta.c
                    varintRLE.c varintFOR.c varintPFOR.c varintDict.c
-                   varintPalette.c varintBP128.c varintExternal.c
-                   varintTagged.c)
+                   varintPalette.c varintBP128.c varintElias.c
+                   varintExternal.c varintTagged.c)
     target_compile_definitions(varintCompeteTest PRIVATE VARINT_COMPETE_TEST)
 
     # varintCompeteBench - compete-layer performance validation (not
@@ -235,8 +235,8 @@ if(VARINT_BUILD_TESTS)
                    varintCompete.c varintTelemetry.c
                    varintDeltaDelta.c varintStride.c varintDelta.c
                    varintRLE.c varintFOR.c varintPFOR.c varintDict.c
-                   varintPalette.c varintBP128.c varintExternal.c
-                   varintTagged.c)
+                   varintPalette.c varintBP128.c varintElias.c
+                   varintExternal.c varintTagged.c)
 
     # Link math library on non-Apple systems
     if(NOT APPLE)
