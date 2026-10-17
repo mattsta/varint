@@ -99,6 +99,10 @@ if(VARINT_BUILD_TESTS)
     # BUILD ALL UNIT TESTS
     # ====================================================================
 
+    # varintExternalTest - tests the external varint checked loader
+    add_executable(varintExternalTest varintExternalTest.c varintExternal.c)
+    target_compile_definitions(varintExternalTest PRIVATE VARINT_EXTERNAL_TEST_STANDALONE)
+
     # varintDeltaTest - tests delta encoding with ZigZag
     add_executable(varintDeltaTest varintDeltaTest.c varintDelta.c varintExternal.c)
     target_compile_definitions(varintDeltaTest PRIVATE VARINT_DELTA_TEST_STANDALONE)
@@ -285,6 +289,7 @@ if(VARINT_BUILD_TESTS)
 
     add_test(NAME varint-packed COMMAND ${PACKED}Test 1)
     add_test(NAME varint-dimension COMMAND ${DIMENSION}Test)
+    add_test(NAME varint-external COMMAND varintExternalTest)
     add_test(NAME varint-delta COMMAND varintDeltaTest)
     add_test(NAME varint-for COMMAND varintFORTest)
     add_test(NAME varint-pfor COMMAND varintPFORTest)
