@@ -109,20 +109,18 @@ cmake -B build-release
 
 ## Using the DepsManager System
 
-For projects with multiple dependencies, we provide a **generalized dependency
-management system** in `cmake/deps-manager/`. This handles edit mode, remote
-fetching, vendored sources, and offline bundles for any number of dependencies.
+For projects with multiple dependencies, the **DepsManager** dependency
+manager handles edit mode, remote fetching, vendored sources, and offline
+bundles for any number of dependencies. It began here and is now developed
+in its own repository, **depsmanager**, which holds `DepsManager.cmake`,
+the `deps-manage.sh` helper, their documentation, and the tool that keeps
+every project's copy current.
 
 ### Setup
 
-```bash
-# Copy to your project
-cp -r cmake/deps-manager your-project/cmake/
-
-# Initialize
-cd your-project
-./cmake/deps-manager/deps-manage.sh init
-```
+Copy depsmanager's `DepsManager.cmake` (and, optionally, `deps-manage.sh`)
+into your project's `cmake/deps-manager/`, unchanged, and keep the copy
+current with depsmanager rather than editing it.
 
 ### Declare Dependencies
 
@@ -171,13 +169,15 @@ target_link_libraries(myapp PRIVATE varint-static nlohmann_json)
 ./cmake/deps-manager/deps-manage.sh unlocal varint
 ```
 
-See `cmake/deps-manager/README.md` for complete documentation.
+See depsmanager's README for complete documentation.
 
 ---
 
 ## Offline / Air-Gapped Deployments
 
 ### Option 1: Use DepsManager Bundle
+
+With depsmanager's `deps-manage.sh` copied into your project:
 
 ```bash
 # On a machine with network access
@@ -328,7 +328,7 @@ you're linking against a varint target.
 
 ### Offline build fails
 
-Use vendored mode or DepsManager bundle:
+Use vendored mode or a DepsManager bundle (depsmanager's `deps-manage.sh`):
 
 ```bash
 ./cmake/deps-manager/deps-manage.sh bundle -v 1.0.0
