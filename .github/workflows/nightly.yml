@@ -23,7 +23,7 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
 
       - name: Install dependencies
         run: |
@@ -37,14 +37,14 @@ jobs:
         run: sudo sysctl vm.mmap_rnd_bits=28
 
       - name: Set up uv
-        uses: astral-sh/setup-uv@v10
+        uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
         with:
           enable-cache: true
           cache-dependency-glob: devtools/uv.lock
 
       - name: Run every unit test (${{ matrix.mode }})
         timeout-minutes: 30
-        run: uv run --project devtools --no-dev varintdev ctest ${{ matrix.mode }} 2>&1 | tee all_tests_output.log
+        run: uv run --project devtools --locked --no-dev varintdev ctest ${{ matrix.mode }} 2>&1 | tee all_tests_output.log
 
       - name: Run comprehensive examples
         timeout-minutes: 30
@@ -62,59 +62,38 @@ jobs:
             all_tests_output.log
           retention-days: 7
 
+  # One job per compiler the ubuntu-26.04 image ships
+  # (actions/runner-images: images/ubuntu/Ubuntu2604-Readme.md). This trails
+  # upstream (GCC 16, Clang 23 are released but not in the image); add newer
+  # compilers here when the runner image ships them.
   compiler-matrix:
-    name: Compiler Matrix (GCC-${{ matrix.gcc }}, Clang-${{ matrix.clang }})
+    name: Compiler Matrix (${{ matrix.compiler }})
     runs-on: ubuntu-26.04
     strategy:
       fail-fast: false
       matrix:
-        gcc: ['10', '11', '12', '13']
-        clang: ['11', '12', '13', '14', '15']
+        compiler: [gcc-13, gcc-14, gcc-15, clang-20, clang-21, clang-22]
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v5
-
-      - name: Install GCC ${{ matrix.gcc }}
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y gcc-${{ matrix.gcc }} g++-${{ matrix.gcc }} || true
-
-      - name: Install Clang ${{ matrix.clang }}
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y clang-${{ matrix.clang }} || true
+        uses: actions/checkout@v7
 
       - name: Set up uv
-        uses: astral-sh/setup-uv@v10
+        uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
         with:
           enable-cache: true
           cache-dependency-glob: devtools/uv.lock
 
-      - name: Test with GCC ${{ matrix.gcc }}
-        continue-on-error: true
-        run: |
-          if command -v gcc-${{ matrix.gcc }} &> /dev/null; then
-            uv run --project devtools --no-dev varintdev warnings gcc-${{ matrix.gcc }} 2>&1 | tee gcc_${{ matrix.gcc }}_results.log
-          fi
-
-      - name: Test with Clang ${{ matrix.clang }}
-        continue-on-error: true
-        run: |
-          if command -v clang-${{ matrix.clang }} &> /dev/null; then
-            uv run --project devtools --no-dev varintdev warnings clang-${{ matrix.clang }} 2>&1 | tee clang_${{ matrix.clang }}_results.log
-          fi
+      - name: Strict warnings with ${{ matrix.compiler }}
+        run: uv run --project devtools --locked --no-dev varintdev warnings ${{ matrix.compiler }} 2>&1 | tee ${{ matrix.compiler }}_results.log
 
       - name: Upload compiler matrix results
         if: always()
         uses: actions/upload-artifact@v7
         with:
-          name: compiler-matrix-gcc${{ matrix.gcc }}-clang${{ matrix.clang }}
-          path: |
-            gcc_*_results.log
-            clang_*_results.log
+          name: compiler-matrix-${{ matrix.compiler }}
+          path: ${{ matrix.compiler }}_results.log
           retention-days: 7
-          if-no-files-found: ignore
 
   performance-benchmarks:
     name: Performance Benchmarks
@@ -122,7 +101,7 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
 
       - name: Install dependencies
         run: |
@@ -160,7 +139,7 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
 
       - name: Install dependencies
         run: |
@@ -168,14 +147,14 @@ jobs:
           sudo apt-get install -y gcc cmake build-essential valgrind
 
       - name: Set up uv
-        uses: astral-sh/setup-uv@v10
+        uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
         with:
           enable-cache: true
           cache-dependency-glob: devtools/uv.lock
 
       - name: Run every unit test under valgrind memcheck
         timeout-minutes: 60
-        run: uv run --project devtools --no-dev varintdev ctest valgrind 2>&1 | tee valgrind_output.log
+        run: uv run --project devtools --locked --no-dev varintdev ctest valgrind 2>&1 | tee valgrind_output.log
 
       - name: Upload valgrind results
         if: always()

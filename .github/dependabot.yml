@@ -1,0 +1,20 @@
+version: 2
+updates:
+  # Workflow actions. Third-party actions are pinned to a full commit SHA
+  # with the release tag in a trailing comment; Dependabot moves both.
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      actions:
+        patterns: ["*"]
+
+  # devtools/ Python dependencies (uv.lock).
+  - package-ecosystem: uv
+    directory: /devtools
+    schedule:
+      interval: weekly
+    groups:
+      devtools:
+        patterns: ["*"]

@@ -24,7 +24,7 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
 
       - name: Install dependencies (Ubuntu)
         if: startsWith(matrix.os, 'ubuntu')
@@ -41,16 +41,16 @@ jobs:
           done
 
       - name: Set up uv
-        uses: astral-sh/setup-uv@v10
+        uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
         with:
           enable-cache: true
           cache-dependency-glob: devtools/uv.lock
 
       - name: Compile every source with warnings as errors (GCC + Clang)
-        run: uv run --project devtools --no-dev varintdev warnings gcc clang
+        run: uv run --project devtools --locked --no-dev varintdev warnings gcc clang
 
       - name: Run every unit test (ASan + UBSan, uninitialized-memory audit)
-        run: uv run --project devtools --no-dev varintdev ctest both uninit
+        run: uv run --project devtools --locked --no-dev varintdev ctest both uninit
 
       - name: Run ALL comprehensive examples
         timeout-minutes: 20
@@ -85,7 +85,7 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
 
       - name: Quality gate summary
         run: |

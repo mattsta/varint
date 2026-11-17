@@ -13,7 +13,9 @@ defaults:
     shell: bash
 
 jobs:
-  # Strict-warning compile of every library source (GCC + Clang)
+  # Strict-warning compile of every library source (GCC + Clang), using the
+  # compilers the runner images ship; newer releases are covered when the
+  # images add them (see the nightly compiler matrix).
   compiler-warnings:
     name: Compiler Warnings (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
@@ -24,7 +26,7 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
 
       - name: Install dependencies (Ubuntu)
         if: startsWith(matrix.os, 'ubuntu')
@@ -41,13 +43,13 @@ jobs:
           done
 
       - name: Set up uv
-        uses: astral-sh/setup-uv@v10
+        uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
         with:
           enable-cache: true
           cache-dependency-glob: devtools/uv.lock
 
       - name: Compile every source with warnings as errors
-        run: uv run --project devtools --no-dev varintdev warnings gcc clang
+        run: uv run --project devtools --locked --no-dev varintdev warnings gcc clang
 
   # Every ctest suite under ASan + UBSan, then with junk-filled memory
   unit-tests:
@@ -60,7 +62,7 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
 
       - name: Install dependencies (Ubuntu)
         if: startsWith(matrix.os, 'ubuntu')
@@ -77,16 +79,16 @@ jobs:
           done
 
       - name: Set up uv
-        uses: astral-sh/setup-uv@v10
+        uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
         with:
           enable-cache: true
           cache-dependency-glob: devtools/uv.lock
 
       - name: Run unit tests (ASan + UBSan)
-        run: uv run --project devtools --no-dev varintdev ctest both
+        run: uv run --project devtools --locked --no-dev varintdev ctest both
 
       - name: Run unit tests (uninitialized-memory audit)
-        run: uv run --project devtools --no-dev varintdev ctest uninit
+        run: uv run --project devtools --locked --no-dev varintdev ctest uninit
 
   # Comprehensive Example/Demo Testing
   examples-comprehensive:
@@ -99,7 +101,7 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
 
       - name: Install dependencies (Ubuntu)
         if: startsWith(matrix.os, 'ubuntu')
@@ -141,7 +143,7 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
 
       - name: Install dependencies (Ubuntu)
         if: startsWith(matrix.os, 'ubuntu')
@@ -186,7 +188,7 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
 
       - name: Install dependencies
         run: |
@@ -199,22 +201,23 @@ jobs:
         run: sudo sysctl vm.mmap_rnd_bits=28
 
       - name: Set up uv
-        uses: astral-sh/setup-uv@v10
+        uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
         with:
           enable-cache: true
           cache-dependency-glob: devtools/uv.lock
 
       - name: Run unit tests (TSan)
-        run: uv run --project devtools --no-dev varintdev ctest tsan
+        run: uv run --project devtools --locked --no-dev varintdev ctest tsan
 
-  # Static Analysis with cppcheck
+  # Static Analysis with cppcheck from the Ubuntu archive, which can trail
+  # the newest cppcheck release; it moves forward with the runner image.
   static-analysis:
     name: Static Analysis (cppcheck)
     runs-on: ubuntu-26.04
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
 
       - name: Install cppcheck
         run: |
@@ -223,13 +226,13 @@ jobs:
           cppcheck --version
 
       - name: Set up uv
-        uses: astral-sh/setup-uv@v10
+        uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
         with:
           enable-cache: true
           cache-dependency-glob: devtools/uv.lock
 
       - name: Run cppcheck on src/
-        run: uv run --project devtools --no-dev varintdev cppcheck 2>&1 | tee cppcheck_output.log
+        run: uv run --project devtools --locked --no-dev varintdev cppcheck 2>&1 | tee cppcheck_output.log
 
       - name: Upload static analysis results
         if: always()
@@ -246,22 +249,30 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
 
       - name: Set up uv
-        uses: astral-sh/setup-uv@v10
+        uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
         with:
           enable-cache: true
           cache-dependency-glob: devtools/uv.lock
 
       - name: ruff format
-        run: uv run --project devtools ruff format --check devtools/src
+        working-directory: devtools
+        run: uv run --locked ruff format --check src
 
       - name: ruff check
-        run: uv run --project devtools ruff check devtools/src
+        working-directory: devtools
+        run: uv run --locked ruff check src
 
       - name: mypy
-        run: uv run --project devtools mypy devtools/src
+        working-directory: devtools
+        run: uv run --locked mypy src
+
+      - name: Workflow YAML and action references
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: uv run --project devtools --locked --no-dev varintdev workflows
 
   summary:
     name: CI Summary

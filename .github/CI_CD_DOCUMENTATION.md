@@ -42,7 +42,11 @@ Every workflow sets `defaults: run: shell: bash`, which runs each step with
 ```
 
 Runners are pinned (`ubuntu-26.04`, `macos-latest`), so a new toolchain
-arrives through an explicit workflow change.
+arrives through an explicit workflow change. Jobs use the compilers and
+cppcheck the runner image ships, which can trail upstream releases (the
+ubuntu-26.04 image has GCC 13–15, Clang 20–22 and cppcheck 2.19 from the
+Ubuntu archive); newer versions join the matrices when the image carries
+them.
 
 ---
 
@@ -60,7 +64,7 @@ arrives through an explicit workflow change.
 | CMake Build | Ubuntu, macOS × gcc, clang | Release configure, build, `ctest`, `varint-test-comprehensive` |
 | ThreadSanitizer | Ubuntu | `varintdev ctest tsan` |
 | Static Analysis | Ubuntu | `varintdev cppcheck` |
-| Devtools | Ubuntu | `ruff format --check`, `ruff check`, `mypy` on `devtools/src` |
+| Devtools | Ubuntu | `ruff format --check`, `ruff check`, `mypy` on `devtools/src`; `varintdev workflows` |
 | CI Summary | Ubuntu | fails if any job above failed or was cancelled |
 
 **Compiler Warnings** compiles every `src/*.c` on its own with
@@ -112,7 +116,7 @@ build files) as a 90-day artifact.
 | Job | What it runs |
 |-----|--------------|
 | Extended Sanitizers | `varintdev ctest <mode>` for each of asan, ubsan, tsan, uninit, plus every example |
-| Compiler Matrix | `varintdev warnings gcc-N` / `clang-N` for each version the runner can install |
+| Compiler Matrix | `varintdev warnings <cc>` for each compiler the image ships: gcc-13, gcc-14, gcc-15, clang-20, clang-21, clang-22 |
 | Performance Benchmarks | `varintCompare` at `-O3` |
 | Valgrind | `varintdev ctest valgrind`: every unit test under memcheck, errors and definite/indirect leaks fail |
 | Nightly Summary | fails if any job above failed or was cancelled |
@@ -322,7 +326,13 @@ uv run --project devtools varintdev ctest both uninit tsan
 - `.github/workflows/release.yml` - Release validation
 - `.github/workflows/nightly.yml` - Extended testing
 
-Validate YAML before pushing: `scripts/build/validate_workflows.py`.
+Before pushing, `varintdev workflows` validates the YAML and resolves every
+referenced action, and `varintdev check` runs every gate. Third-party
+actions are pinned to a full commit SHA with the release tag in a trailing
+comment (the form `astral-sh/setup-uv` documents; it publishes no moving
+major tag); `.github/dependabot.yml` updates those pins and `devtools/uv.lock`
+weekly. CI runs the tooling with `uv run --locked`, so a lockfile that no
+longer matches `devtools/pyproject.toml` fails instead of re-resolving.
 
 ### Adding New Tests
 
