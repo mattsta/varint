@@ -136,6 +136,11 @@ if(VARINT_BUILD_TESTS)
     # varintBitmapTest - tests bitmap encoding
     add_executable(varintBitmapTest varintBitmapTest.c varintBitmap.c varintExternal.c)
 
+    # varintBitstreamTest - every width at every offset against a bit-by-bit
+    # reference, and width 0
+    add_executable(varintBitstreamTest varintBitstreamTest.c)
+    target_compile_definitions(varintBitstreamTest PRIVATE VARINT_BITSTREAM_TEST_STANDALONE)
+
     # varintRLETest - tests run-length encoding
     add_executable(varintRLETest varintRLETest.c varintRLE.c varintExternal.c varintTagged.c)
     target_compile_definitions(varintRLETest PRIVATE VARINT_RLE_TEST)
@@ -298,6 +303,7 @@ if(VARINT_BUILD_TESTS)
     add_test(NAME varint-adaptive COMMAND varintAdaptiveTest)
     add_test(NAME varint-float COMMAND varintFloatTest)
     add_test(NAME varint-bitmap COMMAND varintBitmapTest)
+    add_test(NAME varint-bitstream COMMAND varintBitstreamTest)
     add_test(NAME varint-rle COMMAND varintRLETest)
     add_test(NAME varint-elias COMMAND varintEliasTest)
     add_test(NAME varint-bp128 COMMAND varintBP128Test)
@@ -336,6 +342,7 @@ if(VARINT_BUILD_TESTS)
         add_custom_command(TARGET varintAdaptiveTest POST_BUILD COMMAND dsymutil varintAdaptiveTest)
         add_custom_command(TARGET varintFloatTest POST_BUILD COMMAND dsymutil varintFloatTest)
         add_custom_command(TARGET varintBitmapTest POST_BUILD COMMAND dsymutil varintBitmapTest)
+        add_custom_command(TARGET varintBitstreamTest POST_BUILD COMMAND dsymutil varintBitstreamTest)
         add_custom_command(TARGET varintRLETest POST_BUILD COMMAND dsymutil varintRLETest)
         add_custom_command(TARGET varintEliasTest POST_BUILD COMMAND dsymutil varintEliasTest)
         add_custom_command(TARGET varintBP128Test POST_BUILD COMMAND dsymutil varintBP128Test)

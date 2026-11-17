@@ -45,13 +45,19 @@ typedef uint64_t vbitsVal;
     } while (0)
 
 /* For commented versions of these functions, see varintPacked.h
- * Note: unlike varintPacked, we write in order and not in reverse order. */
+ * Note: unlike varintPacked, we write in order and not in reverse order.
+ * A width ('bitsPerValue') is 0 to BITS_PER_SLOT; a width of 0 writes
+ * nothing and reads 0. */
 static void varintBitstreamSet(vbits *const dst, const size_t startBitOffset,
                                const size_t bitsPerValue, const vbitsVal val) {
     vbitsVal valueMask;
     vbits *__restrict out = NULL;
     int32_t highDataBitPosition = 0;
     int32_t lowDataBitPosition;
+
+    if (bitsPerValue == 0) {
+        return; /* the mask below would shift by the slot's whole width */
+    }
 
     out = &dst[startBitOffset / BITS_PER_SLOT];
 
@@ -89,6 +95,10 @@ static vbitsVal varintBitstreamGet(const vbits *const src,
     int32_t highDataBitPosition = 0;
     vbitsVal out = 0;
     int32_t lowDataBitPosition;
+
+    if (bitsPerValue == 0) {
+        return 0; /* the mask below would shift by the slot's whole width */
+    }
 
     in = &src[startBitOffset / BITS_PER_SLOT];
 
