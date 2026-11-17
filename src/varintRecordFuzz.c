@@ -17,6 +17,7 @@
  * Usage: varintRecordFuzz [iterations] [seed]
  */
 
+#include "ctest.h"
 #include "varintRecord.h"
 #include "varintTagged.h"
 #include <inttypes.h>
@@ -141,7 +142,7 @@ int main(int argc, char *argv[]) {
         const size_t recordSize = randomSchema_(fields, &fieldCount);
         const size_t recordCount = rng_() % 600;
 
-        uint8_t *records = malloc(recordCount * recordSize + 1);
+        uint8_t *records = ctestMalloc(recordCount * recordSize + 1);
         randomRecords_(records, recordCount, recordSize, fields, fieldCount);
 
         const size_t bound = varintRecordMaxEncodedSize(recordCount, recordSize,
@@ -151,7 +152,7 @@ int main(int argc, char *argv[]) {
                     iter);
             return 1;
         }
-        uint8_t *enc = malloc(bound);
+        uint8_t *enc = ctestMalloc(bound);
         const size_t written =
             varintRecordEncodeWithCtx(ws, enc, records, recordCount, recordSize,
                                       fields, fieldCount, 0, NULL);
@@ -161,7 +162,7 @@ int main(int argc, char *argv[]) {
             return 1;
         }
 
-        uint8_t *dec = malloc(recordCount * recordSize + 1);
+        uint8_t *dec = ctestMalloc(recordCount * recordSize + 1);
         size_t decodedCount = 0;
         const size_t read = varintRecordDecodeWithCtx(
             ws, enc, written, dec, recordCount, recordSize, &decodedCount);
@@ -175,7 +176,7 @@ int main(int argc, char *argv[]) {
         /* Idempotency, via the plain API so the context path and the
          * per-call path continuously cross-check each other: decoded
          * records must re-encode to the same bytes. */
-        uint8_t *enc2 = malloc(bound);
+        uint8_t *enc2 = ctestMalloc(bound);
         const size_t written2 = varintRecordEncode(
             enc2, dec, recordCount, recordSize, fields, fieldCount, 0, NULL);
         if (written2 != written || memcmp(enc2, enc, written) != 0) {

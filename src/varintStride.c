@@ -724,9 +724,12 @@ int varintStrideTest(int argc, char *argv[]) {
         int64_t one = 999;
         w = varintStrideEncode(buf, &one, 1, &meta);
         int64_t out1 = 0;
-        varintStrideDecode(buf, 1, &out1);
+        size_t r = varintStrideDecode(buf, 1, &out1);
         if (out1 != 999) {
             ERR("single decode wrong: %lld", (long long)out1);
+        }
+        if (r != w) {
+            ERR("single decode read %zu bytes, encode wrote %zu", r, w);
         }
 
         /* 2 */
@@ -737,11 +740,13 @@ int varintStrideTest(int argc, char *argv[]) {
                 (long long)meta.stride);
         }
         int64_t out2[2] = {0, 0};
-        varintStrideDecode(buf, 2, out2);
+        r = varintStrideDecode(buf, 2, out2);
         if (out2[0] != 100 || out2[1] != 107) {
             ERRR("2-element decode wrong");
         }
-        (void)w;
+        if (r != w) {
+            ERR("2-element decode read %zu bytes, encode wrote %zu", r, w);
+        }
     }
 
     TEST("Stride analyze matches actual encode byte count") {
@@ -771,11 +776,11 @@ int varintStrideTest(int argc, char *argv[]) {
 
     TEST("Stride large SIMD path — 4096 elements") {
         size_t count = 4096;
-        int64_t *vals = malloc(count * sizeof(int64_t));
+        int64_t *vals = ctestMalloc(count * sizeof(int64_t));
         for (size_t i = 0; i < count; i++) {
             vals[i] = 1000000 + (int64_t)i * 60;
         }
-        uint8_t *buf = malloc(varintStrideMaxEncodedSize(count));
+        uint8_t *buf = ctestMalloc(varintStrideMaxEncodedSize(count));
         varintStrideMeta meta;
         size_t written = varintStrideEncode(buf, vals, count, &meta);
         if (meta.mode != VARINT_STRIDE_MODE_EXACT) {
@@ -786,7 +791,7 @@ int varintStrideTest(int argc, char *argv[]) {
             ERR("4K exact stride too large: %zu", written);
         }
 
-        int64_t *dec = malloc(count * sizeof(int64_t));
+        int64_t *dec = ctestMalloc(count * sizeof(int64_t));
         varintStrideDecode(buf, count, dec);
         for (size_t i = 0; i < count; i++) {
             if (dec[i] != vals[i]) {
@@ -801,7 +806,7 @@ int varintStrideTest(int argc, char *argv[]) {
 
     TEST("MatchingPrefix: exact positions across SIMD widths") {
         enum { N = 4096 };
-        uint64_t *vals = malloc(N * sizeof(uint64_t));
+        uint64_t *vals = ctestMalloc(N * sizeof(uint64_t));
         for (size_t i = 0; i < N; i++) {
             vals[i] = 100 + (uint64_t)i * 7;
         }

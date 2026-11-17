@@ -250,6 +250,7 @@ int varintBijouTest(int argc, char *argv[]) {
     TEST("bijou64 error handling: short buffers and tier-8 overflow");
     {
         uint64_t out = 0;
+        // cppcheck-suppress knownConditionTrueFalse
         if (varintBijouGet64((const uint8_t *)"", 0, &out) != 0) {
             ERRR("empty buffer should return 0");
         }

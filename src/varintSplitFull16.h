@@ -148,7 +148,8 @@ typedef enum varintSplitFull16Tag {
             _vimp__val -= VARINT_SPLIT_FULL_16_MAX_30;                         \
             varintSplitFull16LengthVAR_((encodedLen), _vimp__val);             \
             varintWidth _vimp_width = (encodedLen) - 1;                        \
-            (dst)[0] = (uint8_t)(VARINT_SPLIT_FULL_16_VAR | _vimp_width);      \
+            (dst)[0] = (uint8_t)((uint32_t)VARINT_SPLIT_FULL_16_VAR |          \
+                                 (uint32_t)_vimp_width);                       \
             varintExternalPutFixedWidthQuickMedium_((dst) + 1, _vimp__val,     \
                                                     _vimp_width);              \
         }                                                                      \

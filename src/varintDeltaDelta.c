@@ -346,12 +346,12 @@ int varintDeltaDeltaTest(int argc, char *argv[]) {
 
     TEST("DoD compression on linear ramp — should crush") {
         size_t count = 1000;
-        int64_t *vals = malloc(count * sizeof(int64_t));
+        int64_t *vals = ctestMalloc(count * sizeof(int64_t));
         for (size_t i = 0; i < count; i++) {
             vals[i] = 10000 + (int64_t)i * 7;
         }
 
-        uint8_t *buf = malloc(varintDeltaDeltaMaxEncodedSize(count));
+        uint8_t *buf = ctestMalloc(varintDeltaDeltaMaxEncodedSize(count));
         varintDeltaDeltaMeta meta;
         size_t written = varintDeltaDeltaEncode(buf, vals, count, &meta);
 
@@ -369,7 +369,7 @@ int varintDeltaDeltaTest(int argc, char *argv[]) {
                 written, count);
         }
 
-        int64_t *dec = malloc(count * sizeof(int64_t));
+        int64_t *dec = ctestMalloc(count * sizeof(int64_t));
         size_t read = varintDeltaDeltaDecode(buf, count, dec);
         if (read != written) {
             ERR("byte count mismatch: %zu vs %zu", read, written);
@@ -464,21 +464,26 @@ int varintDeltaDeltaTest(int argc, char *argv[]) {
         int64_t one = 42;
         w = varintDeltaDeltaEncode(buf, &one, 1, &meta);
         int64_t out1;
-        varintDeltaDeltaDecode(buf, 1, &out1);
+        size_t r = varintDeltaDeltaDecode(buf, 1, &out1);
         if (out1 != 42) {
             ERR("single decode wrong: %lld", (long long)out1);
+        }
+        if (r != w) {
+            ERR("single decode read %zu bytes, encode wrote %zu", r, w);
         }
 
         /* Double */
         int64_t two[2] = {100, 105};
         w = varintDeltaDeltaEncode(buf, two, 2, &meta);
         int64_t out2[2];
-        varintDeltaDeltaDecode(buf, 2, out2);
+        r = varintDeltaDeltaDecode(buf, 2, out2);
         if (out2[0] != 100 || out2[1] != 105) {
             ERR("double decode wrong: [%lld,%lld]", (long long)out2[0],
                 (long long)out2[1]);
         }
-        (void)w;
+        if (r != w) {
+            ERR("double decode read %zu bytes, encode wrote %zu", r, w);
+        }
     }
 
     TEST("DoD is beneficial for time series, not for random") {

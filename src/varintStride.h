@@ -104,7 +104,8 @@ static inline size_t varintStrideMaxEncodedSize(size_t count) {
     /* Mode(1) + base(9) + stride(9) + count(9) + excCount(9) +
      *   exceptions * (9 idx + 9 value) */
     size_t header = 1 + 9 + 9 + 9 + 9;
-    size_t maxExc = (size_t)(count * VARINT_STRIDE_FUZZY_MAX_FRACTION) + 1;
+    size_t maxExc =
+        (size_t)((double)count * VARINT_STRIDE_FUZZY_MAX_FRACTION) + 1;
     return header + maxExc * 18;
 }
 

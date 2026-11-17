@@ -210,7 +210,7 @@ static void benchThroughput(size_t count, size_t repeats) {
      * the volatile sink is what stops the optimizer from noticing that
      * every pass computes the same thing and keeping only the last. */
     const size_t working = count < 512 ? count : 512;
-    const size_t passes = count / working ? count / working : 1;
+    const size_t passes = (count / working) ? (count / working) : 1;
     const size_t total = working * passes;
 
     double *plainA = malloc(working * sizeof(double));

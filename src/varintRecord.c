@@ -1660,7 +1660,7 @@ int varintRecordTest(int argc, char *argv[]) {
              row++) {
             const evalRow *e = &evalMatrix_[row];
             const size_t stride = e->size;
-            uint8_t *records = calloc(N, stride);
+            uint8_t *records = ctestCalloc(N, stride);
             e->fill(records, N, stride);
 
             const varintRecordField field[] = {
@@ -1673,7 +1673,7 @@ int varintRecordTest(int argc, char *argv[]) {
                 free(records);
                 continue;
             }
-            uint8_t *enc = malloc(bound);
+            uint8_t *enc = ctestMalloc(bound);
             varintRecordMeta meta;
             const size_t written =
                 varintRecordEncode(enc, records, N, stride, field, 1, 0, &meta);
@@ -1698,7 +1698,7 @@ int varintRecordTest(int argc, char *argv[]) {
                         (varintRecordStrategy)meta.columnStrategy[0]));
             }
 
-            uint8_t *dec = malloc(N * stride);
+            uint8_t *dec = ctestMalloc(N * stride);
             size_t decodedCount = 0;
             const size_t read =
                 varintRecordDecode(enc, written, dec, N, stride, &decodedCount);
@@ -1714,7 +1714,7 @@ int varintRecordTest(int argc, char *argv[]) {
 
     TEST("Record: float columns with NaN/Inf/-0/subnormal are bit-exact") {
         enum { N = 4096 };
-        double *vals = malloc(N * sizeof(double));
+        double *vals = ctestMalloc(N * sizeof(double));
         for (size_t i = 0; i < N; i++) {
             switch (i % 6) {
             case 0:
@@ -1738,14 +1738,14 @@ int varintRecordTest(int argc, char *argv[]) {
             }
         }
         const varintRecordField field[] = {{0, 8, VARINT_RECORD_F64, 0}};
-        uint8_t *enc = malloc(varintRecordMaxEncodedSize(N, 8, field, 1));
+        uint8_t *enc = ctestMalloc(varintRecordMaxEncodedSize(N, 8, field, 1));
         varintRecordMeta meta;
         const size_t written =
             varintRecordEncode(enc, vals, N, 8, field, 1, 0, &meta);
         if (written == 0) {
             ERRR("special-value float encode failed");
         }
-        double *dec = malloc(N * sizeof(double));
+        double *dec = ctestMalloc(N * sizeof(double));
         const size_t read = varintRecordDecode(enc, written, dec, N, 8, NULL);
         if (read != written || memcmp(dec, vals, N * sizeof(double)) != 0) {
             ERR("special-value round trip not bit-exact (strategy %s)",
@@ -1774,7 +1774,7 @@ int varintRecordTest(int argc, char *argv[]) {
             {offsetof(wide, tag), 6, VARINT_RECORD_BYTES, 0},
         };
         enum { N = 6000 };
-        wide *rows = calloc(N, sizeof(*rows));
+        wide *rows = ctestCalloc(N, sizeof(*rows));
         double r = 100.0;
         for (size_t i = 0; i < N; i++) {
             rows[i].ts = UINT64_C(1700000000) + i * 5;
@@ -1792,7 +1792,7 @@ int varintRecordTest(int argc, char *argv[]) {
         }
 
         uint8_t *enc =
-            malloc(varintRecordMaxEncodedSize(N, sizeof(wide), schema, 5));
+            ctestMalloc(varintRecordMaxEncodedSize(N, sizeof(wide), schema, 5));
         varintRecordMeta meta;
         const size_t written =
             varintRecordEncode(enc, rows, N, sizeof(wide), schema, 5, 0, &meta);
@@ -1809,7 +1809,7 @@ int varintRecordTest(int argc, char *argv[]) {
             }
         }
 
-        wide *dec = malloc(N * sizeof(*dec));
+        wide *dec = ctestMalloc(N * sizeof(*dec));
         memset(dec, 0x5A, N * sizeof(*dec));
         size_t decodedCount = 0;
         const size_t read = varintRecordDecode(enc, written, dec, N,
@@ -1847,20 +1847,20 @@ int varintRecordTest(int argc, char *argv[]) {
             VARINT_RECORD_FIELD(rec, b, VARINT_RECORD_U32),
         };
         enum { N = 100000 };
-        rec *rows = calloc(N, sizeof(*rows));
+        rec *rows = ctestCalloc(N, sizeof(*rows));
         for (size_t i = 0; i < N; i++) {
             rows[i].a = 42;
             rows[i].d = 3.14159;
             rows[i].b = 7;
         }
         uint8_t *enc =
-            malloc(varintRecordMaxEncodedSize(N, sizeof(rec), schema, 3));
+            ctestMalloc(varintRecordMaxEncodedSize(N, sizeof(rec), schema, 3));
         const size_t written =
             varintRecordEncode(enc, rows, N, sizeof(rec), schema, 3, 0, NULL);
         if (written == 0 || written > 512) {
             ERR("constant struct should collapse, got %zu bytes", written);
         }
-        rec *dec = malloc(N * sizeof(*dec));
+        rec *dec = ctestMalloc(N * sizeof(*dec));
         const size_t read =
             varintRecordDecode(enc, written, dec, N, sizeof(rec), NULL);
         if (read != written || memcmp(dec, rows, N * sizeof(rec)) != 0) {
@@ -1961,7 +1961,7 @@ int varintRecordTest(int argc, char *argv[]) {
             rows[i].b = (uint8_t)(i % 7);
         }
         uint8_t *enc =
-            malloc(varintRecordMaxEncodedSize(N, sizeof(s), schema, 3));
+            ctestMalloc(varintRecordMaxEncodedSize(N, sizeof(s), schema, 3));
         size_t written =
             varintRecordEncode(enc, rows, N, sizeof(s), schema, 3, 0, NULL);
         s dec[N];
@@ -2015,7 +2015,7 @@ int varintRecordTest(int argc, char *argv[]) {
         /* Encode three shards back to back into one buffer. */
         const size_t bound =
             varintRecordMaxEncodedSize(SHARD, sizeof(s), schema, 2);
-        uint8_t *stream = malloc(bound * SHARDS);
+        uint8_t *stream = ctestMalloc(bound * SHARDS);
         size_t total = 0;
         size_t shardSizes[SHARDS];
         for (size_t sh = 0; sh < SHARDS; sh++) {
@@ -2122,9 +2122,11 @@ int varintRecordTest(int argc, char *argv[]) {
                 ERR("expected clipped 5 printed, got %zu", printed);
             }
             /* Window past the end prints nothing. */
-            if (varintRecordPrintRecords(sink, rows, N, sizeof(row), schema, 4,
-                                         names, N, 10) != 0) {
-                ERRR("out-of-range window printed rows");
+            printed = varintRecordPrintRecords(sink, rows, N, sizeof(row),
+                                               schema, 4, names, N, 10);
+            // cppcheck-suppress knownConditionTrueFalse
+            if (printed != 0) {
+                ERR("out-of-range window printed %zu rows", printed);
             }
             if (ftell(sink) <= 0) {
                 ERRR("printer produced no output");
@@ -2153,7 +2155,7 @@ int varintRecordTest(int argc, char *argv[]) {
             {offsetof(big, tag), 4, VARINT_RECORD_BYTES, 0},
         };
         enum { NB = 3000, NS = 500 };
-        big *rows = calloc(NB, sizeof(*rows));
+        big *rows = ctestCalloc(NB, sizeof(*rows));
         double dv = 5.0;
         for (size_t i = 0; i < NB; i++) {
             rows[i].a = i * 11;
@@ -2162,10 +2164,10 @@ int varintRecordTest(int argc, char *argv[]) {
             rows[i].dd = varintDDTwoSum((double)i, 1e-20);
             memset(rows[i].tag, (int32_t)(i % 3), 4);
         }
-        uint8_t *encPlain =
-            malloc(varintRecordMaxEncodedSize(NB, sizeof(big), bigSchema, 4));
-        uint8_t *encCtx =
-            malloc(varintRecordMaxEncodedSize(NB, sizeof(big), bigSchema, 4));
+        uint8_t *encPlain = ctestMalloc(
+            varintRecordMaxEncodedSize(NB, sizeof(big), bigSchema, 4));
+        uint8_t *encCtx = ctestMalloc(
+            varintRecordMaxEncodedSize(NB, sizeof(big), bigSchema, 4));
         const size_t wPlain = varintRecordEncode(
             encPlain, rows, NB, sizeof(big), bigSchema, 4, 0, NULL);
         const size_t wCtx = varintRecordEncodeWithCtx(
@@ -2200,7 +2202,7 @@ int varintRecordTest(int argc, char *argv[]) {
         }
 
         /* Back to shape 1 for decode, same context. */
-        big *dec = malloc(NB * sizeof(*dec));
+        big *dec = ctestMalloc(NB * sizeof(*dec));
         if (varintRecordDecodeWithCtx(ws, encCtx, wCtx, dec, NB, sizeof(big),
                                       &got) != wCtx ||
             got != NB || memcmp(dec, rows, NB * sizeof(big)) != 0) {
@@ -2220,9 +2222,9 @@ int varintRecordTest(int argc, char *argv[]) {
         for (size_t i = 0; i < N; i++) {
             values[i] = 100 + i;
         }
-        uint8_t *dst = malloc(varintCompeteMaxEncodedSizeChunked(N, 0));
+        uint8_t *dst = ctestMalloc(varintCompeteMaxEncodedSizeChunked(N, 0));
         const size_t need = varintCompeteChunkedScratchBytes(0);
-        uint8_t *mem = malloc(need);
+        uint8_t *mem = ctestMalloc(need);
         varintCompeteChunkedScratch scratch;
 
         if (varintCompeteChunkedScratchInit(&scratch, mem, need - 1, 0)) {

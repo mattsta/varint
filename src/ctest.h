@@ -3,6 +3,39 @@
 
 #include <inttypes.h> /* for using PRIu64, etc */
 #include <stdio.h>
+#include <stdlib.h>
+
+/* Allocation for tests. A test cannot do anything useful without its
+ * buffers, so a failed allocation ends the run here instead of handing
+ * NULL to the code under test. */
+_Noreturn static inline void ctestAllocFailed_(const size_t bytes) {
+    fprintf(stderr, "test allocation of %zu bytes failed\n", bytes);
+    abort();
+}
+
+static inline void *ctestMalloc(const size_t bytes) {
+    void *p = malloc(bytes);
+    if (!p) {
+        ctestAllocFailed_(bytes);
+    }
+    return p;
+}
+
+static inline void *ctestCalloc(const size_t n, const size_t size) {
+    void *p = calloc(n, size);
+    if (!p) {
+        ctestAllocFailed_(n * size);
+    }
+    return p;
+}
+
+static inline void *ctestRealloc(void *old, const size_t bytes) {
+    void *p = realloc(old, bytes);
+    if (!p) {
+        ctestAllocFailed_(bytes);
+    }
+    return p;
+}
 
 /* Generate new string concatenating integer i against string 'prefix' */
 #define CTEST_INCLUDE_GEN(named)                                               \

@@ -1461,15 +1461,17 @@ static int ddsTestMalformedInput(void) {
     {
         static const uint8_t empty[1] = {0};
 
+        // cppcheck-suppress-begin knownConditionTrueFalse
         if (varintDDStreamDecode(empty, 0, decoded, COUNT) != 0 ||
             varintDDStreamDecode(empty, 1, decoded, COUNT) != 0 ||
             varintDDStreamGetCount(empty, 0) != 0) {
             ERRR("an empty stream was not rejected");
             return err;
         }
+        // cppcheck-suppress-end knownConditionTrueFalse
 
-        /* trailing-limb width past the legal maximum */
-        const uint8_t badWidth[3] = {(uint8_t)(0 | (53u << 2)), 1, 0};
+        /* trailing-limb width past the legal maximum: mode 0, width 53 */
+        const uint8_t badWidth[3] = {(uint8_t)(53u << 2), 1, 0};
 
         if (varintDDStreamDecode(badWidth, sizeof(badWidth), decoded, COUNT) !=
                 0 ||

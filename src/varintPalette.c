@@ -3,6 +3,11 @@
 #include <stdlib.h>
 #include <string.h>
 
+#if defined(__ARM_NEON) && defined(__aarch64__)
+#define VARINT_PALETTE_NEON 1
+#include <arm_neon.h>
+#endif
+
 /* Big-endian 32-bit load/store over unaligned bytes: the wire format is
  * defined as an MSB-first byte sequence, so on little-endian hosts a
  * bswap turns one 4-byte access into the whole window operation. */
@@ -37,16 +42,18 @@ typedef struct palettePlan {
     size_t verbatimBlocks;
     size_t codedBits;
     size_t verbatimBytes;
-    uint8_t *blockMask;      /* bit set = verbatim block; caller frees */
-    uint8_t *symIdx;         /* per-value palette index, filled ONLY for coded
-                              * blocks (verbatim blocks abandon the scan early
-                              * and leave their entries untouched); caller
-                              * frees */
+    uint8_t *blockMask; /* bit set = verbatim block; caller frees */
+    uint8_t *symIdx;    /* per-value palette index, filled ONLY for coded
+                         * blocks (verbatim blocks abandon the scan early
+                         * and leave their entries untouched); caller
+                         * frees */
+#ifdef VARINT_PALETTE_NEON
     uint32_t palCoveragePct; /* % of values that are palette members */
-    uint16_t *blockBits;     /* per-block coded bit length (coded blocks
-                              * only; verbatim entries unused) */
-    uint8_t *blockWidth;     /* per-block verbatim byte width 1..8
-                              * (verbatim blocks only) */
+#endif
+    uint16_t *blockBits; /* per-block coded bit length (coded blocks
+                          * only; verbatim entries unused) */
+    uint8_t *blockWidth; /* per-block verbatim byte width 1..8
+                          * (verbatim blocks only) */
 } palettePlan;
 
 static void palettePlanFree_(palettePlan *plan) {
@@ -147,10 +154,7 @@ static inline int palFind_(const palettePlan *plan, uint64_t v) {
     return -1;
 }
 
-#if defined(__ARM_NEON) && defined(__aarch64__)
-#define VARINT_PALETTE_NEON 1
-#include <arm_neon.h>
-
+#ifdef VARINT_PALETTE_NEON
 /* NEON classification of one FULL 64-value block: resolve every value
  * to its palette index (0xFF = not in palette) by sweeping broadcast
  * compares, then table-lookup the code lengths and detect outliers with
@@ -198,7 +202,7 @@ static bool paletteClassifyBlockNEON_(const palettePlan *plan,
     *bitsOut = bits;
     return true;
 }
-#endif /* __ARM_NEON && __aarch64__ */
+#endif /* VARINT_PALETTE_NEON */
 
 /* Compute Huffman code lengths for m <= 16 weighted symbols.
  * Classic two-smallest merge over a flat node array (<= 31 nodes);
@@ -236,6 +240,8 @@ static void paletteHuffLengths_(const uint64_t *freq, uint8_t m, uint8_t *len) {
                 b = i;
             }
         }
+        /* At least two roots remain, so both minimums were found. */
+        assert(a >= 0 && b >= 0);
         f[n] = f[a] + f[b];
         parent[n] = -1;
         isRoot[n] = true;
@@ -1135,7 +1141,7 @@ size_t varintPaletteDecode(const uint8_t *src, size_t srcBytes,
             size_t bp[4];
             size_t op[4];
             size_t rem[4];
-            for (int j = 0; j < 4; j++) {
+            for (size_t j = 0; j < 4; j++) {
                 bp[j] = cbBit[g + j];
                 op[j] = cbOut[g + j];
                 rem[j] = (count - op[j]) < VARINT_PALETTE_BLOCK_VALUES
@@ -1143,7 +1149,7 @@ size_t varintPaletteDecode(const uint8_t *src, size_t srcBytes,
                              : VARINT_PALETTE_BLOCK_VALUES;
             }
             while (rem[0] >= 2 && rem[1] >= 2 && rem[2] >= 2 && rem[3] >= 2) {
-                for (int j = 0; j < 4; j++) {
+                for (size_t j = 0; j < 4; j++) {
                     const uint32_t window =
                         paletteLoad32BE_(coded + (bp[j] >> 3));
                     const uint32_t w2 =
@@ -1159,7 +1165,7 @@ size_t varintPaletteDecode(const uint8_t *src, size_t srcBytes,
                     bp[j] += (ent >> 8) & 0x3F;
                 }
             }
-            for (int j = 0; j < 4; j++) {
+            for (size_t j = 0; j < 4; j++) {
                 paletteDecodeCodedBlock_(coded, table, pair, pal, maxBits,
                                          pairBits, bp[j], values, op[j],
                                          rem[j]);
@@ -1297,8 +1303,8 @@ static uint64_t testRng_(void) {
 
 static bool roundTrip_(const uint64_t *values, size_t count,
                        varintPaletteMeta *meta, size_t *encodedOut) {
-    uint8_t *buf = malloc(varintPaletteMaxSize(count));
-    uint64_t *dec = malloc((count ? count : 1) * sizeof(*dec));
+    uint8_t *buf = ctestMalloc(varintPaletteMaxSize(count));
+    uint64_t *dec = ctestMalloc((count ? count : 1) * sizeof(*dec));
     size_t written = varintPaletteEncode(buf, values, count, meta);
     bool ok = written > 0 || count == 0;
     if (encodedOut) {
@@ -1465,7 +1471,7 @@ int varintPaletteTest(int argc, char *argv[]) {
 
     TEST("Skewed distribution compresses toward entropy") {
         enum { N = 8192 };
-        uint64_t *values = malloc(N * sizeof(*values));
+        uint64_t *values = ctestMalloc(N * sizeof(*values));
         /* Geometric-ish skew over 8 symbols: symbol k with prob ~2^-k */
         for (size_t i = 0; i < N; i++) {
             uint64_t r = testRng_() & 0xFF;
@@ -1495,7 +1501,7 @@ int varintPaletteTest(int argc, char *argv[]) {
 
     TEST("Outlier blocks routed verbatim, rest stays coded") {
         enum { N = 4096 };
-        uint64_t *values = malloc(N * sizeof(*values));
+        uint64_t *values = ctestMalloc(N * sizeof(*values));
         /* 16 hot values fill the palette completely... */
         for (size_t i = 0; i < N; i++) {
             values[i] = i % 16;
@@ -1539,7 +1545,7 @@ int varintPaletteTest(int argc, char *argv[]) {
 
     TEST("Single distinct value approaches 1 bit per value") {
         enum { N = 8000 };
-        uint64_t *values = malloc(N * sizeof(*values));
+        uint64_t *values = ctestMalloc(N * sizeof(*values));
         for (size_t i = 0; i < N; i++) {
             values[i] = 42;
         }
@@ -1562,7 +1568,7 @@ int varintPaletteTest(int argc, char *argv[]) {
 
     TEST("Tail block shorter than 64 values round-trips") {
         for (size_t count = 1; count <= 200; count += 13) {
-            uint64_t values[200];
+            uint64_t values[200] = {0};
             for (size_t i = 0; i < count; i++) {
                 values[i] = (i % 5) + ((i == count - 1) ? 1000000 : 0);
             }
@@ -1575,7 +1581,7 @@ int varintPaletteTest(int argc, char *argv[]) {
 
     TEST("17 distinct values: 16 coded, rarest forces verbatim") {
         enum { N = 1700 };
-        uint64_t *values = malloc(N * sizeof(*values));
+        uint64_t *values = ctestMalloc(N * sizeof(*values));
         for (size_t i = 0; i < N; i++) {
             values[i] = i % 16; /* 16 evenly hot values */
         }
@@ -1597,7 +1603,7 @@ int varintPaletteTest(int argc, char *argv[]) {
 
     TEST("Analyze matches Encode exactly") {
         enum { N = 3000 };
-        uint64_t *values = malloc(N * sizeof(*values));
+        uint64_t *values = ctestMalloc(N * sizeof(*values));
         for (size_t i = 0; i < N; i++) {
             values[i] = testRng_() % 10;
         }
@@ -1606,7 +1612,7 @@ int varintPaletteTest(int argc, char *argv[]) {
         varintPaletteMeta analyzed;
         varintPaletteAnalyze(values, N, &analyzed);
 
-        uint8_t *buf = malloc(varintPaletteMaxSize(N));
+        uint8_t *buf = ctestMalloc(varintPaletteMaxSize(N));
         varintPaletteMeta encoded;
         size_t written = varintPaletteEncode(buf, values, N, &encoded);
 
@@ -1651,7 +1657,7 @@ int varintPaletteTest(int argc, char *argv[]) {
         for (size_t i = 0; i < 100; i++) {
             values[i] = i % 3;
         }
-        uint8_t *buf = malloc(varintPaletteMaxSize(100));
+        uint8_t *buf = ctestMalloc(varintPaletteMaxSize(100));
         size_t written = varintPaletteEncode(buf, values, 100, NULL);
 
         uint64_t small[10];
@@ -1665,7 +1671,7 @@ int varintPaletteTest(int argc, char *argv[]) {
         /* 90% one value, 10% spread across 15 others: entropy ~0.8 bits,
          * while any fixed-width index needs 4 bits. */
         enum { N = 6400 };
-        uint64_t *values = malloc(N * sizeof(*values));
+        uint64_t *values = ctestMalloc(N * sizeof(*values));
         for (size_t i = 0; i < N; i++) {
             values[i] = (testRng_() % 10 == 0) ? (testRng_() % 15) + 1 : 0;
         }
@@ -1699,13 +1705,13 @@ int varintPaletteTest(int argc, char *argv[]) {
                 cards[testRng_() % (sizeof(cards) / sizeof(cards[0]))];
             const testDist_ dist = (testDist_)(testRng_() % 5);
 
-            uint64_t *values = malloc(count * sizeof(*values));
+            uint64_t *values = ctestMalloc(count * sizeof(*values));
             genValues_(cfg * 7919 + 13, values, count, card, dist);
 
             varintPaletteMeta analyzed;
             varintPaletteAnalyze(values, count, &analyzed);
 
-            uint8_t *buf = malloc(varintPaletteMaxSize(count));
+            uint8_t *buf = ctestMalloc(varintPaletteMaxSize(count));
             varintPaletteMeta meta;
             const size_t written =
                 varintPaletteEncode(buf, values, count, &meta);
@@ -1729,7 +1735,7 @@ int varintPaletteTest(int argc, char *argv[]) {
                 failures++;
             }
 
-            uint64_t *dec = malloc(count * sizeof(*dec));
+            uint64_t *dec = ctestMalloc(count * sizeof(*dec));
             const size_t got = varintPaletteDecode(buf, written, dec, count);
             if (got != count ||
                 memcmp(dec, values, count * sizeof(*dec)) != 0) {
@@ -1750,7 +1756,7 @@ int varintPaletteTest(int argc, char *argv[]) {
         uint64_t values[N];
         genValues_(42, values, N, 17, DIST_HOT16_OUTLIERS);
 
-        uint8_t *buf = malloc(varintPaletteMaxSize(N));
+        uint8_t *buf = ctestMalloc(varintPaletteMaxSize(N));
         const size_t written = varintPaletteEncode(buf, values, N, NULL);
         uint64_t dec[N];
 
@@ -1772,10 +1778,10 @@ int varintPaletteTest(int argc, char *argv[]) {
         uint64_t values[N];
         genValues_(1234, values, N, 17, DIST_HOT16_OUTLIERS);
 
-        uint8_t *pristine = malloc(varintPaletteMaxSize(N));
+        uint8_t *pristine = ctestMalloc(varintPaletteMaxSize(N));
         const size_t written = varintPaletteEncode(pristine, values, N, NULL);
 
-        uint8_t *mutated = malloc(written);
+        uint8_t *mutated = ctestMalloc(written);
         uint64_t dec[N];
         testRngState_ = 0xFEEDBEEF;
 
@@ -1809,8 +1815,8 @@ int varintPaletteTest(int argc, char *argv[]) {
     TEST("Canonical Huffman invariants from encoded headers") {
         uint8_t m;
         uint8_t lens[VARINT_PALETTE_MAX_SYMBOLS];
-        uint8_t *buf = malloc(varintPaletteMaxSize(4096));
-        uint64_t *values = malloc(4096 * sizeof(*values));
+        uint8_t *buf = ctestMalloc(varintPaletteMaxSize(4096));
+        uint64_t *values = ctestMalloc(4096 * sizeof(*values));
 
         /* Two equal-frequency symbols → both get 1-bit codes. */
         for (size_t i = 0; i < 4096; i++) {
@@ -1956,6 +1962,7 @@ int varintPaletteTest(int argc, char *argv[]) {
         }
 
         /* NULL source. */
+        // cppcheck-suppress knownConditionTrueFalse
         if (varintPaletteDecode(NULL, 100, dec, 64) != 0) {
             ERRR("NULL source accepted");
         }
@@ -2004,7 +2011,7 @@ int varintPaletteTest(int argc, char *argv[]) {
 
     TEST("High-cardinality fast path: all-verbatim degenerate plan") {
         enum { N = 8192 }; /* >= PALETTE_SAMPLE_MIN_COUNT */
-        uint64_t *values = malloc(N * sizeof(*values));
+        uint64_t *values = ctestMalloc(N * sizeof(*values));
         testRngState_ = 0xABCDEF;
         for (size_t i = 0; i < N; i++) {
             values[i] = (testRng_() << 20) ^ i; /* effectively all unique */
@@ -2035,9 +2042,9 @@ int varintPaletteTest(int argc, char *argv[]) {
 
     TEST("Palette-of-deltas: skewed gaps compress, all edges round-trip") {
         enum { N = 4000 };
-        uint64_t *values = malloc(N * sizeof(*values));
-        uint64_t *dec = malloc(N * sizeof(*dec));
-        uint8_t *buf = malloc(varintPaletteDeltaMaxSize(N));
+        uint64_t *values = ctestMalloc(N * sizeof(*values));
+        uint64_t *dec = ctestMalloc(N * sizeof(*dec));
+        uint8_t *buf = ctestMalloc(varintPaletteDeltaMaxSize(N));
 
         /* Monotonic with a skewed 4-gap alphabet. */
         static const uint64_t gaps[] = {1, 1, 1, 1, 1, 1, 2, 2, 5, 10};
@@ -2118,7 +2125,7 @@ int varintPaletteTest(int argc, char *argv[]) {
         uint64_t values[N];
         genValues_(77, values, N, 5, DIST_ZIPF);
 
-        uint8_t *buf = malloc(varintPaletteMaxSize(N));
+        uint8_t *buf = ctestMalloc(varintPaletteMaxSize(N));
         const size_t written = varintPaletteEncode(buf, values, N, NULL);
 
         uint64_t dec[N + 10];

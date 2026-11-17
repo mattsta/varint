@@ -867,7 +867,7 @@ bool varintBP128IsSorted64(const uint64_t *values, size_t count) {
     }
 #endif
 #elif defined(VARINT_BP128_AVX2)
-    const __m256i bias = _mm256_set1_epi64x((long long)UINT64_C(1) << 63);
+    const __m256i bias = _mm256_set1_epi64x(INT64_MIN);
     for (; i + 3 < count; i += 4) {
         __m256i prev = _mm256_loadu_si256((const __m256i *)&values[i - 1]);
         __m256i cur = _mm256_loadu_si256((const __m256i *)&values[i]);
@@ -1616,8 +1616,8 @@ int varintBP128Test(int argc, char *argv[]) {
 
     TEST("BP128 IsSorted SIMD paths: violations at every lane offset") {
         enum { N = 1024 };
-        uint64_t *v64 = malloc(N * sizeof(uint64_t));
-        uint32_t *v32 = malloc(N * sizeof(uint32_t));
+        uint64_t *v64 = ctestMalloc(N * sizeof(uint64_t));
+        uint32_t *v32 = ctestMalloc(N * sizeof(uint32_t));
 
         /* Sorted with plateaus, including values above the unsigned
          * midpoint so a signed-compare implementation would misorder. */

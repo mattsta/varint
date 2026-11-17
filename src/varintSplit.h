@@ -175,7 +175,8 @@ typedef enum varintSplitByte {
             varintSplitLengthVAR_((encodedLen), _vimp__val);                   \
             varintWidth _vimp_width = (encodedLen) - 1;                        \
             /* buf[0] = 10[width][val]...[val] */                              \
-            (dst)[0] = (uint8_t)(VARINT_SPLIT_VAR | _vimp_width);              \
+            (dst)[0] =                                                         \
+                (uint8_t)((uint32_t)VARINT_SPLIT_VAR | (uint32_t)_vimp_width); \
             varintExternalPutFixedWidthQuickMedium_((dst) + 1, _vimp__val,     \
                                                     _vimp_width);              \
         }                                                                      \
@@ -263,7 +264,8 @@ typedef enum varintSplitByte {
             varintWidth _vimp_width = (encodedLen) - 1;                        \
             varintExternalPutFixedWidthQuickMedium_((dst) - _vimp_width,       \
                                                     _vimp__val, _vimp_width);  \
-            (dst)[0] = (uint8_t)(VARINT_SPLIT_VAR | _vimp_width);              \
+            (dst)[0] =                                                         \
+                (uint8_t)((uint32_t)VARINT_SPLIT_VAR | (uint32_t)_vimp_width); \
         }                                                                      \
     } while (0)
 
@@ -284,7 +286,8 @@ typedef enum varintSplitByte {
             _vimp__val -= VARINT_SPLIT_MAX_14; /* Remove (16383 + 63) */       \
             varintSplitLengthVAR_((encodedLen), _vimp__val);                   \
             varintWidth _vimp_width = (encodedLen) - 1;                        \
-            (dst)[_vimp_width] = (uint8_t)(VARINT_SPLIT_VAR | _vimp_width);    \
+            (dst)[_vimp_width] =                                               \
+                (uint8_t)((uint32_t)VARINT_SPLIT_VAR | (uint32_t)_vimp_width); \
             varintExternalPutFixedWidthQuickMedium_((dst), _vimp__val,         \
                                                     _vimp_width);              \
         }                                                                      \

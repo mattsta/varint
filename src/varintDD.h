@@ -294,9 +294,13 @@ static inline varintDD varintDDNormalize(const varintDD a) {
 /* Exact conversion from a 64-bit integer. Doubles hold integers exactly
  * only to 2^53; a double-double holds every int64 exactly. */
 static inline varintDD varintDDFromInt64(int64_t v) {
-    /* Split at 2^32 so both halves are exactly representable. */
-    const int64_t high = v >> 32;
-    const uint64_t low = (uint64_t)v & 0xFFFFFFFFULL;
+    /* Split at 2^32 so both halves are exactly representable: high is
+     * floor(v / 2^32), the top 32 bits sign-extended by the
+     * (x ^ 2^31) - 2^31 identity, so no signed shift is involved. */
+    const uint64_t bits = (uint64_t)v;
+    const int64_t high =
+        (int64_t)((bits >> 32) ^ UINT64_C(0x80000000)) - INT64_C(0x80000000);
+    const uint64_t low = bits & 0xFFFFFFFFULL;
     const varintDD scaled = varintDDTwoProduct((double)high, 4294967296.0);
     const varintDD sum = varintDDTwoSum(scaled.hi, (double)low);
     return varintDDFastTwoSum(sum.hi, sum.lo + scaled.lo);

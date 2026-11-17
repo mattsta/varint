@@ -75,7 +75,7 @@ static void varintBitstreamSet(vbits *const dst, const size_t startBitOffset,
     } else {
         vbitsVal low, high;
 
-        const uint32_t highBitInCurrentSlot = -lowDataBitPosition;
+        const uint32_t highBitInCurrentSlot = (uint32_t)-lowDataBitPosition;
         const uint32_t lowBitInOverflowSlot =
             (BITS_PER_SLOT - highBitInCurrentSlot);
 
@@ -112,7 +112,7 @@ static vbitsVal varintBitstreamGet(const vbits *const src,
     } else {
         vbitsVal low, high;
 
-        const uint32_t highBitInCurrentSlot = -lowDataBitPosition;
+        const uint32_t highBitInCurrentSlot = (uint32_t)-lowDataBitPosition;
         const uint32_t lowBitInOverflowSlot =
             (BITS_PER_SLOT - highBitInCurrentSlot);
 

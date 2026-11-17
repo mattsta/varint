@@ -1305,12 +1305,12 @@ int varintCompeteTest(int argc, char *argv[]) {
         /* 100k-value arithmetic progression: without growth this is ~25
          * blocks of ~30 bytes; growth merges them into one stride block. */
         enum { N = 100000 };
-        uint64_t *values = malloc(N * sizeof(uint64_t));
+        uint64_t *values = ctestMalloc(N * sizeof(uint64_t));
         for (size_t i = 0; i < N; i++) {
             values[i] = 5000 + (uint64_t)i * 7;
         }
 
-        uint8_t *buf = malloc(varintCompeteMaxEncodedSizeChunked(N, 0));
+        uint8_t *buf = ctestMalloc(varintCompeteMaxEncodedSizeChunked(N, 0));
         size_t blocks = 0;
         size_t written = varintCompeteEncodeChunkedUnsigned(
             buf, values, N, VARINT_COMPETE_DEFAULT_MASK, 0, &blocks);
@@ -1322,7 +1322,7 @@ int varintCompeteTest(int argc, char *argv[]) {
             ERR("progression should encode in ~30 bytes, got %zu", written);
         }
 
-        uint64_t *dec = malloc(N * sizeof(uint64_t));
+        uint64_t *dec = ctestMalloc(N * sizeof(uint64_t));
         size_t decodedCount = 0;
         size_t read = varintCompeteDecodeChunkedUnsigned(buf, written, dec, N,
                                                          &decodedCount);
