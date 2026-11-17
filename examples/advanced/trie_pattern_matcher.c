@@ -38,6 +38,7 @@
  * -o trie_pattern_matcher Run: ./trie_pattern_matcher
  */
 
+#define _POSIX_C_SOURCE 200809L
 #include "varintBitstream.h"
 #include "varintChained.h"
 #include "varintExternal.h"
