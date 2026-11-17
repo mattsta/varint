@@ -16,7 +16,8 @@ def _gh(*args: str) -> str:
     return result.stdout
 
 
-def _api(path: str) -> Any:
+def api(path: str) -> Any:
+    """GET a GitHub REST path through gh; {owner}/{repo} is this repository."""
     return json.loads(_gh("api", path))
 
 
@@ -88,7 +89,7 @@ def latest_run(branch: str, workflow: str) -> Run:
 
 
 def get_run(run_id: int) -> Run:
-    data = _api(f"repos/{{owner}}/{{repo}}/actions/runs/{run_id}")
+    data = api(f"repos/{{owner}}/{{repo}}/actions/runs/{run_id}")
     return Run(
         id=run_id,
         title=data["display_title"],
@@ -128,7 +129,7 @@ def job_log(job: Job) -> str:
 
 
 def annotations(job: Job) -> list[Annotation]:
-    data = _api(f"repos/{{owner}}/{{repo}}/check-runs/{job.check_run_id}/annotations")
+    data = api(f"repos/{{owner}}/{{repo}}/check-runs/{job.check_run_id}/annotations")
     return [
         Annotation(
             job=job.name,

@@ -27,6 +27,16 @@ Parses every `.github/workflows/*.yml`, requires each to define jobs, and
 resolves every `uses: owner/repo@ref` against GitHub, so a reference to a
 tag or branch that does not exist fails before a push.
 
+### `versions`
+
+Compares what CI uses with what is available: each GitHub Action against
+its latest release, the nightly compiler matrix against the compilers the
+runner image ships and the newest GCC/LLVM releases, and the Ubuntu
+archive's cppcheck against upstream. Exits non-zero only for updates that
+can be made now (an action behind its release, an image compiler the
+matrix does not test). The update procedure is the runbook in
+[`.github/CI_CD_DOCUMENTATION.md`](../.github/CI_CD_DOCUMENTATION.md).
+
 ### `warnings [CC ...]`
 
 Compiles every `src/*.c` on its own with the compiler family's strict flag

@@ -6,7 +6,15 @@ import sys
 from collections.abc import Sequence
 from pathlib import Path
 
-from varintdev import check, ci_logs, cppcheck, ctest, warnings, workflows
+from varintdev import (
+    check,
+    ci_logs,
+    cppcheck,
+    ctest,
+    versions,
+    warnings,
+    workflows,
+)
 from varintdev.repo import REPO_ROOT
 
 
@@ -41,6 +49,10 @@ def _warnings(args: argparse.Namespace) -> int:
 
 def _workflows(_: argparse.Namespace) -> int:
     return workflows.check()
+
+
+def _versions(_: argparse.Namespace) -> int:
+    return versions.report()
 
 
 def parser() -> argparse.ArgumentParser:
@@ -122,6 +134,12 @@ def parser() -> argparse.ArgumentParser:
         help="validate workflow YAML and resolve every referenced action",
     )
     flows.set_defaults(handler=_workflows)
+
+    vers = commands.add_parser(
+        "versions",
+        help="compare CI actions, compilers and cppcheck with upstream releases",
+    )
+    vers.set_defaults(handler=_versions)
     return root
 
 

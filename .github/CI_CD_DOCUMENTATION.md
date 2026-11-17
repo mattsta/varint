@@ -133,6 +133,8 @@ uv run --project devtools varintdev cppcheck              # static analysis
 uv run --project devtools varintdev ctest both uninit     # unit test modes
 uv run --project devtools varintdev ctest --list none     # registered tests
 uv run --project devtools varintdev ci-logs [RUN_ID]      # diagnose a CI run
+uv run --project devtools varintdev versions              # what is behind upstream
+uv run --project devtools varintdev check                 # every CI gate, locally
 ```
 
 `ctest` modes: `none`, `asan`, `ubsan`, `both`, `tsan`, `uninit`,
@@ -333,6 +335,38 @@ comment (the form `astral-sh/setup-uv` documents; it publishes no moving
 major tag); `.github/dependabot.yml` updates those pins and `devtools/uv.lock`
 weekly. CI runs the tooling with `uv run --locked`, so a lockfile that no
 longer matches `devtools/pyproject.toml` fails instead of re-resolving.
+
+### Updating Toolchains and Dependencies (runbook)
+
+Run from the repository root:
+
+1. **See what is behind**: `uv run --project devtools varintdev versions`.
+   It reads the versions in use from the workflow files and compares each
+   GitHub Action with its latest release, the nightly compiler matrix with
+   the compilers the runner image ships (GitHub's `actions/runner-images`
+   manifest) and with the newest GCC and LLVM releases, and the cppcheck
+   in the image's Ubuntu archive with upstream. It exits non-zero only for
+   what can be updated now.
+2. **Actions**: merge Dependabot's grouped pull request, or edit the
+   `uses:` lines by hand. Use the reference form the action documents: a
+   major tag where it publishes one (`actions/checkout@v7`), otherwise the
+   release's full commit SHA with the tag in a trailing comment
+   (`astral-sh/setup-uv`). `varintdev workflows` then confirms every
+   reference resolves.
+3. **Compilers**: CI uses only what the runner image ships. When
+   `versions` reports the image ships a compiler the nightly matrix does
+   not test, add it to `compiler-matrix` in `nightly.yml`. Releases the
+   image does not ship yet wait for the image.
+4. **Runner image**: workflows pin `ubuntu-26.04`. When a new Ubuntu LTS
+   image is available, change every `runs-on` and matrix entry, then rerun
+   `versions` for that image's toolchain.
+5. **devtools dependencies**: merge Dependabot's uv pull request, or run
+   `uv lock --upgrade` in `devtools/`.
+6. **Verify before pushing**: `uv run --project devtools varintdev check`.
+7. **Verify after pushing**: `uv run --project devtools varintdev ci-logs`.
+   A green job is not enough: the report lists failed tests and every
+   diagnostic, and each job's log should show the tests it ran (for
+   example "100% tests passed out of 28") and the files it checked.
 
 ### Adding New Tests
 
