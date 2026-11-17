@@ -458,7 +458,7 @@ int varintRLETest(int argc, char *argv[]) {
         size_t encodedSize = varintRLEEncode(encoded, values, count, NULL);
 
         uint64_t decoded[10];
-        size_t decodedCount = varintRLEDecode(encoded, decoded, 10);
+        size_t decodedCount = varintRLEDecode(encoded, decoded, count);
 
         if (decodedCount != count) {
             ERRR("Large values: count mismatch");
@@ -619,10 +619,8 @@ int varintRLETest(int argc, char *argv[]) {
             ERRR("GetAt(5) failed - last of run 3");
         }
 
-        /* Out of bounds should return 0 */
-        /* Note: This relies on hitting runLen == 0 which may not happen
-         * unless we write a terminator. Current impl may loop forever
-         * for out-of-bounds, so skip this test. */
+        /* No out-of-bounds probe: the stream has no terminator, so an
+         * index at or past the encoded count is outside the contract. */
     }
 
     TEST("RLE zero value handling") {

@@ -54,8 +54,11 @@ size_t varintRLEEncode(uint8_t *dst, const uint64_t *values, size_t count,
 /* Decode RLE-encoded array
  * src: input buffer containing RLE-encoded data
  * values: output buffer for decoded values
- * maxCount: maximum values that fit in output buffer
- * Returns: number of values decoded, or 0 if buffer too small */
+ * maxCount: number of values to decode; at most the count that was encoded
+ *           (the stream stores no length or terminator, so decoding stops
+ *           only on maxCount; use the WithHeader format to recover the
+ *           count from the data)
+ * Returns: number of values decoded */
 size_t varintRLEDecode(const uint8_t *src, uint64_t *values, size_t maxCount);
 
 /* Get count of original values from encoded data header
@@ -66,7 +69,8 @@ size_t varintRLEGetCount(const uint8_t *src);
 size_t varintRLEGetRunCount(const uint8_t *src, size_t encodedSize);
 
 /* Random access: get value at specific index without full decode
- * Requires scanning runs from start, but doesn't need output buffer */
+ * Requires scanning runs from start, but doesn't need output buffer.
+ * index must be less than the encoded count. */
 uint64_t varintRLEGetAt(const uint8_t *src, size_t index);
 
 /* Decode a single run from encoded data
