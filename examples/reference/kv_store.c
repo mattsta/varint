@@ -434,7 +434,11 @@ void demonstrateKVStore(void) {
     printf("   Before: ");
     void *oldValue;
     size_t oldLen;
-    kvStoreGet(&store, 100, &oldValue, &oldLen);
+    if (!kvStoreGet(&store, 100, &oldValue, &oldLen)) {
+        fprintf(stderr, "Error: key 100 missing before update\n");
+        kvStoreFree(&store);
+        return;
+    }
     printf("Key 100 = \"%.*s\"\n", (int)oldLen, (char *)oldValue);
 
     kvStorePut(&store, 100, "Alice Updated", 13);
@@ -442,7 +446,11 @@ void demonstrateKVStore(void) {
     printf("   After:  ");
     void *newValue;
     size_t newLen;
-    kvStoreGet(&store, 100, &newValue, &newLen);
+    if (!kvStoreGet(&store, 100, &newValue, &newLen)) {
+        fprintf(stderr, "Error: key 100 missing after update\n");
+        kvStoreFree(&store);
+        return;
+    }
     printf("Key 100 = \"%.*s\"\n", (int)newLen, (char *)newValue);
 
     // 5. Range query
