@@ -6,14 +6,20 @@ on:
     - cron: '0 2 * * *'
   workflow_dispatch:  # Allow manual trigger
 
+# An explicit bash shell runs every step with -eo pipefail, so a command
+# piped into tee still fails its step.
+defaults:
+  run:
+    shell: bash
+
 jobs:
   extended-sanitizer-testing:
-    name: Extended Sanitizers (${{ matrix.sanitizer }})
-    runs-on: ubuntu-latest
+    name: Extended Sanitizers (${{ matrix.mode }})
+    runs-on: ubuntu-26.04
     strategy:
       fail-fast: false
       matrix:
-        sanitizer: [asan, ubsan, both, tsan]
+        mode: [asan, ubsan, tsan, uninit]
 
     steps:
       - name: Checkout code
@@ -24,44 +30,41 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y gcc clang cmake build-essential
 
-      - name: Run extended tests with ${{ matrix.sanitizer }}
+      # TSan's shadow-memory layout does not fit the kernel's default
+      # 32-bit mmap randomization.
+      - name: Reduce mmap randomization for TSan
+        if: matrix.mode == 'tsan'
+        run: sudo sysctl vm.mmap_rnd_bits=28
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v10
+        with:
+          enable-cache: true
+          cache-dependency-glob: devtools/uv.lock
+
+      - name: Run every unit test (${{ matrix.mode }})
+        timeout-minutes: 30
+        run: uv run --project devtools --no-dev varintdev ctest ${{ matrix.mode }} 2>&1 | tee all_tests_output.log
+
+      - name: Run comprehensive examples
         timeout-minutes: 30
         run: |
-          chmod +x scripts/test/run_all_tests.sh scripts/test/test_all_comprehensive.sh scripts/test/run_unit_tests.sh
-
-          echo "=== Running unit tests ==="
-          ./scripts/test/run_unit_tests.sh 2>&1 | tee unit_test_output.log
-
-          echo ""
-          echo "=== Running comprehensive examples ==="
+          chmod +x scripts/test/test_all_comprehensive.sh
           ./scripts/test/test_all_comprehensive.sh 2>&1 | tee comprehensive_output.log
-
-          echo ""
-          echo "=== Running all tests with ${{ matrix.sanitizer }} ==="
-          ./scripts/test/run_all_tests.sh ${{ matrix.sanitizer }} 2>&1 | tee all_tests_output.log
-
-      - name: Check for sanitizer violations
-        run: |
-          if grep -i "sanitizer" *.log | grep -i "error\|leak\|violation"; then
-            echo "❌ Sanitizer violations detected!"
-            exit 1
-          fi
-          echo "✅ No sanitizer violations detected"
 
       - name: Upload nightly test results
         if: always()
         uses: actions/upload-artifact@v7
         with:
-          name: nightly-${{ matrix.sanitizer }}-results
+          name: nightly-${{ matrix.mode }}-results
           path: |
-            unit_test_output.log
             comprehensive_output.log
             all_tests_output.log
           retention-days: 7
 
   compiler-matrix:
     name: Compiler Matrix (GCC-${{ matrix.gcc }}, Clang-${{ matrix.clang }})
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     strategy:
       fail-fast: false
       matrix:
@@ -82,24 +85,24 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y clang-${{ matrix.clang }} || true
 
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v10
+        with:
+          enable-cache: true
+          cache-dependency-glob: devtools/uv.lock
+
       - name: Test with GCC ${{ matrix.gcc }}
         continue-on-error: true
         run: |
           if command -v gcc-${{ matrix.gcc }} &> /dev/null; then
-            export CC=gcc-${{ matrix.gcc }}
-            export CXX=g++-${{ matrix.gcc }}
-            chmod +x scripts/build/run_all_compilers.sh
-            ./scripts/build/run_all_compilers.sh 2>&1 | tee gcc_${{ matrix.gcc }}_results.log
+            uv run --project devtools --no-dev varintdev warnings gcc-${{ matrix.gcc }} 2>&1 | tee gcc_${{ matrix.gcc }}_results.log
           fi
 
       - name: Test with Clang ${{ matrix.clang }}
         continue-on-error: true
         run: |
           if command -v clang-${{ matrix.clang }} &> /dev/null; then
-            export CC=clang-${{ matrix.clang }}
-            export CXX=clang++-${{ matrix.clang }}
-            chmod +x scripts/build/run_all_compilers.sh
-            ./scripts/build/run_all_compilers.sh 2>&1 | tee clang_${{ matrix.clang }}_results.log
+            uv run --project devtools --no-dev varintdev warnings clang-${{ matrix.clang }} 2>&1 | tee clang_${{ matrix.clang }}_results.log
           fi
 
       - name: Upload compiler matrix results
@@ -115,7 +118,7 @@ jobs:
 
   performance-benchmarks:
     name: Performance Benchmarks
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
 
     steps:
       - name: Checkout code
@@ -153,7 +156,7 @@ jobs:
 
   valgrind-analysis:
     name: Valgrind Memory Analysis
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
 
     steps:
       - name: Checkout code
@@ -164,23 +167,15 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y gcc cmake build-essential valgrind
 
-      - name: Build tests without sanitizers
-        run: |
-          mkdir -p build_valgrind
-          cd build_valgrind
-          cmake -DCMAKE_BUILD_TYPE=Debug ..
-          cmake --build . || true
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v10
+        with:
+          enable-cache: true
+          cache-dependency-glob: devtools/uv.lock
 
-      - name: Run valgrind on unit tests
-        continue-on-error: true
-        timeout-minutes: 30
-        run: |
-          chmod +x scripts/test/run_unit_tests.sh
-          # Run a subset with valgrind (full run is very slow)
-          valgrind --leak-check=full --show-leak-kinds=all \
-                   --track-origins=yes --verbose \
-                   --log-file=valgrind_output.log \
-                   ./scripts/test/run_unit_tests.sh 2>&1 || true
+      - name: Run every unit test under valgrind memcheck
+        timeout-minutes: 60
+        run: uv run --project devtools --no-dev varintdev ctest valgrind 2>&1 | tee valgrind_output.log
 
       - name: Upload valgrind results
         if: always()
@@ -193,8 +188,8 @@ jobs:
 
   summary:
     name: Nightly Summary
-    runs-on: ubuntu-latest
-    needs: [extended-sanitizer-testing, compiler-matrix, performance-benchmarks]
+    runs-on: ubuntu-26.04
+    needs: [extended-sanitizer-testing, compiler-matrix, performance-benchmarks, valgrind-analysis]
     if: always()
 
     steps:
@@ -211,3 +206,8 @@ jobs:
           echo "| Extended Sanitizers | ${{ needs.extended-sanitizer-testing.result }} |" >> $GITHUB_STEP_SUMMARY
           echo "| Compiler Matrix | ${{ needs.compiler-matrix.result }} |" >> $GITHUB_STEP_SUMMARY
           echo "| Performance | ${{ needs.performance-benchmarks.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Valgrind | ${{ needs.valgrind-analysis.result }} |" >> $GITHUB_STEP_SUMMARY
+
+      - name: Fail if any job did not succeed
+        if: contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled')
+        run: exit 1

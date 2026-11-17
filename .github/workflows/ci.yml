@@ -6,15 +6,21 @@ on:
   pull_request:
     branches: [ main, master, develop ]
 
+# An explicit bash shell runs every step with -eo pipefail, so a command
+# piped into tee still fails its step.
+defaults:
+  run:
+    shell: bash
+
 jobs:
-  # Job 1: Compiler Warning Verification (GCC + Clang)
+  # Strict-warning compile of every library source (GCC + Clang)
   compiler-warnings:
     name: Compiler Warnings (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest]
+        os: [ubuntu-26.04, macos-latest]
 
     steps:
       - name: Checkout code
@@ -34,47 +40,23 @@ jobs:
             brew list "$pkg" >/dev/null 2>&1 || brew install "$pkg"
           done
 
-      - name: Verify GCC and Clang versions
-        run: |
-          echo "=== GCC ==="
-          gcc --version
-          echo ""
-          echo "=== Clang ==="
-          clang --version
-
-      - name: Run complete compiler warning check
-        run: |
-          chmod +x scripts/build/run_all_compilers.sh
-          ./scripts/build/run_all_compilers.sh
-          echo ""
-          echo "=== Verification ==="
-          if grep -q "GCC:   PASS" compiler_check_results/summary.txt && \
-             grep -q "Clang: PASS" compiler_check_results/summary.txt; then
-            echo "✅ All compiler checks PASSED"
-            exit 0
-          else
-            echo "❌ Compiler checks FAILED"
-            cat compiler_check_results/gcc_results.txt
-            cat compiler_check_results/clang_results.txt
-            exit 1
-          fi
-
-      - name: Upload compiler check results
-        if: always()
-        uses: actions/upload-artifact@v7
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v10
         with:
-          name: compiler-results-${{ matrix.os }}
-          path: compiler_check_results/
-          retention-days: 30
+          enable-cache: true
+          cache-dependency-glob: devtools/uv.lock
 
-  # Job 2: Unit Tests with Sanitizers
+      - name: Compile every source with warnings as errors
+        run: uv run --project devtools --no-dev varintdev warnings gcc clang
+
+  # Every ctest suite under ASan + UBSan, then with junk-filled memory
   unit-tests:
     name: Unit Tests (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest]
+        os: [ubuntu-26.04, macos-latest]
 
     steps:
       - name: Checkout code
@@ -94,29 +76,26 @@ jobs:
             brew list "$pkg" >/dev/null 2>&1 || brew install "$pkg"
           done
 
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v10
+        with:
+          enable-cache: true
+          cache-dependency-glob: devtools/uv.lock
+
       - name: Run unit tests (ASan + UBSan)
-        run: |
-          chmod +x scripts/test/run_unit_tests.sh
-          ./scripts/test/run_unit_tests.sh
+        run: uv run --project devtools --no-dev varintdev ctest both
 
-      - name: Verify all tests passed
-        run: |
-          if [ -f test_results.log ]; then
-            if grep -q "ALL UNIT TESTS PASSED" test_results.log; then
-              echo "✅ All unit tests PASSED"
-              exit 0
-            fi
-          fi
-          echo "Unit tests completed"
+      - name: Run unit tests (uninitialized-memory audit)
+        run: uv run --project devtools --no-dev varintdev ctest uninit
 
-  # Job 3: Comprehensive Example/Demo Testing
+  # Comprehensive Example/Demo Testing
   examples-comprehensive:
     name: Examples (${{ matrix.os }}, sanitizers)
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest]
+        os: [ubuntu-26.04, macos-latest]
 
     steps:
       - name: Checkout code
@@ -142,23 +121,6 @@ jobs:
           chmod +x scripts/test/test_all_comprehensive.sh
           ./scripts/test/test_all_comprehensive.sh 2>&1 | tee comprehensive_test_output.log
 
-      - name: Verify all examples passed
-        run: |
-          if grep -q "ALL TESTS PASSED" comprehensive_test_output.log; then
-            echo "✅ All 41 examples PASSED"
-            PASSED=$(grep -oP "Passed:\s+\K\d+" comprehensive_test_output.log || echo "0")
-            FAILED=$(grep -oP "Failed:\s+\K\d+" comprehensive_test_output.log || echo "0")
-            echo "Results: $PASSED passed, $FAILED failed"
-            if [ "$FAILED" -eq 0 ]; then
-              exit 0
-            else
-              exit 1
-            fi
-          else
-            echo "❌ Some examples FAILED"
-            exit 1
-          fi
-
       - name: Upload test output
         if: always()
         uses: actions/upload-artifact@v7
@@ -167,14 +129,14 @@ jobs:
           path: comprehensive_test_output.log
           retention-days: 30
 
-  # Job 4: Build System Verification
+  # Build System Verification
   build-verification:
     name: CMake Build (${{ matrix.os }}, ${{ matrix.compiler }})
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest]
+        os: [ubuntu-26.04, macos-latest]
         compiler: [gcc, clang]
 
     steps:
@@ -198,107 +160,29 @@ jobs:
       - name: Set compiler environment
         run: |
           if [ "${{ matrix.compiler }}" = "gcc" ]; then
-            echo "CC=gcc" >> $GITHUB_ENV
-            echo "CXX=g++" >> $GITHUB_ENV
+            echo "CC=gcc" >> "$GITHUB_ENV"
+            echo "CXX=g++" >> "$GITHUB_ENV"
           else
-            echo "CC=clang" >> $GITHUB_ENV
-            echo "CXX=clang++" >> $GITHUB_ENV
+            echo "CC=clang" >> "$GITHUB_ENV"
+            echo "CXX=clang++" >> "$GITHUB_ENV"
           fi
-
-      - name: Create build directory
-        run: mkdir -p build
 
       - name: CMake configure
-        run: |
-          cd build
-          cmake -DCMAKE_BUILD_TYPE=Release \
-                -DCMAKE_C_COMPILER=$CC \
-                ..
+        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DCMAKE_C_COMPILER="$CC"
 
       - name: CMake build
-        run: |
-          cd build
-          cmake --build . --parallel $(nproc 2>/dev/null || sysctl -n hw.ncpu)
+        run: cmake --build build --parallel "$(nproc 2>/dev/null || sysctl -n hw.ncpu)"
 
       - name: Run CTest unit tests
-        run: |
-          cd build
-          make test
-          echo "✅ All unit tests passed via CTest"
+        run: ctest --test-dir build --output-on-failure
 
       - name: Run comprehensive test suite
-        run: |
-          cd build
-          make varint-test-comprehensive
-          echo "✅ All comprehensive tests passed"
+        run: cmake --build build --target varint-test-comprehensive
 
-      - name: Verify build artifacts
-        run: |
-          echo "=== Build artifacts ==="
-          find build -type f -executable -o -name "*.a" -o -name "*.so" | head -20
-          echo "✅ Build completed successfully with all tests passing"
-
-  # Job 5: Sanitizer Matrix Testing
-  sanitizer-matrix:
-    name: Sanitizers (${{ matrix.sanitizer }}, ${{ matrix.os }})
-    runs-on: ${{ matrix.os }}
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ubuntu-latest]
-        sanitizer: [address, undefined, memory, thread]
-        exclude:
-          # MemorySanitizer requires special instrumented libraries
-          - os: ubuntu-latest
-            sanitizer: memory
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v5
-
-      - name: Install dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y gcc clang cmake build-essential
-
-      - name: Run tests with ${{ matrix.sanitizer }} sanitizer
-        run: |
-          chmod +x scripts/test/run_all_tests.sh
-          # Map sanitizer names
-          case "${{ matrix.sanitizer }}" in
-            address) MODE="asan" ;;
-            undefined) MODE="ubsan" ;;
-            thread) MODE="tsan" ;;
-            memory) MODE="msan" ;;
-            *) MODE="none" ;;
-          esac
-          ./scripts/test/run_all_tests.sh $MODE 2>&1 | tee sanitizer_output.log
-
-      - name: Check sanitizer results
-        run: |
-          if grep -q "All tests passed" sanitizer_output.log; then
-            echo "✅ All tests passed with ${{ matrix.sanitizer }} sanitizer"
-          else
-            echo "⚠️ Some issues detected with ${{ matrix.sanitizer }} sanitizer"
-          fi
-
-      - name: Upload sanitizer results
-        if: always()
-        uses: actions/upload-artifact@v7
-        with:
-          name: sanitizer-${{ matrix.sanitizer }}-${{ matrix.os }}
-          path: sanitizer_output.log
-          retention-days: 30
-
-  # Job 6: Cross-Architecture Testing (if applicable)
-  cross-arch:
-    name: Cross-Arch (${{ matrix.arch }})
-    runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        arch: [amd64]
-        # Future: Add arm64, armv7 when cross-compilation is set up
+  # ThreadSanitizer over every ctest suite
+  thread-sanitizer:
+    name: ThreadSanitizer (ubuntu-26.04)
+    runs-on: ubuntu-26.04
 
     steps:
       - name: Checkout code
@@ -309,20 +193,24 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y gcc cmake build-essential
 
-      - name: Run compiler checks
-        run: |
-          chmod +x scripts/build/run_all_compilers.sh
-          ./scripts/build/run_all_compilers.sh
+      # TSan's shadow-memory layout does not fit the kernel's default
+      # 32-bit mmap randomization.
+      - name: Reduce mmap randomization for TSan
+        run: sudo sysctl vm.mmap_rnd_bits=28
 
-      - name: Verify results
-        run: |
-          echo "Architecture: ${{ matrix.arch }}"
-          echo "Compiler checks completed"
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v10
+        with:
+          enable-cache: true
+          cache-dependency-glob: devtools/uv.lock
 
-  # Job 7: Static Analysis with cppcheck
+      - name: Run unit tests (TSan)
+        run: uv run --project devtools --no-dev varintdev ctest tsan
+
+  # Static Analysis with cppcheck
   static-analysis:
     name: Static Analysis (cppcheck)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
 
     steps:
       - name: Checkout code
@@ -334,23 +222,14 @@ jobs:
           sudo apt-get install -y cppcheck
           cppcheck --version
 
-      - name: Run cppcheck on src/
-        run: |
-          cppcheck --enable=warning,style,performance,portability \
-                   --error-exitcode=1 \
-                   --inline-suppr \
-                   --std=c11 \
-                   --suppress=missingIncludeSystem \
-                   --suppress=unusedFunction \
-                   --suppress=unmatchedSuppression \
-                   --suppress=constVariablePointer \
-                   --suppress=constVariable \
-                   --suppress=constParameter \
-                   --suppress=constParameterPointer \
-                   -I src/ \
-                   src/*.c 2>&1 | tee cppcheck_output.log
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v10
+        with:
+          enable-cache: true
+          cache-dependency-glob: devtools/uv.lock
 
-          echo "✅ cppcheck found no critical issues"
+      - name: Run cppcheck on src/
+        run: uv run --project devtools --no-dev varintdev cppcheck 2>&1 | tee cppcheck_output.log
 
       - name: Upload static analysis results
         if: always()
@@ -360,35 +239,44 @@ jobs:
           path: cppcheck_output.log
           retention-days: 30
 
-  # Job 8: Summary Report
+  # Lint and type-check the Python tooling the other jobs run
+  devtools:
+    name: Devtools (ruff + mypy)
+    runs-on: ubuntu-26.04
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v10
+        with:
+          enable-cache: true
+          cache-dependency-glob: devtools/uv.lock
+
+      - name: ruff format
+        run: uv run --project devtools ruff format --check devtools/src
+
+      - name: ruff check
+        run: uv run --project devtools ruff check devtools/src
+
+      - name: mypy
+        run: uv run --project devtools mypy devtools/src
+
   summary:
     name: CI Summary
-    runs-on: ubuntu-latest
-    needs: [compiler-warnings, unit-tests, examples-comprehensive, build-verification]
+    runs-on: ubuntu-26.04
+    needs:
+      - compiler-warnings
+      - unit-tests
+      - examples-comprehensive
+      - build-verification
+      - thread-sanitizer
+      - static-analysis
+      - devtools
     if: always()
 
     steps:
-      - name: Generate summary
-        run: |
-          echo "# CI/CD Summary" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "## Test Results" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "| Job | Status |" >> $GITHUB_STEP_SUMMARY
-          echo "|-----|--------|" >> $GITHUB_STEP_SUMMARY
-          echo "| Compiler Warnings | ${{ needs.compiler-warnings.result }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| Unit Tests | ${{ needs.unit-tests.result }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| Examples | ${{ needs.examples-comprehensive.result }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| Build | ${{ needs.build-verification.result }} |" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-
-          if [ "${{ needs.compiler-warnings.result }}" = "success" ] && \
-             [ "${{ needs.unit-tests.result }}" = "success" ] && \
-             [ "${{ needs.examples-comprehensive.result }}" = "success" ] && \
-             [ "${{ needs.build-verification.result }}" = "success" ]; then
-            echo "## ✅ All CI checks PASSED!" >> $GITHUB_STEP_SUMMARY
-            exit 0
-          else
-            echo "## ❌ Some CI checks FAILED" >> $GITHUB_STEP_SUMMARY
-            exit 1
-          fi
+      - name: Fail if any job did not succeed
+        if: contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled')
+        run: exit 1

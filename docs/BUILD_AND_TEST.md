@@ -46,15 +46,18 @@ varint/
 │   ├── standalone/             # Standalone example programs
 │   ├── integration/            # Integration examples
 │   └── advanced/               # Advanced use cases
-├── scripts/
-│   ├── test/                   # Test execution scripts
-│   │   ├── test_all_comprehensive.sh       # Comprehensive test runner
-│   │   ├── run_all_tests.sh                # Unit tests with sanitizers
-│   │   └── run_unit_tests.sh               # Quick unit test runner
-│   └── build/                  # Build and compiler checking scripts
-│       ├── run_all_compilers.sh            # Multi-compiler checker
-│       └── check_warnings.sh               # Single-compiler checker
+├── devtools/                   # varintdev: Python developer and CI tooling
+│   └── src/varintdev/          # ctest modes, warnings, cppcheck, CI logs
+└── scripts/
+    ├── test/                   # Test execution scripts
+    │   └── test_all_comprehensive.sh       # Comprehensive test runner
+    └── build/
+        └── validate_workflows.py           # YAML-validate .github/workflows
 ```
+
+`make varint-check-warnings` and `make varint-check` call `varintdev`
+through uv; see [`devtools/README.md`](../devtools/README.md) for every
+command, including the sanitizer and uninitialized-memory test modes.
 
 ## Testing Levels
 

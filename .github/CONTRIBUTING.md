@@ -22,17 +22,17 @@ git checkout -b feature/your-feature-name
 
 ### 4. Run Local Tests
 ```bash
-# Compiler warning checks (GCC + Clang)
-./scripts/build/run_all_compilers.sh
+# Compiler warning checks (GCC + Clang, warnings as errors)
+uv run --project devtools varintdev warnings gcc clang
 
-# Unit tests with sanitizers
-./scripts/test/run_unit_tests.sh
+# Static analysis (any finding fails)
+uv run --project devtools varintdev cppcheck
+
+# Every unit test under ASan + UBSan, then with junk-filled memory
+uv run --project devtools varintdev ctest both uninit
 
 # Comprehensive example testing
 ./scripts/test/test_all_comprehensive.sh
-
-# All tests with specific sanitizer
-./scripts/test/run_all_tests.sh asan    # or ubsan, both, none
 ```
 
 ### 5. Ensure Quality Gates Pass
@@ -285,16 +285,22 @@ gcc -O3 -march=native -I. -o varintCompare \
 ### Sanitizer Testing
 ```bash
 # Address sanitizer (buffer overflows, use-after-free)
-./run_all_tests.sh asan
+uv run --project devtools varintdev ctest asan
 
 # Undefined behavior sanitizer (integer overflow, null deref)
-./run_all_tests.sh ubsan
+uv run --project devtools varintdev ctest ubsan
 
 # Both sanitizers
-./run_all_tests.sh both
+uv run --project devtools varintdev ctest both
 
 # Thread sanitizer (data races)
-./run_all_tests.sh tsan
+uv run --project devtools varintdev ctest tsan
+
+# Uninitialized reads: stack and heap filled with junk before use
+uv run --project devtools varintdev ctest uninit
+
+# Valgrind memcheck over every test (Linux)
+uv run --project devtools varintdev ctest valgrind
 ```
 
 ## Platform Support

@@ -1,20 +1,20 @@
 # Scripts Directory
 
-This directory contains all automation scripts for building, testing, and validating the varint library.
+Example and trie-system test scripts, plus workflow validation. Compiler
+warning checks, static analysis, and the unit-test modes (sanitizers,
+uninitialized-memory audit, valgrind) live in the `varintdev` Python tooling;
+see [`devtools/README.md`](../devtools/README.md).
 
 ## Directory Structure
 
 ```
 scripts/
-├── build/          # Build and compiler checking scripts
-│   ├── check_warnings.sh       # Single compiler warning check
-│   ├── run_all_compilers.sh    # Multi-compiler verification (GCC + Clang)
+├── build/
 │   └── validate_workflows.py   # YAML-validate .github/workflows before pushing
 └── test/           # Test execution scripts
-    ├── run_all_tests.sh                # Unit tests with optional sanitizers
-    ├── run_unit_tests.sh               # Unit tests with ASan+UBSan
+    ├── run_palette_fuzz.sh             # Palette codec fuzz driver
     ├── test_all_comprehensive.sh       # All examples with sanitizers
-    ├── test_all_examples_sanitizers.sh # All examples comprehensive
+    ├── test_all_examples_sanitizers.sh # All examples via CMake
     ├── test_trie_comprehensive.sh      # Trie system full test suite
     ├── test_trie_fast.sh               # Trie fast tests (no valgrind)
     ├── test_trie_memory_safety.sh      # Trie with valgrind
@@ -24,79 +24,16 @@ scripts/
 
 ## Build Scripts
 
-### `scripts/build/run_all_compilers.sh`
+### `scripts/build/validate_workflows.py`
 
-Comprehensive compiler warning verification with both GCC and Clang.
-
-**Usage:**
-
-```bash
-./scripts/build/run_all_compilers.sh
-```
-
-**What it does:**
-
-- Runs strict warning checks on all source files
-- Tests with both GCC and Clang compilers
-- Saves results to `compiler_check_results/`
-- Reports summary of files passing/failing
-
-**Exit codes:**
-
-- `0` - All files pass on both compilers
-- Non-zero - One or more files have warnings
-
-### `scripts/build/check_warnings.sh`
-
-Single compiler warning checker (used by `run_all_compilers.sh`).
-
-**Usage:**
+Parses every `.github/workflows/*.yml` and fails naming the first file that
+is not valid YAML or has no `jobs:`.
 
 ```bash
-./scripts/build/check_warnings.sh [gcc|clang]
+scripts/build/validate_workflows.py
 ```
-
-**Flags used:**
-
-- **Clang:** `-O2 -Wall -Wextra -Wpedantic -Wsign-conversion -Wconversion -Werror`
-- **GCC:** `-O2 -Wall -Wextra -Werror`
 
 ## Test Scripts
-
-### Unit Tests
-
-#### `scripts/test/run_all_tests.sh`
-
-Builds the full CMake tree with the requested sanitizer into
-`build_tests/<sanitizer>/` and runs **every registered ctest suite**.
-`src/CMakeLists.txt` is the single source of truth for the test list,
-defines, and dependencies — a suite added there is automatically covered
-here, so this script cannot drift out of sync with the tree.
-
-**Usage:**
-
-```bash
-./scripts/test/run_all_tests.sh [none|asan|ubsan|both]
-```
-
-**Examples:**
-
-```bash
-./scripts/test/run_all_tests.sh            # No sanitizers (fast)
-./scripts/test/run_all_tests.sh asan       # AddressSanitizer only
-./scripts/test/run_all_tests.sh ubsan      # UndefinedBehaviorSanitizer only
-./scripts/test/run_all_tests.sh both       # Both sanitizers (recommended)
-```
-
-#### `scripts/test/run_unit_tests.sh`
-
-Quick unit test runner with ASan+UBSan enabled by default.
-
-**Usage:**
-
-```bash
-./scripts/test/run_unit_tests.sh
-```
 
 ### Example Tests
 
@@ -215,66 +152,51 @@ Basic trie server functionality tests.
 **Pre-commit checks:**
 
 ```bash
-./scripts/build/run_all_compilers.sh    # Compiler warnings
-./scripts/test/run_all_tests.sh both    # Unit tests
-./scripts/test/test_all_comprehensive.sh # All examples
+uv run --project devtools varintdev warnings gcc clang  # Compiler warnings
+uv run --project devtools varintdev cppcheck            # Static analysis
+uv run --project devtools varintdev ctest both uninit   # Unit tests
+./scripts/test/test_all_comprehensive.sh                # All examples
 ```
 
 **Fast validation:**
 
 ```bash
 make test                                # CMake unit tests
-./scripts/test/run_unit_tests.sh        # Quick unit tests
 ./scripts/test/test_trie_fast.sh        # Quick trie tests
 ```
 
 **Memory safety deep dive:**
 
 ```bash
-./scripts/test/test_trie_memory_safety.sh    # Valgrind
-./scripts/test/test_trie_sanitizers.sh       # ASan+UBSan
-./scripts/test/test_all_comprehensive.sh     # All examples
+uv run --project devtools varintdev ctest valgrind  # Valgrind (Linux)
+./scripts/test/test_trie_memory_safety.sh           # Trie under valgrind
+./scripts/test/test_trie_sanitizers.sh              # Trie with ASan+UBSan
+./scripts/test/test_all_comprehensive.sh            # All examples
 ```
 
 ## CMake Integration
 
-These scripts are also integrated into the CMake build system:
-
 ```bash
-make test              # Runs all unit tests via CTest
-make test-comprehensive # Runs test_all_comprehensive.sh
-make check-warnings    # Runs run_all_compilers.sh
+make test                       # Runs all unit tests via CTest
+make varint-test-comprehensive  # Runs test_all_comprehensive.sh
+make varint-check-warnings      # Runs varintdev warnings gcc clang
+make varint-check               # Runs varintdev cppcheck, then all tests
 ```
 
 ## CI/CD Integration
 
-All scripts are used in GitHub Actions workflows:
-
-- **ci.yml** - Runs on every push/PR
-  - Compiler warnings (both GCC and Clang)
-  - Unit tests with sanitizers
-  - All examples with sanitizers
-
-- **release.yml** - Runs on version tags
-  - Full quality gate validation
-  - All tests must pass
-
-- **nightly.yml** - Runs daily at 2 AM UTC
-  - Extended sanitizer testing
-  - Compiler matrix testing
-  - Performance benchmarks
+See [`.github/CI_CD_DOCUMENTATION.md`](../.github/CI_CD_DOCUMENTATION.md).
+`test_all_comprehensive.sh` runs in the ci.yml Examples job, the release
+gate, and every nightly sanitizer job.
 
 ## Output Artifacts
 
 Scripts create the following artifacts (all gitignored):
 
 - `build/` - CMake build artifacts
-- `build_tests/` - Unit test build artifacts
+- `build_tests/` - Unit test build artifacts (one directory per varintdev mode)
 - `build_examples_sanitizers/` - Example builds with sanitizers
 - `build_sanitizers/` - Trie server sanitizer builds
-- `compiler_check_results/` - Compiler check logs
-  - `gcc_results.txt`
-  - `clang_results.txt`
 
 ## Exit Codes
 
@@ -289,4 +211,3 @@ All scripts follow standard exit code conventions:
 - All scripts automatically navigate to repository root
 - Scripts can be run from any directory
 - Build artifacts are created in repository root
-- All scripts support running from scripts/ subdirectories

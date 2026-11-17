@@ -278,11 +278,16 @@ make varint-check-warnings
 
 ### Manual Testing
 
+Developer tooling lives in [`devtools/`](devtools/README.md), a Python
+package run through [uv](https://docs.astral.sh/uv/). CI runs the same
+commands.
+
 **Unit Tests:**
 
 ```bash
-./scripts/test/run_all_tests.sh both     # All unit tests with ASan+UBSan
-./scripts/test/run_unit_tests.sh         # Quick unit test runner
+uv run --project devtools varintdev ctest both     # every suite, ASan + UBSan
+uv run --project devtools varintdev ctest uninit   # junk-filled memory audit
+uv run --project devtools varintdev ctest tsan     # ThreadSanitizer
 ```
 
 **Example Tests:**
@@ -291,10 +296,11 @@ make varint-check-warnings
 ./scripts/test/test_all_comprehensive.sh  # All 43 examples with sanitizers
 ```
 
-**Compiler Checks:**
+**Compiler Checks and Static Analysis:**
 
 ```bash
-./scripts/build/run_all_compilers.sh      # GCC + Clang warning verification
+uv run --project devtools varintdev warnings gcc clang  # strict warnings as errors
+uv run --project devtools varintdev cppcheck            # cppcheck, any finding fails
 ```
 
 **Performance Benchmarks:**
@@ -351,13 +357,13 @@ varint/
 │   ├── README.md               # Complete example catalog
 │   └── CMakeLists.txt          # Example build configuration
 │
+├── devtools/                   # varintdev: Python developer and CI tooling
+│   └── src/varintdev/          # ctest modes, warnings, cppcheck, CI logs
+│
 ├── scripts/                    # Automation and testing scripts
-│   ├── build/                  # Build and compiler verification
-│   │   ├── run_all_compilers.sh    # GCC + Clang warning checks
-│   │   └── check_warnings.sh       # Single compiler checker
+│   ├── build/                  # Build verification
+│   │   └── validate_workflows.py   # YAML-validate .github/workflows
 │   ├── test/                   # Test execution scripts
-│   │   ├── run_all_tests.sh            # Unit tests with sanitizers
-│   │   ├── run_unit_tests.sh           # Quick unit test runner
 │   │   ├── test_all_comprehensive.sh   # All 43 examples with ASan+UBSan
 │   │   ├── test_all_examples_sanitizers.sh  # CMake-based example testing
 │   │   ├── test_trie_comprehensive.sh  # Full trie system validation

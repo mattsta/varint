@@ -2,7 +2,13 @@
 
 ## Overview
 
-The varint library uses **GitHub Actions** for comprehensive automated testing, validation, and release management. The CI/CD system leverages all existing test automation infrastructure to ensure maximum code quality and production readiness.
+The varint library uses **GitHub Actions** for automated testing, validation,
+and release management. Every check CI runs is a `varintdev` command (the
+Python tooling in [`devtools/`](../devtools/README.md)) or a CMake/ctest
+target, so any CI job can be reproduced locally with the same command.
+
+Every workflow sets `defaults: run: shell: bash`, which runs each step with
+`-eo pipefail`: a command piped into `tee` still fails its step.
 
 ---
 
@@ -12,29 +18,31 @@ The varint library uses **GitHub Actions** for comprehensive automated testing, 
 
 ```
 ┌─────────────────────────────────────────────────────┐
-│  Tier 1: Continuous Integration (Every Push/PR)    │
-│  - Compiler warnings (GCC + Clang)                  │
-│  - Unit tests with sanitizers                       │
-│  - 41 comprehensive examples                        │
-│  - Multi-platform builds                            │
+│  Tier 1: Continuous Integration (Every Push/PR)     │
+│  - Strict warnings, warnings as errors (GCC + Clang)│
+│  - Every unit test: ASan + UBSan, uninit audit, TSan│
+│  - cppcheck static analysis                         │
+│  - All examples under sanitizers                    │
+│  - CMake builds on Linux and macOS                  │
 └─────────────────────────────────────────────────────┘
                          ↓
 ┌─────────────────────────────────────────────────────┐
 │  Tier 2: Release Verification (On Tags)             │
-│  - ALL quality gates must pass                      │
-│  - Zero warnings on both compilers                  │
-│  - Zero sanitizer violations                        │
+│  - Warnings, unit tests and examples must pass      │
 │  - Creates release artifacts                        │
 └─────────────────────────────────────────────────────┘
                          ↓
 ┌─────────────────────────────────────────────────────┐
 │  Tier 3: Nightly Extended Testing (Daily @ 2 AM)    │
-│  - Extended sanitizer matrix                        │
-│  - Compiler matrix (GCC 10-13, Clang 11-15)         │
+│  - Each sanitizer mode on its own                   │
+│  - Compiler version matrix                          │
 │  - Performance benchmarks                           │
-│  - Valgrind memory analysis                         │
+│  - Valgrind memcheck over every unit test           │
 └─────────────────────────────────────────────────────┘
 ```
+
+Runners are pinned (`ubuntu-26.04`, `macos-latest`), so a new toolchain
+arrives through an explicit workflow change.
 
 ---
 
@@ -42,340 +50,97 @@ The varint library uses **GitHub Actions** for comprehensive automated testing, 
 
 ### 1. Continuous Integration (ci.yml)
 
-**Trigger**: Every push, every pull request
-**Duration**: ~10-15 minutes
-**Platforms**: Ubuntu 22.04, Ubuntu 20.04, macOS 13, macOS 12
+**Trigger**: pushes to main/master/develop and `claude/**`, pull requests
 
-#### Jobs
+| Job | Platforms | Command |
+|-----|-----------|---------|
+| Compiler Warnings | Ubuntu, macOS | `varintdev warnings gcc clang` |
+| Unit Tests | Ubuntu, macOS | `varintdev ctest both`, then `varintdev ctest uninit` |
+| Examples | Ubuntu, macOS | `scripts/test/test_all_comprehensive.sh` |
+| CMake Build | Ubuntu, macOS × gcc, clang | Release configure, build, `ctest`, `varint-test-comprehensive` |
+| ThreadSanitizer | Ubuntu | `varintdev ctest tsan` |
+| Static Analysis | Ubuntu | `varintdev cppcheck` |
+| Devtools | Ubuntu | `ruff format --check`, `ruff check`, `mypy` on `devtools/src` |
+| CI Summary | Ubuntu | fails if any job above failed or was cancelled |
 
-##### Job 1: Compiler Warning Verification
-**Purpose**: Ensure zero compiler warnings with strictest flags
+**Compiler Warnings** compiles every `src/*.c` on its own with
+`-Werror`. The flag set follows what the compiler is, not its name (on macOS
+`gcc` is Apple Clang):
 
-**Strategy**:
-```yaml
-matrix:
-  os: [ubuntu-22.04, ubuntu-20.04, macos-13, macos-12]
+```
+GCC:   -O2 -Wall -Wextra -Werror
+Clang: -O2 -Wall -Wextra -Wpedantic -Wsign-conversion -Wconversion -Werror
 ```
 
-**Process**:
-1. Install GCC + Clang
-2. Run `./run_all_compilers.sh`
-3. Verify GCC: 25/25 files PASS
-4. Verify Clang: 25/25 files PASS
-5. Upload results as artifacts
+**Unit Tests** build the CMake tree once per mode and run every registered
+ctest suite (`src/CMakeLists.txt` is the only test list):
 
-**Strict Flags Used**:
-```
--Wall -Wextra -Wpedantic -Wsign-conversion -Wconversion -Werror
-```
+- `both`: AddressSanitizer + UndefinedBehaviorSanitizer (no UB recovery;
+  LeakSanitizer is part of ASan on Linux)
+- `uninit`: Release build with `-ftrivial-auto-var-init=pattern` and a
+  junk-filling allocator (`MALLOC_PERTURB_` on glibc, `MallocScribble` on
+  macOS), so reads of memory that was never written see garbage
+- `tsan`: ThreadSanitizer (the job lowers `vm.mmap_rnd_bits` first, which
+  TSan's shadow-memory layout needs on current kernels)
 
-**Success Criteria**: Zero warnings, zero errors
-
----
-
-##### Job 2: Unit Tests with Sanitizers
-**Purpose**: Validate correctness with memory safety checks
-
-**Strategy**:
-```yaml
-matrix:
-  os: [ubuntu-22.04, macos-13]
-  sanitizer: [none, asan, ubsan, both]
-```
-
-**Process**:
-1. Run `./run_unit_tests.sh`
-2. Execute 8 unit tests:
-   - varintDelta, varintFOR, varintGroup, varintPFOR
-   - varintDict, varintBitmap, varintAdaptive, varintFloat
-3. Verify all tests pass
-
-**Sanitizers**:
-- `asan`: AddressSanitizer (buffer overflows, use-after-free)
-- `ubsan`: UndefinedBehaviorSanitizer (integer overflow, null deref)
-- `both`: Both sanitizers combined
-
-**Success Criteria**: 8/8 tests PASS, 0 sanitizer violations
-
----
-
-##### Job 3: Comprehensive Example Testing
-**Purpose**: Validate all 41 examples with sanitizers
-
-**Strategy**:
-```yaml
-matrix:
-  os: [ubuntu-22.04, macos-13]
-```
-
-**Process**:
-1. Run `./test_all_comprehensive.sh`
-2. Execute all examples with ASan+UBSan:
-   - 14 Standalone examples
-   - 9 Integration examples
-   - 14 Advanced examples (including trie server/client)
-   - 3 Reference examples
-   - 1 Interactive test
-3. Verify all pass
-
-**Timeout**: 15 minutes
-
-**Success Criteria**: 41/41 examples PASS, 0 sanitizer violations
-
----
-
-##### Job 4: Build System Verification
-**Purpose**: Ensure CMake builds work on all platforms
-
-**Strategy**:
-```yaml
-matrix:
-  os: [ubuntu-22.04, macos-13]
-  compiler: [gcc, clang]
-```
-
-**Process**:
-1. CMake configure with Release build
-2. CMake build with parallelization
-3. Verify build artifacts created
-
-**Success Criteria**: Clean build, no errors
-
----
-
-##### Job 5: Sanitizer Matrix Testing
-**Purpose**: Test with multiple sanitizer types
-
-**Strategy**:
-```yaml
-matrix:
-  sanitizer: [address, undefined, thread]
-```
-
-**Process**:
-1. Run `./run_all_tests.sh <sanitizer>`
-2. Check for violations
-3. Upload results
-
-**Note**: MemorySanitizer excluded (requires instrumented libraries)
-
----
-
-##### Job 6: Cross-Architecture Testing
-**Purpose**: Validate on different architectures
-
-**Current**: x86_64 (amd64)
-**Future**: ARM64, ARMv7 (when cross-compilation configured)
-
----
-
-##### Job 7: Static Analysis
-**Purpose**: Additional code quality checks
-
-**Tools**: cppcheck (when available)
-
-**Process**: Static analysis on all source files
-
----
-
-##### Job 8: Summary Report
-**Purpose**: Aggregate results and generate summary
-
-**Process**:
-1. Collect results from all jobs
-2. Generate GitHub Step Summary
-3. Mark workflow as pass/fail
-
-**Display**: Visible in GitHub Actions UI and PR checks
+**Static Analysis** runs cppcheck with `warning,style,performance,
+portability` enabled. Any finding fails the job; a finding that is a
+deliberate test of a known result carries an inline
+`// cppcheck-suppress <id>` on the line it reports.
 
 ---
 
 ### 2. Release Verification (release.yml)
 
-**Trigger**: Git tags matching `v*` or release creation
-**Duration**: ~20 minutes
-**Purpose**: Final validation before release
+**Trigger**: tags matching `v*`, release creation
 
-#### Quality Gate
+On Ubuntu and macOS, each of these must pass:
 
-**ALL checks must pass for release approval**:
+1. `varintdev warnings gcc clang`
+2. `varintdev ctest both uninit`
+3. `scripts/test/test_all_comprehensive.sh`
 
-```
-✅ GCC:   25/25 files clean (strict warnings)
-✅ Clang: 25/25 files clean (strict warnings)
-✅ Unit Tests: 8/8 passed with sanitizers
-✅ Examples: 41/41 passed with ASan+UBSan
-✅ Build: Clean on all platforms
-```
-
-#### Process
-
-1. **Compiler Checks** (BLOCKING)
-   - Run `./run_all_compilers.sh`
-   - FAIL if any warnings found
-
-2. **Unit Tests** (BLOCKING)
-   - Run `./run_unit_tests.sh`
-   - FAIL if any test fails
-
-3. **Comprehensive Examples** (BLOCKING)
-   - Run `./test_all_comprehensive.sh`
-   - FAIL if any example fails
-   - Timeout: 20 minutes
-
-4. **Create Release Archive**
-   - Package source files
-   - Include docs, examples, build system
-   - Create `varint-<version>.tar.gz`
-
-5. **Quality Gate Summary**
-   - Generate release report
-   - Upload artifacts
-
-**Success Criteria**: ALL gates pass, release ready
+Ubuntu then packages `varint-<version>.tar.gz` (sources, docs, examples,
+build files) as a 90-day artifact.
 
 ---
 
 ### 3. Nightly Extended Testing (nightly.yml)
 
-**Trigger**:
-- Scheduled: 2 AM UTC daily
-- Manual: workflow_dispatch
+**Trigger**: 2 AM UTC daily, or manually (`workflow_dispatch`)
 
-**Duration**: ~1-2 hours
-**Purpose**: Deep testing, performance tracking
-
-#### Jobs
-
-##### Extended Sanitizer Testing
-**Matrix**: asan, ubsan, both, tsan
-
-**Process**:
-1. Run unit tests with sanitizer
-2. Run comprehensive examples with sanitizer
-3. Run all tests with sanitizer
-4. Check for violations
-5. Upload results (7-day retention)
-
-##### Compiler Matrix Testing
-**Matrix**: GCC 10-13, Clang 11-15
-
-**Purpose**: Ensure compatibility with multiple compiler versions
-
-**Process**:
-1. Install specific compiler version
-2. Run `./run_all_compilers.sh` with that compiler
-3. Upload results per compiler
-
-**Note**: Some combinations may not be available on all platforms
-
-##### Performance Benchmarks
-
-**Process**:
-1. Build optimized binary (`-O3`)
-2. Run `./varintCompare_perf 100`
-3. Collect performance metrics
-4. Upload results (30-day retention)
-
-**Metrics Tracked**:
-- Encode/decode cycles
-- Throughput (ops/sec)
-- Compression ratios
-
-##### Valgrind Memory Analysis
-
-**Process**:
-1. Build without sanitizers
-2. Run tests under Valgrind
-3. Check for memory leaks
-4. Upload analysis (7-day retention)
-
-**Checks**:
-- Memory leaks
-- Invalid reads/writes
-- Uninitialized memory usage
+| Job | What it runs |
+|-----|--------------|
+| Extended Sanitizers | `varintdev ctest <mode>` for each of asan, ubsan, tsan, uninit, plus every example |
+| Compiler Matrix | `varintdev warnings gcc-N` / `clang-N` for each version the runner can install |
+| Performance Benchmarks | `varintCompare` at `-O3` |
+| Valgrind | `varintdev ctest valgrind`: every unit test under memcheck, errors and definite/indirect leaks fail |
+| Nightly Summary | fails if any job above failed or was cancelled |
 
 ---
 
-## Existing Test Infrastructure
+## Developer Tooling (varintdev)
 
-All CI/CD workflows leverage existing automation:
+Run from the repository root; uv creates the environment on first use.
 
-### 1. run_all_compilers.sh
-**Purpose**: GCC + Clang strict warning verification
-
-**Process**:
 ```bash
-./run_all_compilers.sh
+uv run --project devtools varintdev warnings gcc clang    # strict warnings
+uv run --project devtools varintdev cppcheck              # static analysis
+uv run --project devtools varintdev ctest both uninit     # unit test modes
+uv run --project devtools varintdev ctest --list none     # registered tests
+uv run --project devtools varintdev ci-logs [RUN_ID]      # diagnose a CI run
 ```
 
-**Output**:
-- `compiler_check_results/gcc_results.txt`
-- `compiler_check_results/clang_results.txt`
-- `compiler_check_results/summary.txt`
+`ctest` modes: `none`, `asan`, `ubsan`, `both`, `tsan`, `uninit`,
+`valgrind`. Each builds into `build_tests/<mode>/`.
 
-**Success**: 25/25 files on both compilers
+`ci-logs` downloads every job log and annotation of a run (default: the
+newest run of the current branch) into `ci_logs/<run-id>/` and reports
+failed jobs and steps, failed ctest suites, every compiler and cppcheck
+diagnostic grouped by check and file, and annotations above notice level.
 
----
-
-### 2. run_unit_tests.sh
-**Purpose**: Execute 8 unit tests with sanitizers
-
-**Process**:
-```bash
-./run_unit_tests.sh
-```
-
-**Tests**:
-- varintDelta (delta encoding)
-- varintFOR (Frame of Reference)
-- varintGroup (grouped varints)
-- varintPFOR (Patched FOR)
-- varintDict (dictionary encoding)
-- varintBitmap (Roaring bitmaps)
-- varintAdaptive (auto-selection)
-- varintFloat (float compression)
-
-**Output**: Test summary with pass/fail status
-
----
-
-### 3. test_all_comprehensive.sh
-**Purpose**: Execute ALL 41 examples with ASan+UBSan
-
-**Process**:
-```bash
-./test_all_comprehensive.sh
-```
-
-**Categories**:
-1. **Standalone** (14 examples): Basic encoding demonstrations
-2. **Integration** (9 examples): Real-world use cases
-3. **Advanced** (14 examples): Complex systems (trie server, etc.)
-4. **Reference** (3 examples): Reference implementations
-5. **Interactive** (1 example): Interactive testing
-
-**Sanitizers**: `-fsanitize=address,undefined`
-
-**Output**: Detailed pass/fail for each example
-
----
-
-### 4. run_all_tests.sh
-**Purpose**: Run tests with specific sanitizer configuration
-
-**Usage**:
-```bash
-./run_all_tests.sh none   # No sanitizers
-./run_all_tests.sh asan   # AddressSanitizer
-./run_all_tests.sh ubsan  # UndefinedBehaviorSanitizer
-./run_all_tests.sh both   # Both sanitizers
-```
-
-**Process**:
-- Builds all tests with specified sanitizer flags
-- Executes test suite
-- Reports results
+The CMake targets `varint-check-warnings` and `varint-check` call the same
+commands.
 
 ---
 
@@ -386,12 +151,12 @@ All CI/CD workflows leverage existing automation:
 **PR Checks**:
 - All CI jobs appear as checks on PRs
 - Must pass before merge (if branch protection enabled)
-- Click "Details" to see full logs
+- Click "Details" to see full logs, or run `varintdev ci-logs`
 
 **Actions Tab**:
 - All workflow runs visible at `/actions`
 - Filter by workflow, branch, status
-- Download artifacts from successful runs
+- Download artifacts from completed runs
 
 **Badges**:
 README.md displays real-time status:
@@ -403,26 +168,17 @@ README.md displays real-time status:
 
 ### Artifacts
 
-**Uploaded Artifacts** (available in Actions UI):
+1. **Test Outputs** (30-day retention)
+   - Comprehensive example logs per platform
+   - cppcheck output
 
-1. **Compiler Results** (30-day retention)
-   - GCC results per platform
-   - Clang results per platform
-   - Summary reports
-
-2. **Test Outputs** (30-day retention)
-   - Comprehensive test logs
-   - Sanitizer output
-   - Performance benchmarks
-
-3. **Release Archives** (90-day retention)
+2. **Release Archives** (90-day retention)
    - Source tarball
-   - Documentation bundle
 
-4. **Nightly Results** (7-day retention)
-   - Extended test logs
+3. **Nightly Results** (7-day retention)
+   - Per-mode unit test and example logs
    - Compiler matrix results
-   - Valgrind analysis
+   - Valgrind output
 
 ---
 
@@ -432,11 +188,11 @@ README.md displays real-time status:
 
 **Automated Checks** (enforced by CI):
 ```
-✅ Compiler Warnings:  GCC + Clang must be 25/25 clean
-✅ Unit Tests:         8/8 must pass
-✅ Examples:           41/41 must pass
-✅ Sanitizers:         0 violations allowed
-✅ Build:              Must compile on all platforms
+✅ Compiler Warnings:  every src/*.c clean on GCC and Clang
+✅ Unit Tests:         every ctest suite under ASan+UBSan, uninit, TSan
+✅ Static Analysis:    zero cppcheck findings
+✅ Examples:           every example passes under ASan+UBSan
+✅ Build:              CMake build and ctest on Linux and macOS, gcc and clang
 ```
 
 **Manual Review** (human reviewer):
@@ -471,86 +227,51 @@ README.md displays real-time status:
 
 ## Troubleshooting CI Failures
 
+Start with `uv run --project devtools varintdev ci-logs <run-id>`: it names
+the failed jobs, steps and ctest suites and lists every diagnostic.
+
 ### Compiler Warnings Failure
 
-**Symptom**: "Compiler checks FAILED"
-
-**Debug**:
-1. Download `compiler-results-<os>` artifact
-2. Check `gcc_results.txt` and `clang_results.txt`
-3. Identify failing file and warning
-4. Run locally: `./run_all_compilers.sh`
-5. Fix warning with explicit casts or code change
-
-**Common Fixes**:
-- Add explicit type casts: `(uint8_t)`, `(uint64_t)`
-- Fix sign conversions: `(int32_t)`, `(uint32_t)`
-- Check macro expansions for type safety
-
----
+1. The job log shows each failing file with the compiler's full output
+2. Reproduce: `varintdev warnings gcc clang` (or the specific compiler,
+   e.g. `varintdev warnings gcc-15`)
+3. Fix the warning in code; the check has no suppressions
 
 ### Unit Test Failure
 
-**Symptom**: "Unit tests FAILED"
+1. `ci-logs` lists the failing suite and mode; ctest's
+   `--output-on-failure` output is in the job log
+2. Reproduce: `varintdev ctest <mode>`
+3. Run one suite directly from `build_tests/<mode>/src/`
 
-**Debug**:
-1. Check which test failed in logs
-2. Run locally: `./run_unit_tests.sh`
-3. Run specific test with sanitizers:
-   ```bash
-   gcc -fsanitize=address,undefined -I. -o test \
-       src/<TestName>.c src/*.c -lm
-   ./test
-   ```
-4. Fix identified issue
+### Static Analysis Failure
 
----
+1. The job log lists each finding as `file:line:col: severity: message [id]`
+2. Reproduce: `varintdev cppcheck` or `varintdev cppcheck src/<file>.c`
+3. Fix the code; suppress inline only when the finding is a deliberate
+   test of a known result
 
 ### Example Test Failure
 
-**Symptom**: "Examples FAILED"
-
-**Debug**:
 1. Download `comprehensive-test-output-<os>` artifact
 2. Find failing example in log
-3. Run locally: `./test_all_comprehensive.sh`
-4. Run specific example with sanitizers
-5. Check for:
-   - Compilation errors
-   - Runtime crashes
-   - Sanitizer violations
-   - Timeouts
-
----
+3. Run locally: `./scripts/test/test_all_comprehensive.sh`
+4. Check for compilation errors, runtime crashes, sanitizer violations,
+   timeouts
 
 ### Sanitizer Violation
 
-**Symptom**: "Sanitizer violations detected"
-
-**Types**:
-
-**AddressSanitizer**:
-- Buffer overflows
-- Use-after-free
-- Stack/heap buffer overflow
-- Global buffer overflow
-
-**UndefinedBehaviorSanitizer**:
-- Integer overflow
-- Division by zero
-- Null pointer dereference
-- Invalid type casts
-
-**ThreadSanitizer**:
-- Data races
-- Lock order violations
+**AddressSanitizer**: buffer overflows, use-after-free, leaks (Linux)
+**UndefinedBehaviorSanitizer**: signed overflow, invalid shifts, misaligned
+or null access
+**ThreadSanitizer**: data races, lock order violations
+**uninit mode**: a result that changes when unwritten memory holds junk
 
 **Fix Process**:
-1. Read sanitizer output carefully
+1. Read the sanitizer report or failing assertion
 2. Locate source file and line number
-3. Understand root cause
-4. Apply fix (bounds check, explicit cast, etc.)
-5. Verify with local sanitizer run
+3. Understand the root cause
+4. Fix it and rerun the same `varintdev ctest <mode>`
 
 ---
 
@@ -570,37 +291,24 @@ README.md displays real-time status:
 
 **Baseline Storage**: Nightly artifacts (30-day retention)
 
-**Regression Detection**:
-- Compare current run to baseline
-- Alert if >5% performance degradation
-- Generate performance trend reports
-
 ---
 
 ## Local Testing
 
 ### Before Pushing
 
-**Quick Check** (~2 minutes):
+**Quick Check**:
 ```bash
-./run_all_compilers.sh
+uv run --project devtools varintdev warnings gcc clang
+uv run --project devtools varintdev ctest both
 ```
 
-**Comprehensive** (~5 minutes):
+**Full CI Equivalent**:
 ```bash
-./run_all_compilers.sh
-./run_unit_tests.sh
-./test_all_comprehensive.sh
-```
-
-**Full CI Simulation** (~15 minutes):
-```bash
-# Run all combinations
-for sanitizer in none asan ubsan both; do
-  ./run_all_tests.sh $sanitizer
-done
-
-./test_all_comprehensive.sh
+uv run --project devtools varintdev warnings gcc clang
+uv run --project devtools varintdev cppcheck
+uv run --project devtools varintdev ctest both uninit tsan
+./scripts/test/test_all_comprehensive.sh
 ```
 
 ---
@@ -614,29 +322,16 @@ done
 - `.github/workflows/release.yml` - Release validation
 - `.github/workflows/nightly.yml` - Extended testing
 
-**Testing Workflow Changes**:
-1. Create test branch
-2. Modify workflow
-3. Push to trigger CI
-4. Verify in Actions tab
-5. Merge when working
+Validate YAML before pushing: `scripts/build/validate_workflows.py`.
 
 ### Adding New Tests
 
-**Process**:
-1. Add test script to root (e.g., `new_test.sh`)
-2. Make executable: `chmod +x new_test.sh`
-3. Add to appropriate workflow job
-4. Test locally first
-5. Commit and push
-
-**Example**:
-```yaml
-- name: Run new test
-  run: |
-    chmod +x new_test.sh
-    ./new_test.sh
-```
+- **Unit test suite**: register it in `src/CMakeLists.txt` (`add_executable`
+  plus `add_test`). Every `varintdev ctest` mode, and so every CI job that
+  runs one, picks it up automatically.
+- **New check or tool**: add a subcommand to `devtools/src/varintdev/`
+  and call it from the workflow, so CI and local runs share one
+  implementation.
 
 ---
 
@@ -661,13 +356,8 @@ done
 
 4. **Cross-Platform Expansion**
    - Windows MSVC testing
-   - ARM64 builds
+   - ARM64 Linux builds
    - Big-endian testing
-
-5. **Docker Integration**
-   - Containerized builds
-   - Reproducible environments
-   - Multi-arch builds
 
 ---
 
@@ -675,9 +365,4 @@ done
 
 **CI/CD Issues**: Open GitHub issue with `[CI]` prefix
 **Workflow Questions**: See `.github/CONTRIBUTING.md`
-**Failures**: Check Actions logs first, then open issue
-
----
-
-**Last Updated**: 2025-11-19
-**CI/CD Version**: 1.0.0
+**Failures**: Run `varintdev ci-logs` first, then open an issue

@@ -60,21 +60,21 @@ if(VARINT_IS_TOP_LEVEL AND VARINT_BUILD_TESTS)
             example_packed example_bitstream example_dimension
     )
 
+    # Developer tooling (devtools/, run through uv) owns the warning and
+    # static-analysis configurations that CI uses.
+    find_program(VARINT_UV uv)
+    set(VARINTDEV ${VARINT_UV} run --project ${CMAKE_SOURCE_DIR}/devtools varintdev)
+
     # Custom target to check for compiler warnings across all compilers
     add_custom_target(varint-check-warnings
-        COMMAND ${CMAKE_SOURCE_DIR}/scripts/build/run_all_compilers.sh
+        COMMAND ${VARINTDEV} warnings gcc clang
         WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
         COMMENT "Checking for compiler warnings with GCC and Clang"
     )
 
     # Custom target for pre-upload validation: runs cppcheck + all tests
     add_custom_target(varint-check
-        COMMAND cppcheck --enable=warning,style,performance,portability
-                --error-exitcode=1 --inline-suppr --std=c11
-                --check-level=exhaustive
-                --suppress=missingIncludeSystem
-                --suppress=unusedFunction
-                -I ${CMAKE_SOURCE_DIR}/src/ ${CMAKE_SOURCE_DIR}/src/*.c ${CMAKE_SOURCE_DIR}/examples/**/*.c
+        COMMAND ${VARINTDEV} cppcheck --exhaustive
         COMMAND ${CMAKE_COMMAND} --build ${CMAKE_BINARY_DIR} --target test
         WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
         COMMENT "Running pre-upload validation: cppcheck + all tests"
