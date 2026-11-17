@@ -15,11 +15,16 @@ Modes:
           of memory that was never written yields garbage instead of
           whatever the stack or allocator happened to hold
   valgrind  plain Debug build with every test command run under
-          valgrind memcheck; any error fails the test
+          valgrind memcheck; any error fails the test (Linux)
+  leaks   plain Debug build with every test command run under the macOS
+          leaks tool, which fails the test on any leaked allocation at
+          exit; macOS's AddressSanitizer has no leak detection, so this
+          is the macOS counterpart of Linux ASan's LeakSanitizer
 """
 
 import json
 import platform
+import shutil
 import subprocess
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
@@ -42,6 +47,7 @@ class Mode(StrEnum):
     TSAN = "tsan"
     UNINIT = "uninit"
     VALGRIND = "valgrind"
+    LEAKS = "leaks"
 
 
 VALGRIND = (
@@ -52,6 +58,8 @@ VALGRIND = (
     "--errors-for-leak-kinds=definite,indirect",
     "--track-origins=yes",
 )
+
+LEAKS = ("leaks", "--quiet", "--atExit", "--")
 
 
 @dataclass(frozen=True, slots=True)
@@ -103,6 +111,7 @@ INSTRUMENTATION: dict[Mode, Instrumentation] = {
         "-ftrivial-auto-var-init=pattern", "Release", _junk_heap_env()
     ),
     Mode.VALGRIND: Instrumentation("-g", "Debug", launcher=VALGRIND),
+    Mode.LEAKS: Instrumentation("-g", "Debug", launcher=LEAKS),
 }
 
 
@@ -179,6 +188,9 @@ def list_tests(mode: Mode) -> int:
 
 def run_tests(mode: Mode) -> int:
     inst = INSTRUMENTATION[mode]
+    if inst.launcher and shutil.which(inst.launcher[0]) is None:
+        print(f"Mode {mode.value} needs {inst.launcher[0]}, which is not installed.")
+        return 2
     build_dir = BUILD_ROOT / mode.value
     print(f"Mode {mode.value}: {inst.build_type} {inst.c_flags or '(no extra flags)'}")
     print(f"Build dir: {build_dir.relative_to(REPO_ROOT)}")

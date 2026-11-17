@@ -358,11 +358,10 @@ varint/
 │   └── CMakeLists.txt          # Example build configuration
 │
 ├── devtools/                   # varintdev: Python developer and CI tooling
-│   └── src/varintdev/          # ctest modes, warnings, cppcheck, CI logs
+│   └── src/varintdev/          # pre-push check, test modes, warnings,
+│                               # cppcheck, workflow checks, CI logs
 │
 ├── scripts/                    # Automation and testing scripts
-│   ├── build/                  # Build verification
-│   │   └── validate_workflows.py   # YAML-validate .github/workflows
 │   ├── test/                   # Test execution scripts
 │   │   ├── test_all_comprehensive.sh   # All 43 examples with ASan+UBSan
 │   │   ├── test_all_examples_sanitizers.sh  # CMake-based example testing

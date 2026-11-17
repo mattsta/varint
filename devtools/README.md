@@ -13,6 +13,20 @@ uv run --project devtools varintdev <command> [options]
 
 ## Commands
 
+### `check [GATE ...]`
+
+The pre-push check: runs every gate CI runs (workflow references, ruff,
+mypy, strict warnings, cppcheck, and the `both`, `uninit`, `tsan`, `leaks`
+and `valgrind` test modes), all of them even after a failure, then prints a
+pass/fail/skip table. Gates whose tool this machine lacks (valgrind on
+macOS, leaks on Linux) are reported as skipped. Name gates to run a subset.
+
+### `workflows`
+
+Parses every `.github/workflows/*.yml`, requires each to define jobs, and
+resolves every `uses: owner/repo@ref` against GitHub, so a reference to a
+tag or branch that does not exist fails before a push.
+
 ### `warnings [CC ...]`
 
 Compiles every `src/*.c` on its own with the compiler family's strict flag
@@ -44,15 +58,16 @@ ctest suite. `src/CMakeLists.txt` is the only test list.
 | `both` | Debug, ASan + UBSan | both of the above |
 | `tsan` | Debug, ThreadSanitizer | data races |
 | `uninit` | Release, `-ftrivial-auto-var-init=pattern`, junk-filling allocator | reads of memory that was never written |
-| `valgrind` | Debug, each test under memcheck | invalid access, uninitialized use, definite/indirect leaks |
+| `valgrind` | Debug, each test under memcheck (Linux) | invalid access, uninitialized use, definite/indirect leaks |
+| `leaks` | Debug, each test under the macOS `leaks` tool | allocations still leaked at exit (macOS ASan has no LeakSanitizer) |
 
 `--list` prints each registered test's command and working directory from
 an already-configured mode.
 
-### `ci-logs [RUN_ID]`
+### `ci-logs [RUN_ID] [--workflow FILE]`
 
 Downloads every job log and annotation of a GitHub Actions run (default:
-newest run of the current branch) into `ci_logs/<run-id>/`, then reports
+newest `ci.yml` run of the current branch) into `ci_logs/<run-id>/`, then reports
 failed jobs and steps, failed ctest suites, every compiler and cppcheck
 diagnostic grouped by check and file, and annotations above notice level.
 Requires an authenticated `gh`.

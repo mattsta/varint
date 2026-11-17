@@ -67,13 +67,15 @@ class Run:
     url: str
 
 
-def latest_run(branch: str) -> Run:
+def latest_run(branch: str, workflow: str) -> Run:
     runs = json.loads(
         _gh(
             "run",
             "list",
             "--branch",
             branch,
+            "--workflow",
+            workflow,
             "--limit",
             "1",
             "--json",
@@ -81,7 +83,7 @@ def latest_run(branch: str) -> Run:
         )
     )
     if not runs:
-        raise LookupError(f"no workflow runs for branch {branch}")
+        raise LookupError(f"no {workflow} runs for branch {branch}")
     return get_run(int(runs[0]["databaseId"]))
 
 

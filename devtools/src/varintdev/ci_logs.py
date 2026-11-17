@@ -76,7 +76,7 @@ def _slug(name: str) -> str:
     return re.sub(r"[^A-Za-z0-9]+", "-", name).strip("-").lower()
 
 
-def fetch(run_id: int | None) -> Report:
+def fetch(run_id: int | None, workflow: str = "ci.yml") -> Report:
     if run_id is None:
         branch = subprocess.run(
             ["git", "rev-parse", "--abbrev-ref", "HEAD"],
@@ -85,7 +85,7 @@ def fetch(run_id: int | None) -> Report:
             capture_output=True,
             check=True,
         ).stdout.strip()
-        run = github.latest_run(branch)
+        run = github.latest_run(branch, workflow)
     else:
         run = github.get_run(run_id)
 

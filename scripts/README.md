@@ -1,16 +1,14 @@
 # Scripts Directory
 
-Example and trie-system test scripts, plus workflow validation. Compiler
-warning checks, static analysis, and the unit-test modes (sanitizers,
-uninitialized-memory audit, valgrind) live in the `varintdev` Python tooling;
-see [`devtools/README.md`](../devtools/README.md).
+Example and trie-system test scripts. The pre-push check, compiler warning
+checks, static analysis, workflow validation, and the unit-test modes
+(sanitizers, uninitialized-memory audit, leak checks) live in the
+`varintdev` Python tooling; see [`devtools/README.md`](../devtools/README.md).
 
 ## Directory Structure
 
 ```
 scripts/
-├── build/
-│   └── validate_workflows.py   # YAML-validate .github/workflows before pushing
 └── test/           # Test execution scripts
     ├── run_palette_fuzz.sh             # Palette codec fuzz driver
     ├── test_all_comprehensive.sh       # All examples with sanitizers
@@ -20,17 +18,6 @@ scripts/
     ├── test_trie_memory_safety.sh      # Trie with valgrind
     ├── test_trie_sanitizers.sh         # Trie with ASan+UBSan
     └── test_trie_server.sh             # Trie server basic tests
-```
-
-## Build Scripts
-
-### `scripts/build/validate_workflows.py`
-
-Parses every `.github/workflows/*.yml` and fails naming the first file that
-is not valid YAML or has no `jobs:`.
-
-```bash
-scripts/build/validate_workflows.py
 ```
 
 ## Test Scripts
