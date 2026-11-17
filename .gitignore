@@ -6,9 +6,6 @@
 /build_examples_sanitizers/
 /build_sanitizers/
 
-# Compiler check results
-compiler_check_results
-
 # Compiled examples (no extension)
 examples/standalone/example_*
 !examples/standalone/example_*.c
@@ -32,3 +29,8 @@ tools/struct_audit_dwarf
 
 # cmake / ctest output?
 Testing/
+
+# varintdev tooling: CI log downloads and the uv environment
+/ci_logs/
+/devtools/.venv/
+__pycache__/
