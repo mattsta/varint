@@ -192,6 +192,58 @@ int varintFORTest(int argc, char *argv[]) {
         }
     }
 
+    TEST("Batch analysis matches scalar analysis across the full range") {
+        /* Values straddle 2^63 so a signed lane compare would misorder them;
+         * the extremes sit in different SIMD lanes and in the scalar tail. */
+        uint64_t values[37];
+        for (size_t i = 0; i < 37; i++) {
+            values[i] =
+                (UINT64_C(1) << 63) + (i * UINT64_C(0x9E3779B97F4A7C15));
+        }
+        values[5] = UINT64_MAX;
+        values[18] = 0;
+        values[30] = (UINT64_C(1) << 63) - 1;
+        values[31] = UINT64_C(1) << 63;
+
+        /* 16 and 32 run only full vectors; the rest add a scalar tail */
+        const size_t counts[] = {16, 17, 19, 32, 33, 37};
+        for (size_t c = 0; c < sizeof(counts) / sizeof(counts[0]); c++) {
+            varintFORMeta scalar = {0};
+            varintFORMeta batch = {0};
+            varintFORAnalyze(values, counts[c], &scalar);
+            varintFORBatchAnalyze(values, counts[c], &batch);
+
+            if (batch.minValue != scalar.minValue ||
+                batch.maxValue != scalar.maxValue ||
+                batch.range != scalar.range ||
+                batch.offsetWidth != scalar.offsetWidth ||
+                batch.encodedSize != scalar.encodedSize) {
+                ERR("count %zu: batch min %" PRIu64 " max %" PRIu64
+                    ", scalar min %" PRIu64 " max %" PRIu64,
+                    counts[c], batch.minValue, batch.maxValue, scalar.minValue,
+                    scalar.maxValue);
+            }
+        }
+
+        /* Data entirely above 2^63 with a narrow range */
+        uint64_t high[20];
+        for (size_t i = 0; i < 20; i++) {
+            high[i] = UINT64_MAX - (i * 7);
+        }
+        varintFORMeta scalar = {0};
+        varintFORMeta batch = {0};
+        varintFORAnalyze(high, 20, &scalar);
+        varintFORBatchAnalyze(high, 20, &batch);
+        if (batch.minValue != scalar.minValue ||
+            batch.maxValue != scalar.maxValue ||
+            batch.offsetWidth != scalar.offsetWidth) {
+            ERR("high data: batch min %" PRIu64 " max %" PRIu64
+                ", scalar min %" PRIu64 " max %" PRIu64,
+                batch.minValue, batch.maxValue, scalar.minValue,
+                scalar.maxValue);
+        }
+    }
+
     TEST_FINAL_RESULT;
 }
 

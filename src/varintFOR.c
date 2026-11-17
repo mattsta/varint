@@ -432,24 +432,30 @@ static void varintFORBatchAnalyzeAVX2(const uint64_t *values,
                                       const size_t count, varintFORMeta *meta) {
     assert(count > 0);
 
+    /* AVX2 only has a signed 64-bit compare. Flipping the sign bit maps
+     * unsigned order onto signed order, so min/max run in that biased
+     * domain and the bias is removed before the horizontal reduction. */
+    const __m256i signBit = _mm256_set1_epi64x(INT64_MIN);
+
     size_t i = 0;
-    __m256i minVec = _mm256_set1_epi64x((int64_t)UINT64_MAX);
-    __m256i maxVec = _mm256_setzero_si256();
+    __m256i minVec = _mm256_set1_epi64x(INT64_MAX); /* biased UINT64_MAX */
+    __m256i maxVec = _mm256_set1_epi64x(INT64_MIN); /* biased 0 */
 
     /* Main SIMD loop - 4 elements per iteration */
     const size_t simdCount = (count / 4) * 4;
     for (; i < simdCount; i += 4) {
-        __m256i vals = _mm256_loadu_si256((const __m256i *)&values[i]);
-        /* AVX2 doesn't have unsigned 64-bit min/max, use signed comparison */
-        /* This works for values < 2^63 */
-        minVec = _mm256_min_epu64(minVec, vals);
-        maxVec = _mm256_max_epu64(maxVec, vals);
+        const __m256i vals = _mm256_xor_si256(
+            _mm256_loadu_si256((const __m256i *)&values[i]), signBit);
+        minVec =
+            _mm256_blendv_epi8(minVec, vals, _mm256_cmpgt_epi64(minVec, vals));
+        maxVec =
+            _mm256_blendv_epi8(maxVec, vals, _mm256_cmpgt_epi64(vals, maxVec));
     }
 
     /* Horizontal reduction */
     uint64_t minArr[4], maxArr[4];
-    _mm256_storeu_si256((__m256i *)minArr, minVec);
-    _mm256_storeu_si256((__m256i *)maxArr, maxVec);
+    _mm256_storeu_si256((__m256i *)minArr, _mm256_xor_si256(minVec, signBit));
+    _mm256_storeu_si256((__m256i *)maxArr, _mm256_xor_si256(maxVec, signBit));
 
     uint64_t minVal = minArr[0];
     uint64_t maxVal = maxArr[0];
