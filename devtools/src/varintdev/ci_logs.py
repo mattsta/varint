@@ -16,10 +16,22 @@ from varintdev.repo import REPO_ROOT
 
 LOG_ROOT = REPO_ROOT / "ci_logs"
 
-_CTEST_FAILURE = re.compile(
-    r"Test +#\d+: (?P<name>\S+) \.+\s*\*+"
-    r"(?P<reason>Failed|Exception|Timeout|SEGFAULT|Not Run)"
+_TEST_FAILURES = (
+    # ctest's own result line.
+    re.compile(
+        r"Test +#\d+: (?P<name>\S+) \.+\s*\*+"
+        r"(?P<reason>Failed|Exception|Timeout|SEGFAULT|Not Run)"
+    ),
+    # varintdev ctest's launcher modes (valgrind, leaks): "  name  FAILED (99)".
+    re.compile(r"^\s+(?P<name>[\w.-]+)\s+(?P<reason>FAILED \(-?\d+\))$"),
 )
+
+
+def _test_failure(line: str) -> re.Match[str] | None:
+    for pattern in _TEST_FAILURES:
+        if (match := pattern.search(line)) is not None:
+            return match
+    return None
 
 
 @dataclass(frozen=True, slots=True)
@@ -107,7 +119,7 @@ def fetch(run_id: int | None, workflow: str = "ci.yml") -> Report:
         found.update(diagnostics.parse(lines))
         test_failures += [
             TestFailure(job.name, m["name"], m["reason"])
-            for m in map(_CTEST_FAILURE.search, lines)
+            for m in map(_test_failure, lines)
             if m is not None
         ]
 
