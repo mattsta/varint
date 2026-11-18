@@ -1340,10 +1340,14 @@ static void genValues_(uint64_t seed, uint64_t *values, size_t count,
         cardinality = 1;
     }
 
-    /* Base alphabet; slot 0/1 sometimes get the extremes. */
+    /* Base alphabet; slot 0/1 sometimes get the extremes. Every slot is
+     * defined: cardinality limits which symbols the cardinality-driven
+     * distributions draw, while DIST_HOT16_OUTLIERS always uses 16 hot
+     * symbols whatever the cardinality. */
     uint64_t alpha[64];
+    assert(cardinality <= sizeof(alpha) / sizeof(alpha[0]));
     const uint64_t base = testRng_();
-    for (uint32_t k = 0; k < cardinality && k < 64; k++) {
+    for (uint32_t k = 0; k < sizeof(alpha) / sizeof(alpha[0]); k++) {
         alpha[k] = base + (uint64_t)k * 977;
     }
     if ((seed & 1) && cardinality >= 1) {
